@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPERADMIN
+  SCHOOLADMIN
+  INSTRUCTOR
+  STUDENT
+}
+
+model User {
+  id            String         @id @default(uuid())
+  username      String         @unique
+  email         String?        @unique
+  password      String
+  refreshTokens RefreshToken[]
+  name          String?
+  role          Role
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  device    String? // e.g., "Chrome on Windows", "iPhone 13"
+  ip        String?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
