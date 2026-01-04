@@ -14,22 +14,135 @@ enum Role {
   STUDENT
 }
 
-model User {
-  id            String         @id @default(uuid())
-  username      String         @unique
-  email         String?        @unique
-  password      String
+enum WeekDays {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model Users {
+  id       String  @id @default(uuid())
+  username String  @unique
+  email    String? @unique
+  password String
+  name     String?
+  role     Role
+
+  drivingSchoolId String?
+  drivingSchool   Schools? @relation(fields: [drivingSchoolId], references: [id])
+
+  studentProfile    StudentProfile?
+  instructorProfile InstructorProfile?
+
   refreshTokens RefreshToken[]
-  name          String?
-  role          Role
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Subcategory table from users only for students
+model StudentProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   Users  @relation(fields: [userId], references: [id])
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+
+  history             StudentHistorySlots[]
+  weekUnattendedZones UnattendedZones[]
+  completedHours      Int                   @default(0)
+}
+
+// Subcategory table from users only for instructors
+model InstructorProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   Users  @relation(fields: [userId], references: [id])
+
+  schedules   WorkSchedules[]
+  students    StudentProfile[]
+  cachedSlots CachedSlots[]
+  bannedSlots BannedSlots[]
+}
+
+// The driving school
+model Schools {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  address   String
+  phone     String
+  users     Users[]
+}
+
+// Base work schedule to can generate 1h perioded slots
+model WorkSchedules {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+}
+
+// Save the slots which have to be not generated
+model BannedSlots {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+}
+
+// Save some generated slots - up one work week per instructor school
+model CachedSlots {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+}
+
+// The real slots history which was completed
+model StudentHistorySlots {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  studentProfileId String?
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id])
+}
+
+// The zones where the student can't come to course
+model UnattendedZones {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  studentProfileId String?
+  studentProfile   StudentProfile? @relation(fields: [studentProfileId], references: [id])
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
-  device    String? // e.g., "Chrome on Windows", "iPhone 13"
+  device    String?
   ip        String?
+  expiresAt DateTime @default(dbgenerated("NOW() + interval '7 days'"))
   createdAt DateTime @default(now())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      Users    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
