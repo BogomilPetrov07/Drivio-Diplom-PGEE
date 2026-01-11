@@ -30,7 +30,7 @@ export class AuthController {
             sameSite: "strict",
         });
 
-        res.json({accessToken});
+        res.json({accessToken, username: user.username});
     };
 
     static logout = async (req: Request, res: Response) => {
