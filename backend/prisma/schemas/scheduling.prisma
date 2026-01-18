@@ -1,0 +1,71 @@
+// 1. The Weekly Recurring Schedule for Instructors
+model AvailabilityTemplate {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+
+  @@map("work_schedules")
+}
+
+// 2. Specific times the instructor is "Banned" or Busy
+model InstructorBlockout {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  reason    String?
+  startTime DateTime
+  endTime   DateTime
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+
+  @@map("instructor_blockouts")
+}
+
+// 3. The Generated Slots (The engine output)
+model TimeSlot {
+  id        String   @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  isDone    Boolean  @default(false)
+
+  instructorId String
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id])
+
+  studentId String?
+  student   StudentProfile? @relation(fields: [studentId], references: [id])
+
+  @@map("time_slots")
+}
+
+// 4. Student Conflicts (Collected from students)
+model StudentBlockout {
+  id        String   @id @default(uuid())
+  dayName   WeekDays
+  startTime DateTime
+  endTime   DateTime
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@map("student_blockouts")
+}
+
+// 5. The Completed History
+model StudentLesson {
+  id          String   @id @default(uuid())
+  startTime   DateTime
+  endTime     DateTime
+  completedAt DateTime @default(now())
+  notes       String?
+  rating      Int? // Optional feedback
+  // georoute - maybe later created - store the GPS traveled route for a lesson
+
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id])
+
+  @@map("student_lessons")
+}

@@ -10,3 +10,5 @@
 /httpRequests/
 Drivio.iml
 compiler.xml
+dataSources.xml
+sqldialects.xml

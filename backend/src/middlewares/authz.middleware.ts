@@ -1,0 +1,16 @@
+import {NextFunction, Request, Response} from "express";
+import {Role} from "@genprisma/client";
+
+export function authorizeMiddleware(roles: Role[]) {
+    return (req: Request, res: Response, next: NextFunction) => {
+        if (!req.user) {
+            return res.status(401).json({message: "Unauthorized: No user found"});
+        }
+
+        if (!roles.includes(req.user.role as Role)) {
+            return res.status(403).json({message: "Forbidden: Access denied"});
+        }
+
+        next();
+    };
+}
