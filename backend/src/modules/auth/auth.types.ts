@@ -12,3 +12,9 @@ export interface RegisterDTO extends LoginDTO {
     // gender: string;
     // phone: string;
 }
+
+export interface AuthPayload {
+    userId: string;
+    role: string;
+    sessionId: string;
+}
