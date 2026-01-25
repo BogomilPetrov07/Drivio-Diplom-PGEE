@@ -30,10 +30,14 @@ model Session {
   expiresAt    DateTime @default(dbgenerated("NOW() + interval '30 days'"))
   lastActivity DateTime @default(now())
 
-  userId        String
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  signature String?
+
   refreshTokens RefreshToken[]
 
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -47,8 +51,11 @@ model RefreshToken {
 
   replaceTokenId String?
 
+  signature String?
+
   sessionId String
   session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
+  @@index([sessionId])
   @@map("refresh_tokens")
 }

@@ -20,7 +20,7 @@ export const sendWelcomeEmailReact = async (to: string, username: string) => {
     const emailHtml = await render(React.createElement(WelcomeEmail, { username }));
 
     // 2. Send the email using the generated HTML
-    return await transporter.sendMail({
+    return transporter.sendMail({
         from: `"${env.EMAIL_FROM}" <${env.SMTP_USER}>`,
         to,
         subject: "Welcome to Drivio!",

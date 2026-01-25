@@ -11,6 +11,9 @@ export const env = {
     PORT: Number(process.env.PORT ?? 3000),
     DATABASE_URL: requireEnv("DATABASE_URL"),
     DIRECT_URL: requireEnv("DIRECT_URL"),
+    LOCAL_DB_URL: requireEnv("LOCAL_DB_URL"),
+    UPSTASH_REDIS_URL: requireEnv("UPSTASH_REDIS_URL"),
+    DOCKER_REDIS_URL: requireEnv("DOCKER_REDIS_URL"),
     JWT_PRIVATE_KEY: requireEnv("JWT_PRIVATE_KEY")
         .replace(/\\n/g, '\n') // Handle literal \n strings
         .split('\n')           // Split into lines
@@ -22,6 +25,7 @@ export const env = {
         .split('\n')
         .map(line => line.trim())
         .join('\n'),
+    PEPPER: requireEnv("PEPPER"),
     FRONTEND_URL: requireEnv("FRONTEND_URL"),
     SMTP_HOST: requireEnv("SMTP_HOST"),
     SMTP_PORT: Number(requireEnv("SMTP_PORT")),

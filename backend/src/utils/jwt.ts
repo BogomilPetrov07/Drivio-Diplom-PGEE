@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
+import {AuthPayload} from "../modules/auth/auth.types";
+import {prisma} from "../config/prisma";
+import {redis} from "../config/redis";
 
 // Access Token: Signed with Private Key
 export const signAccessToken = (payload: { userId: string; role: string; sessionId: string }) => {
@@ -9,19 +12,22 @@ export const signAccessToken = (payload: { userId: string; role: string; session
     });
 };
 
-// // Refresh Token: Usually also signed with ES256 if following the same standard
-// export const signRefreshToken = (payload: { userId: string }) => {
-//     return jwt.sign(payload, env.JWT_PRIVATE_KEY, {
-//         algorithm: "ES256",
-//         expiresIn: "7d"
-//     });
-// };
-
 // Verification: Always uses the Public Key
-export const verifyAccessToken = (token: string) => {
-    return jwt.verify(token, env.JWT_PUBLIC_KEY, { algorithms: ["ES256"] });
-};
+export const verifyAccessToken = async (token: string) => {
+    try {
+        const decoded = jwt.verify(token, env.JWT_PUBLIC_KEY, { algorithms: ["ES256"] }) as AuthPayload;
 
-// export const verifyRefreshToken = (token: string) => {
-//     return jwt.verify(token, env.JWT_PUBLIC_KEY, { algorithms: ["ES256"] });
-// };
+        // HIGH PERFORMANCE CHECK: Check Upstash instead of Prisma
+        const isBlacklisted = await redis.get(`revoked:${decoded.sessionId}`);
+        if (isBlacklisted) return { isValid: false };
+
+        return {
+            isValid: true,
+            userId: decoded.userId,
+            role: decoded.role,
+            sessionId: decoded.sessionId
+        };
+    } catch {
+        return { isValid: false };
+    }
+};
