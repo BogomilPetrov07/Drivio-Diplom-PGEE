@@ -1,6 +1,27 @@
-import app from "./app.js";
-import { env } from "./config/env.js";
+import { initConfig, getEnv } from "./config/env.js";
 
-app.listen(env.PORT, () => {
-    console.log(`Server running on port ${env.PORT}`);
+async function bootstrap() {
+    try {
+        // 1. Load all secrets from Infisical first
+        await initConfig();
+
+        // 2. Dynamically import the app AFTER config is ready
+        // This ensures routes, controllers, and DB clients get the secrets
+        const { default: app } = await import("./app.js");
+
+        // 3. Get the validated config
+        const env = getEnv();
+
+        app.listen(env.PORT, () => {
+            console.log(`🚀 Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);
+        });
+    } catch (error) {
+        console.error("❌ Failed to start server:", error);
+        process.exit(1);
+    }
+}
+
+bootstrap().catch((err) => {
+    console.error("💀 Fatal error during bootstrap:", err);
+    process.exit(1);
 });

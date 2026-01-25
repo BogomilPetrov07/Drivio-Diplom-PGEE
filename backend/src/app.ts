@@ -21,7 +21,7 @@ app.get("/", (_req, res) => {
     res.send("Drivio API is running!");
 });
 
-app.head('/health', (req, res) => {
+app.head('/health', (_req, res) => {
     res.status(200).send('OK');
 });
 

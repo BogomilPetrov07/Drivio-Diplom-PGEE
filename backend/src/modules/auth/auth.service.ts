@@ -123,8 +123,8 @@ export class AuthService {
         await redis.set(`revoked:${sessionId}`, "true", "EX", 900);
     }
 
-    static sendEmail(email: string, username: string) {
-        const info = sendWelcomeEmailReact(email, username);
+    static async sendEmail(email: string, username: string) {
+        const info = await sendWelcomeEmailReact(email, username);
         return info !== null;
     }
 

@@ -29,7 +29,7 @@ export class AuthController {
 
         res.clearCookie("accessToken");
         res.clearCookie("refreshToken");
-        res.sendStatus(204).json({message: "User logged out"});
+        res.status(204).json({message: "User logged out"});
     };
 
     static register = async (req: Request, res: Response) => {
@@ -73,8 +73,9 @@ export class AuthController {
     static sendEmail = async (req: Request, res: Response) => {
         try {
             const {email, username} = req.body;
-            AuthService.sendEmail(email, username);
-            res.status(200);
+            const response = await AuthService.sendEmail(email, username);
+            if (!response) return res.sendStatus(500);
+            res.sendStatus(200);
         } catch (error) {
             console.error(error);
             res.sendStatus(500);
