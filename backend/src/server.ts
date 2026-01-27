@@ -1,11 +1,15 @@
 import { initConfig, getEnv } from "./config/env.js";
+import {initCronJobs} from "./config/cron";
 
 async function bootstrap() {
     try {
         // 1. Load all secrets from Infisical first
         await initConfig();
 
-        // 2. Dynamically import the app AFTER config is ready
+        //2. Initialize cron jobs
+        initCronJobs();
+
+        // 3. Dynamically import the app AFTER config is ready
         // This ensures routes, controllers, and DB clients get the secrets
         const { default: app } = await import("./app.js");
 

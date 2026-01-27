@@ -15,7 +15,10 @@ export type EnvConfig = {
     DOCKER_REDIS_URL: string;
     JWT_PRIVATE_KEY: string;
     JWT_PUBLIC_KEY: string;
-    PEPPER: string;
+    PEPPER_REFRESH_ACTIVE: string;
+    PEPPER_REFRESH_LEGACY: string;
+    PEPPER_SESSION_ACTIVE: string;
+    PEPPER_SESSION_LEGACY: string;
     FRONTEND_URL: string;
     SMTP_HOST: string;
     SMTP_PORT: number;
@@ -89,7 +92,10 @@ export async function initConfig() {
             DOCKER_REDIS_URL: getVal("DOCKER_REDIS_URL"),
             JWT_PRIVATE_KEY: cleanKey(getVal("JWT_PRIVATE_KEY")),
             JWT_PUBLIC_KEY: cleanKey(getVal("JWT_PUBLIC_KEY")),
-            PEPPER: getVal("PEPPER"),
+            PEPPER_REFRESH_ACTIVE: getVal("PEPPER_REFRESH_ACTIVE"),
+            PEPPER_REFRESH_LEGACY: getVal("PEPPER_REFRESH_LEGACY"),
+            PEPPER_SESSION_ACTIVE: getVal("PEPPER_SESSION_ACTIVE"),
+            PEPPER_SESSION_LEGACY: getVal("PEPPER_SESSION_LEGACY"),
             FRONTEND_URL: getVal("FRONTEND_URL"),
             SMTP_HOST: getVal("SMTP_HOST"),
             SMTP_PORT: Number(getVal("SMTP_PORT")),

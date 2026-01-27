@@ -1,7 +1,6 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import {AuthPayload} from "../modules/auth/auth.types";
-import {prisma} from "../config/prisma";
 import {redis} from "../config/redis";
 
 // Access Token: Signed with Private Key
