@@ -1,7 +1,7 @@
 import {NextFunction, Request, Response} from "express";
 import {verifyAccessToken} from "../utils/jwt.js";
 
-export async function authnMiddleware(req: Request, res: Response, next: NextFunction) {
+export async function authenticateMiddleware(req: Request, res: Response, next: NextFunction) {
     // 1. Get token from the HttpOnly cookie
     const token = req.cookies["accessToken"];
 

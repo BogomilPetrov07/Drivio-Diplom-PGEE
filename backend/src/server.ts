@@ -1,4 +1,4 @@
-import { initConfig, getEnv } from "./config/env.js";
+import { initConfig, env } from "./config/env.js";
 import {initCronJobs} from "./config/cron";
 
 async function bootstrap() {
@@ -7,14 +7,11 @@ async function bootstrap() {
         await initConfig();
 
         //2. Initialize cron jobs
-        initCronJobs();
+        await initCronJobs();
 
         // 3. Dynamically import the app AFTER config is ready
         // This ensures routes, controllers, and DB clients get the secrets
         const { default: app } = await import("./app.js");
-
-        // 3. Get the validated config
-        const env = getEnv();
 
         app.listen(env.PORT, () => {
             console.log(`🚀 Server running on port ${env.PORT} in ${env.NODE_ENV} mode`);

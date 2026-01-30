@@ -13,6 +13,10 @@ export interface RegisterDTO extends LoginDTO {
     // phone: string;
 }
 
+export interface RotateDTO {
+    type: boolean;
+}
+
 export interface AuthPayload {
     userId: string;
     role: string;

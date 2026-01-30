@@ -1,6 +1,6 @@
 import {Request, Response} from "express";
 import {AuthService} from "./auth.service.js";
-import {LoginDTO, RegisterDTO} from "./auth.types.js";
+import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
 import {signAccessToken} from "../../utils/jwt";
 
 export class AuthController {
@@ -70,6 +70,16 @@ export class AuthController {
         res.json({message: "Access token refreshed"});
     }
 
+    static rotatePepper = async (req: Request, res: Response) => {
+        const variant: RotateDTO = req.body;
+
+        if (!variant) return res.sendStatus(500);
+
+        await AuthService.rotatePepper(variant.type)
+
+        res.status(200).json({message: "Rotation Successfully Done"});
+    }
+
     static sendEmail = async (req: Request, res: Response) => {
         try {
             const {email, username} = req.body;
@@ -81,5 +91,4 @@ export class AuthController {
             res.sendStatus(500);
         }
     }
-
 }
