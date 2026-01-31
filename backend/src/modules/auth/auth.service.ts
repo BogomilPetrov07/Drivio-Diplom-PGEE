@@ -9,12 +9,18 @@ import {redis} from "../../config/redis";
 import {client} from "../../config/infisical";
 
 export class AuthService {
-    static async login(username: string, password: string) {
-        const user = await prisma.user.findUnique({where: {username}});
+    static async login(username: string, password: string, ip: string | undefined) {
+        const user = await prisma.user.findUnique({where: {username}, include: {sessions: true}});
 
         if (!user) return null;
 
-        const {id, role, email} = user;
+        const {id, role, email, sessions} = user;
+        const isLoggedIn = sessions.reverse().find(session => session.ip === ip);
+        if (isLoggedIn !== undefined) {
+            if (!isLoggedIn.revoked) {
+                return undefined;
+            }
+        }
         const ok = await compare(password, user.password);
         return ok ? {id, username, role, email} : null;
     }

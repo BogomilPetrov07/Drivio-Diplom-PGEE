@@ -6,8 +6,9 @@ import {signAccessToken} from "../../utils/jwt";
 export class AuthController {
     static login = async (req: Request, res: Response) => {
         const data: LoginDTO = req.body;
-        const user = await AuthService.login(data.username, data.password);
-        if (!user) return res.sendStatus(404);
+        const user = await AuthService.login(data.username, data.password, req.ip);
+        if (user === undefined) return res.status(409).json("User already logged in");
+        if (user === null) return res.sendStatus(404);
 
         const sessionId = await AuthService.createSession(user.id, req.headers["user-agent"] as string, req.ip as string);
         const refreshToken = await AuthService.createRefreshToken(sessionId);

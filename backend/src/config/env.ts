@@ -63,7 +63,7 @@ export async function initConfig() {
         // Authenticate with Infisical Machine Identity
         await initInfisical();
 
-        const environment = process.env.NODE_ENV === "production" ? "prod" : "dev";
+        const environment = process.env.NODE_ENV === "production" ? "prod" : process.env.NODE_ENV === "test" ? "staging" : "dev";
 
         // Fetch all secrets for the project
         const { secrets } = await client.secrets().listSecrets({
