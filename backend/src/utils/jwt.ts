@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import {AuthPayload} from "../modules/auth/auth.types";
-import {redis} from "../config/redis";
+import {AuthPayload} from "../modules/auth/auth.types.js";
+import {redis} from "../config/redis.js";
 
 // Access Token: Signed with Private Key
 export const signAccessToken = (payload: { userId: string; role: string; sessionId: string }) => {
@@ -23,7 +23,7 @@ export const verifyAccessToken = async (token: string) => {
         return {
             isValid: true,
             userId: decoded.userId,
-            role: decoded.role,
+            role: decoded.role!,
             sessionId: decoded.sessionId
         };
     } catch {

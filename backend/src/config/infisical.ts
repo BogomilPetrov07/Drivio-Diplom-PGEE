@@ -3,7 +3,7 @@ import { InfisicalSDK } from "@infisical/sdk";
 
 // Initialize the SDK
 const client = new InfisicalSDK({
-    siteUrl: "https://app.infisical.com" // Change if self-hosted
+    siteUrl: "https://eu.infisical.com" // Change if self-hosted
 });
 
 export const initInfisical = async () => {

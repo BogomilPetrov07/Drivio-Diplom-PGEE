@@ -1,84 +1,8 @@
-/*
-  Warnings:
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('SUPERADMIN', 'SCHOOLADMIN', 'INSTRUCTOR', 'STUDENT');
 
-  - You are about to drop the `AvailabilityTemplate` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `InstructorBlockout` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `InstructorProfile` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `LessonHistory` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `RefreshToken` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Schools` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Sessions` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `StudentProfile` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `StudentUnavailability` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `TimeSlot` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Users` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE "AvailabilityTemplate" DROP CONSTRAINT "AvailabilityTemplate_instructorId_fkey";
-
--- DropForeignKey
-ALTER TABLE "InstructorBlockout" DROP CONSTRAINT "InstructorBlockout_instructorId_fkey";
-
--- DropForeignKey
-ALTER TABLE "InstructorProfile" DROP CONSTRAINT "InstructorProfile_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "LessonHistory" DROP CONSTRAINT "LessonHistory_slotId_fkey";
-
--- DropForeignKey
-ALTER TABLE "LessonHistory" DROP CONSTRAINT "LessonHistory_studentProfileId_fkey";
-
--- DropForeignKey
-ALTER TABLE "Sessions" DROP CONSTRAINT "Sessions_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "StudentProfile" DROP CONSTRAINT "StudentProfile_instructorId_fkey";
-
--- DropForeignKey
-ALTER TABLE "StudentProfile" DROP CONSTRAINT "StudentProfile_userId_fkey";
-
--- DropForeignKey
-ALTER TABLE "StudentUnavailability" DROP CONSTRAINT "StudentUnavailability_studentProfileId_fkey";
-
--- DropForeignKey
-ALTER TABLE "TimeSlot" DROP CONSTRAINT "TimeSlot_instructorId_fkey";
-
--- DropForeignKey
-ALTER TABLE "Users" DROP CONSTRAINT "Users_drivingSchoolId_fkey";
-
--- DropTable
-DROP TABLE "AvailabilityTemplate";
-
--- DropTable
-DROP TABLE "InstructorBlockout";
-
--- DropTable
-DROP TABLE "InstructorProfile";
-
--- DropTable
-DROP TABLE "LessonHistory";
-
--- DropTable
-DROP TABLE "RefreshToken";
-
--- DropTable
-DROP TABLE "Schools";
-
--- DropTable
-DROP TABLE "Sessions";
-
--- DropTable
-DROP TABLE "StudentProfile";
-
--- DropTable
-DROP TABLE "StudentUnavailability";
-
--- DropTable
-DROP TABLE "TimeSlot";
-
--- DropTable
-DROP TABLE "Users";
+-- CreateEnum
+CREATE TYPE "WeekDays" AS ENUM ('MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -99,13 +23,13 @@ CREATE TABLE "users" (
 CREATE TABLE "sessions" (
     "id" TEXT NOT NULL,
     "deviceName" TEXT NOT NULL,
-    "deviceFingerpint" TEXT NOT NULL,
     "ip" TEXT NOT NULL,
-    "revoked" BOOLEAN NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL DEFAULT NOW() + interval '30 days',
     "lastActivity" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
+    "signature" TEXT,
 
     CONSTRAINT "sessions_pkey" PRIMARY KEY ("id")
 );
@@ -114,11 +38,12 @@ CREATE TABLE "sessions" (
 CREATE TABLE "refresh_tokens" (
     "id" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
-    "revoked" BOOLEAN NOT NULL,
+    "revoked" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL DEFAULT NOW() + interval '7 days',
-    "replacedAt" TIMESTAMP(3) NOT NULL,
+    "replacedAt" TIMESTAMP(3),
     "replaceTokenId" TEXT,
+    "signature" TEXT,
     "sessionId" TEXT NOT NULL,
 
     CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
@@ -232,7 +157,13 @@ CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
+CREATE INDEX "sessions_userId_idx" ON "sessions"("userId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "refresh_tokens_tokenHash_key" ON "refresh_tokens"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_sessionId_idx" ON "refresh_tokens"("sessionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "student_profiles_userId_key" ON "student_profiles"("userId");

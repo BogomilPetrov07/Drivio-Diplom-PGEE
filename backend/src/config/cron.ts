@@ -1,8 +1,7 @@
 import cron from 'node-cron';
-import {AuthService} from "../modules/auth/auth.service";
 
 export const initCronJobs = async () => {
-    const { AuthService } = await import("../modules/auth/auth.service");
+    const { AuthService } = await import("../modules/auth/auth.service.js");
 
     // 1. Every 7 days (Runs at 00:00 every Sunday)
     cron.schedule('0 0 * * 0', async () => {

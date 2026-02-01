@@ -1,5 +1,6 @@
 import {NextFunction, Request, Response} from "express";
 import {verifyAccessToken} from "../utils/jwt.js";
+import {Role} from "@prisma/client";
 
 export async function authenticateMiddleware(req: Request, res: Response, next: NextFunction) {
     // 1. Get token from the HttpOnly cookie
@@ -13,7 +14,7 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
 
         // 2. Map the decoded payload to your User type structure
         req.user = {
-            id: userId!, role: role, sessionId: sessionId!
+            id: userId!, role: role as Role, sessionId: sessionId!
         };
 
         next();

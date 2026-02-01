@@ -4,15 +4,22 @@ import { WelcomeEmail } from '../emails/WelcomeEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
-const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: {
-        user: env.SMTP_USER,
-        pass: env.SMTP_PASS,
-    },
-});
+let transporter: nodemailer.Transporter | null = null;
+
+const getTransporter = () => {
+    if (!transporter) {
+        transporter = nodemailer.createTransport({
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            secure: env.SMTP_PORT === 465,
+            auth: {
+                user: env.SMTP_USER,
+                pass: env.SMTP_PASS,
+            },
+        });
+    }
+    return transporter;
+};
 
 export const sendWelcomeEmailReact = async (to: string, username: string) => {
     // 1. Render the React component to an HTML string
@@ -20,6 +27,7 @@ export const sendWelcomeEmailReact = async (to: string, username: string) => {
     const emailHtml = await render(React.createElement(WelcomeEmail, { username }));
 
     // 2. Send the email using the generated HTML
+    const transporter = getTransporter();
     return transporter.sendMail({
         from: `"${env.EMAIL_FROM}" <${env.SMTP_USER}>`,
         to,

@@ -1,5 +1,5 @@
 import {NextFunction, Request, Response} from "express";
-import {Role} from "@genprisma/client";
+import {Role} from "@prisma/client";
 
 export function authorizeMiddleware(roles: Role[]) {
     return (req: Request, res: Response, next: NextFunction) => {

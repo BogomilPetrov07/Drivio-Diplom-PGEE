@@ -1,7 +1,7 @@
 import {Request, Response} from "express";
 import {AuthService} from "./auth.service.js";
 import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
-import {signAccessToken} from "../../utils/jwt";
+import {signAccessToken} from "../../utils/jwt.js";
 
 export class AuthController {
     static login = async (req: Request, res: Response) => {

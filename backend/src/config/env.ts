@@ -8,11 +8,11 @@ import { client, initInfisical } from "./infisical.js";
 export type EnvConfig = {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
-    DATABASE_URL: string;
-    DIRECT_URL: string;
-    LOCAL_DB_URL: string;
-    UPSTASH_REDIS_URL: string;
-    DOCKER_REDIS_URL: string;
+    DATABASE_URL?: string;
+    DIRECT_URL?: string;
+    LOCAL_DB_URL?: string;
+    UPSTASH_REDIS_URL?: string;
+    DOCKER_REDIS_URL?: string;
     JWT_PRIVATE_KEY: string;
     JWT_PUBLIC_KEY: string;
     PEPPER_REFRESH_ACTIVE: string;
@@ -31,20 +31,7 @@ export type EnvConfig = {
 let internalEnv: EnvConfig;
 
 /**
- * 2. Key Cleaning Utility
- * Fixes formatting for RSA/EC Private keys that might be flattened into single lines.
- */
-const cleanKey = (key: string): string => {
-    return key
-        .replace(/\\n/g, '\n')      // Convert literal '\n' strings to real newlines
-        .split('\n')               // Split into array
-        .map(line => line.trim())  // Remove stray spaces from each line
-        .filter(line => line)      // Remove empty lines
-        .join('\n');               // Reassemble
-};
-
-/**
- * 3. The Getter
+ * 2. The Getter
  * Use this in your code to use the env
  */
 export const getEnv = (): EnvConfig => {
@@ -55,7 +42,7 @@ export const getEnv = (): EnvConfig => {
 };
 
 /**
- * 4. Configuration Bootstrapper
+ * 3. Configuration Bootstrapper
  * Called once in your index.ts/server.ts before the app starts.
  */
 export async function initConfig() {
@@ -81,17 +68,22 @@ export async function initConfig() {
             return secret.secretValue;
         };
 
+        const getValOptional = (key: string): string | undefined => {
+            const secret = secrets.find((s) => s.secretKey === key);
+            return secret?.secretValue; // Don't throw if missing
+        };
+
         // Map and Transform
         internalEnv = {
             NODE_ENV: (process.env.NODE_ENV as EnvConfig["NODE_ENV"]) ?? "development",
-            PORT: Number(getVal("PORT") || 3000),
-            DATABASE_URL: getVal("DATABASE_URL"),
-            DIRECT_URL: getVal("DIRECT_URL"),
-            LOCAL_DB_URL: getVal("LOCAL_DB_URL"),
-            UPSTASH_REDIS_URL: getVal("UPSTASH_REDIS_URL"),
-            DOCKER_REDIS_URL: getVal("DOCKER_REDIS_URL"),
-            JWT_PRIVATE_KEY: cleanKey(getVal("JWT_PRIVATE_KEY")),
-            JWT_PUBLIC_KEY: cleanKey(getVal("JWT_PUBLIC_KEY")),
+            PORT: Number(getVal("PORT")),
+            DATABASE_URL: getValOptional("DATABASE_URL"),
+            DIRECT_URL: getValOptional("DIRECT_URL"),
+            LOCAL_DB_URL: getValOptional("LOCAL_DB_URL"),
+            UPSTASH_REDIS_URL: getValOptional("UPSTASH_REDIS_URL"),
+            DOCKER_REDIS_URL: getValOptional("DOCKER_REDIS_URL"),
+            JWT_PRIVATE_KEY: getVal("JWT_PRIVATE_KEY"),
+            JWT_PUBLIC_KEY: getVal("JWT_PUBLIC_KEY"),
             PEPPER_REFRESH_ACTIVE: getVal("PEPPER_REFRESH_ACTIVE"),
             PEPPER_REFRESH_LEGACY: getVal("PEPPER_REFRESH_LEGACY"),
             PEPPER_SESSION_ACTIVE: getVal("PEPPER_SESSION_ACTIVE"),

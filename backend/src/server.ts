@@ -1,5 +1,5 @@
 import { initConfig, env } from "./config/env.js";
-import {initCronJobs} from "./config/cron";
+import {initCronJobs} from "./config/cron.js";
 
 async function bootstrap() {
     try {
