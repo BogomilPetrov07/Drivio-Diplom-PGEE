@@ -5,18 +5,15 @@
   "main": "src/server.ts",
   "scripts": {
     "prisma:gen": "prisma generate",
-
     "db:sync:dev": "npx prisma migrate reset --force && npx prisma migrate dev --name init",
     "migrate:dev": "infisical run -- npx prisma migrate dev",
     "prisma:reset:dev": "infisical run -- npm run db:sync:dev",
     "dev": "infisical run -- npm run prisma:gen && nodemon --watch src -e ts,json --exec tsx src/server.ts",
-
     "db:sync:stag": "npx prisma migrate reset --force && npx prisma migrate deploy",
     "prisma:reset:stag": "infisical run --env=staging -- npm run db:sync:stag",
     "migrate:stag": "infisical run --env=staging -- npx prisma migrate deploy",
     "build:stag": "infisical run --env=staging -- npm run prisma:gen && tsc",
-
-    "build": "npm run prisma:gen && tsc",
+    "build": "npm run prisma:gen && npx typesync && tsc",
     "start": "node dist/src/server.js"
   },
   "keywords": [],
@@ -57,7 +54,8 @@
     "nodemon": "^3.1.9",
     "prisma": "7.2.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typesync": "^0.14.3"
   },
   "overrides": {
     "fast-xml-parser": "5.3.4",
