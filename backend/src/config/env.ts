@@ -8,6 +8,7 @@ import { client, initInfisical } from "./infisical.js";
 export type EnvConfig = {
     NODE_ENV: "development" | "production" | "test";
     PORT: number;
+    COOKIE_DOMAIN: string;
     DATABASE_URL?: string;
     DIRECT_URL?: string;
     LOCAL_DB_URL?: string;
@@ -56,6 +57,7 @@ export async function initConfig() {
         const { secrets } = await client.secrets().listSecrets({
             environment: environment,
             projectId: process.env.INFISICAL_PROJECT_ID!,
+            secretPath: "/backend",
             attachToProcessEnv: true, // Populates process.env for third-party libs
         });
 
@@ -77,6 +79,7 @@ export async function initConfig() {
         internalEnv = {
             NODE_ENV: (process.env.NODE_ENV as EnvConfig["NODE_ENV"]) ?? "development",
             PORT: Number(getVal("PORT")),
+            COOKIE_DOMAIN: getVal("COOKIE_DOMAIN"),
             DATABASE_URL: getValOptional("DATABASE_URL"),
             DIRECT_URL: getValOptional("DIRECT_URL"),
             LOCAL_DB_URL: getValOptional("LOCAL_DB_URL"),

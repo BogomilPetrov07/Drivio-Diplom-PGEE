@@ -2,6 +2,7 @@ import {Request, Response} from "express";
 import {AuthService} from "./auth.service.js";
 import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
 import {signAccessToken} from "../../utils/jwt.js";
+import {env} from "../../config/env";
 
 export class AuthController {
     static login = async (req: Request, res: Response) => {
@@ -14,12 +15,21 @@ export class AuthController {
         const refreshToken = await AuthService.createRefreshToken(sessionId);
         const accessToken = signAccessToken({userId: user.id, role: user.role, sessionId: sessionId});
 
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax" as const,
+            domain: env.COOKIE_DOMAIN, // .localhost in dev, .drivio-bg.com in prod
+        };
+
         res.cookie("accessToken", accessToken, {
-            httpOnly: true, secure: true, sameSite: "strict", maxAge: 15 * 60 * 1000
+            ...cookieOptions,
+            maxAge: 15 * 60 * 1000
         })
 
         res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, {
-            httpOnly: true, secure: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000
+            ...cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         res.json({username: user.username});

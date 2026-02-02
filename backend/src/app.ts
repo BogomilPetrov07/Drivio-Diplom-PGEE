@@ -8,6 +8,9 @@ import { errorMiddleware } from "./middlewares/error.middleware.js";
 
 export const app = express();
 
+// To can use
+app.set('trust proxy', 1);
+
 app.use(morgan('dev'));
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -22,6 +25,10 @@ app.get("/", (_req, res) => {
 });
 
 app.head('/health', (_req, res) => {
+    res.status(200).send('OK');
+});
+
+app.get('/health', (_req, res) => {
     res.status(200).send('OK');
 });
 

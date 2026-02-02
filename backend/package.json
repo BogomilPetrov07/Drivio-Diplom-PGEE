@@ -73,5 +73,8 @@
       "development": "./src/generated/client/*.js",
       "default": "./dist/src/generated/client/*.js"
     }
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
