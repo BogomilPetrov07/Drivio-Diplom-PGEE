@@ -2,7 +2,7 @@ import {Request, Response} from "express";
 import {AuthService} from "./auth.service.js";
 import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
 import {signAccessToken} from "../../utils/jwt.js";
-import {env} from "../../config/env";
+import {env} from "../../config/env.js";
 
 export class AuthController {
     static login = async (req: Request, res: Response) => {
@@ -17,7 +17,7 @@ export class AuthController {
 
         const cookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: env.NODE_ENV === "production" || env.NODE_ENV === "test",
             sameSite: "lax" as const,
             domain: env.COOKIE_DOMAIN, // .localhost in dev, .drivio-bg.com in prod
         };
