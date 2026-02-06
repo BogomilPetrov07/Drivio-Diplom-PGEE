@@ -5,6 +5,14 @@ import {signAccessToken} from "../../utils/jwt.js";
 import {env} from "../../config/env.js";
 
 export class AuthController {
+
+    private static cookieOptions = {
+        httpOnly: true,
+        secure: env.NODE_ENV === "production" || env.NODE_ENV === "test",
+        sameSite: "lax" as const,
+        domain: env.COOKIE_DOMAIN, // .localhost in dev, .drivio-bg.com in prod
+    };
+
     static login = async (req: Request, res: Response) => {
         const data: LoginDTO = req.body;
         const user = await AuthService.login(data.username, data.password, req.ip);
@@ -15,20 +23,13 @@ export class AuthController {
         const refreshToken = await AuthService.createRefreshToken(sessionId);
         const accessToken = signAccessToken({userId: user.id, role: user.role, sessionId: sessionId});
 
-        const cookieOptions = {
-            httpOnly: true,
-            secure: env.NODE_ENV === "production" || env.NODE_ENV === "test",
-            sameSite: "lax" as const,
-            domain: env.COOKIE_DOMAIN, // .localhost in dev, .drivio-bg.com in prod
-        };
-
         res.cookie("accessToken", accessToken, {
-            ...cookieOptions,
+            ...this.cookieOptions,
             maxAge: 15 * 60 * 1000
-        })
+        });
 
         res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, {
-            ...cookieOptions,
+            ...this.cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
@@ -69,14 +70,21 @@ export class AuthController {
         if (!newRefreshToken) return res.sendStatus(401);
 
         res.cookie("refreshToken", `${newRefreshToken.tokenId}:${newRefreshToken.tokenValue}`, {
-            httpOnly: true, secure: true, sameSite: "strict", maxAge: 7 * 24 * 60 * 60 * 1000
+            ...this.cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         // Generate a new access token based on the old one
-        const newAccessToken = signAccessToken({userId: req.user!.id, role: req.user!.role, sessionId: req.user!.sessionId});
+        const newAccessToken = signAccessToken({
+            userId: req.user!.id,
+            role: req.user!.role,
+            sessionId: req.user!.sessionId
+        });
+
         res.cookie("accessToken", newAccessToken, {
-            httpOnly: true, secure: true, sameSite: "strict", maxAge: 5 * 60 * 1000
-        })
+            ...this.cookieOptions,
+            maxAge: 15 * 60 * 1000
+        });
 
         res.json({message: "Access token refreshed"});
     }
@@ -89,6 +97,11 @@ export class AuthController {
         await AuthService.rotatePepper(variant.type)
 
         res.status(200).json({message: "Rotation Successfully Done"});
+    }
+
+    // TODO: To make an Super Admin audit history log
+    static auditLog  = async (req: Request, res: Response) => {
+
     }
 
     static sendEmail = async (req: Request, res: Response) => {

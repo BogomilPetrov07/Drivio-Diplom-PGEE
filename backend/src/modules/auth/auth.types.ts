@@ -14,7 +14,7 @@ export interface RegisterDTO extends LoginDTO {
 }
 
 export interface RotateDTO {
-    type: boolean;
+    type: "refresh" | "session";
 }
 
 export interface SessionDTO {

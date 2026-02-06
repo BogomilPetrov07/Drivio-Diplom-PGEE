@@ -8,6 +8,7 @@ import {sendWelcomeEmailReact} from "../../utils/email.js";
 import {redis} from "../../config/redis.js";
 import {client} from "../../config/infisical.js";
 import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types";
+import {REDIS_KEYS} from "../../config/redis-keys";
 
 export class AuthService {
     static async login(username: string, password: string, ip: string | undefined) {
@@ -32,7 +33,7 @@ export class AuthService {
         const hashedValue = this.generateHash(tokenValue, tokenId);
 
         // Calculate signature for the new record
-        const signature = this.signState(tokenId, false, sessionId);
+        const signature = this.signState(tokenId, false, sessionId, "refresh");
 
         await prisma.refreshToken.create({
             data: {
@@ -82,7 +83,7 @@ export class AuthService {
                     revoked: true,
                     replaceTokenId: newRefreshToken.tokenId,
                     replacedAt: new Date(),
-                    signature: this.signState(tokenId, true, session.id)
+                    signature: this.signState(tokenId, true, session.id, "refresh")
                 }
             });
 
@@ -90,13 +91,13 @@ export class AuthService {
         });
     }
 
-    private static async verifyIntegrity(refreshToken: RefreshTokenDTO, session: SessionDTO, allSessionTokens: { id: string }[] ) {
-        const expectedSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id);
+    private static async verifyIntegrity(refreshToken: RefreshTokenDTO, session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO ) {
+        const expectedSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh");
 
         if (refreshToken.signature === expectedSignature) return true;
 
         // Check Legacy
-        const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, false, false);
+        const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
         if (isLegacy) {
             await prisma.refreshToken.update({
                 where: { id: refreshToken.id },
@@ -113,9 +114,9 @@ export class AuthService {
 
     private static async handleSecurityBreach(session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
         // 1. Verify Session Integrity specifically
-        const expectedSessionSig = this.signState(session.id, session.revoked, session.userId, true);
+        const expectedSessionSig = this.signState(session.id, session.revoked, session.userId, "session");
         const isSessionTampered = session.signature !== expectedSessionSig &&
-            session.signature !== this.signState(session.id, session.revoked, session.userId, true, false);
+            session.signature !== this.signState(session.id, session.revoked, session.userId, "session", false);
 
         if (isSessionTampered) {
             console.error("ALERT: Database tampering detected for session:", session.id);
@@ -125,11 +126,11 @@ export class AuthService {
         await Promise.all([
             ...allSessionTokens.map(record => prisma.refreshToken.update({
                 where: { id: record.id },
-                data: { revoked: true, signature: this.signState(record.id, true, session.id) }
+                data: { revoked: true, signature: this.signState(record.id, true, session.id, "refresh") }
             })),
             prisma.session.update({
                 where: { id: session.id },
-                data: { revoked: true, signature: this.signState(session.id, true, session.userId) }
+                data: { revoked: true, signature: this.signState(session.id, true, session.userId, "session") }
             })
         ]);
     }
@@ -138,7 +139,7 @@ export class AuthService {
         const sessionId = uuid4();
 
         // Calculate signature for the new record
-        const signature = this.signState(sessionId, false, userId, true);
+        const signature = this.signState(sessionId, false, userId, "session");
 
         await prisma.session.create({
             data: {
@@ -167,16 +168,16 @@ export class AuthService {
         await Promise.all(refreshTokenRecords.map((record) => prisma.refreshToken.update({
             where: {id: record.id}, // Use the specific ID here!
             data: {
-                revoked: true, signature: this.signState(record.id, true, sessionId)
+                revoked: true, signature: this.signState(record.id, true, sessionId, "refresh")
             }
         })));
 
         // 2. Permanent change in DB for log outed session
-        const newSignature = this.signState(sessionId, true, userId, true);
+        const newSignature = this.signState(sessionId, true, userId, "session");
         await prisma.session.update({where: {id: sessionId}, data: {revoked: true, signature: newSignature}});
 
-        // 3. Immediate Blacklist in Upstash (Expires in 15 mins / 900 seconds)
-        await redis.set(`revoked:${sessionId}`, "true", "EX", 900);
+        // 3. Immediate Blacklist in Upstash (Expires in 16 mins / 960 seconds)
+        await redis.set(REDIS_KEYS.SESSION_REVOKE(sessionId), "true", "EX", 960);
     }
 
     static async sendEmail(email: string, username: string) {
@@ -184,7 +185,7 @@ export class AuthService {
         return info !== null;
     }
 
-    static async rotatePepper(type: boolean) {
+    static async rotatePepper(type: 'refresh' | 'session') {
         const newPepper = crypto.randomBytes(32).toString("hex");
 
         const environment = process.env.NODE_ENV === "production" ? "prod" : "dev";
@@ -218,14 +219,14 @@ export class AuthService {
 
         setEnvValue(activeKey as keyof typeof env, newPepper);
         setEnvValue(legacyKey as keyof typeof env, activeSecret.secretValue);
-
+        return true;
     }
 
-    private static signState(id: string, revoked: boolean, foreignKeyId: string, type: boolean = false, success: boolean = true) {
+    private static signState(id: string, revoked: boolean, foreignKeyId: string, type: "refresh" | "session", success: boolean = true) {
         const data = `${id}:${revoked}:${foreignKeyId}`;
         const pepperRefreshToken = success ? env.PEPPER_REFRESH_ACTIVE : env.PEPPER_REFRESH_LEGACY;
         const pepperSession = success ? env.PEPPER_SESSION_ACTIVE : env.PEPPER_SESSION_LEGACY;
-        return type ? crypto.createHmac('sha256', pepperSession).update(data).digest('hex') : crypto.createHmac('sha256', pepperRefreshToken).update(data).digest('hex');
+        return type === "session" ? crypto.createHmac('sha256', pepperSession).update(data).digest('hex') : type === "refresh" ? crypto.createHmac('sha256', pepperRefreshToken).update(data).digest('hex') : null;
     }
 
     private static generateRefreshToken() {
