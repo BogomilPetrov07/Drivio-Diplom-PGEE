@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "jsx": "react",
-    "target": "ES2022",              // modern JS output
-    "module": "ESNext",              // output as ES modules
-    "moduleResolution": "node",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
     "rootDir": ".",
     "outDir": "dist",
     "esModuleInterop": true,

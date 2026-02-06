@@ -1,5 +1,6 @@
 import cron from 'node-cron';
-import {REDIS_KEYS} from "./redis-keys";
+import {REDIS_KEYS} from "./redis-keys.js";
+
 
 export const initCronJobs = async () => {
     const {AuthService} = await import("../modules/auth/auth.service.js");

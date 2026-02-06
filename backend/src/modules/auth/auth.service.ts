@@ -1,14 +1,15 @@
-import crypto from 'crypto';
-import {prisma} from "../../config/prisma.js";
 import {Role} from "@prisma/client";
-import {env} from "../../config/env.js";
-import {compare, hash} from "../../utils/password.js";
+import crypto from 'crypto';
 import {v4 as uuid4} from "uuid";
-import {sendWelcomeEmailReact} from "../../utils/email.js";
-import {redis} from "../../config/redis.js";
+import {env} from "../../config/env.js";
 import {client} from "../../config/infisical.js";
-import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types";
-import {REDIS_KEYS} from "../../config/redis-keys";
+import {prisma} from "../../config/prisma.js";
+import {REDIS_KEYS} from "../../config/redis-keys.js";
+import {redis} from "../../config/redis.js";
+import {sendWelcomeEmailReact} from "../../utils/email.js";
+import {compare, hash} from "../../utils/password.js";
+import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types.js";
+
 
 export class AuthService {
     static async login(username: string, password: string, ip: string | undefined) {
@@ -45,19 +46,21 @@ export class AuthService {
 
     static async rotateRefreshToken(tokenId: string, tokenValue: string) {
         const record = await prisma.refreshToken.findUnique({
-            where: { id: tokenId },
-            select: {
-                id: true, signature: true, revoked: true, tokenHash: true,
-                session: { select: { id: true, revoked: true, userId: true, signature: true } }
+            where: {id: tokenId}, select: {
+                id: true,
+                signature: true,
+                revoked: true,
+                tokenHash: true,
+                session: {select: {id: true, revoked: true, userId: true, signature: true}}
             }
         });
 
         if (!record) return null;
-        const { session, ...token } = record;
+        const {session, ...token} = record;
 
         // Get sibling tokens for potential mass-revocation
         const allSessionTokens = await prisma.refreshToken.findMany({
-            where: { sessionId: session.id }, select: { id: true }
+            where: {sessionId: session.id}, select: {id: true}
         });
 
         // Step 1: Integrity Check
@@ -78,8 +81,7 @@ export class AuthService {
             const newRefreshToken = await this.createRefreshToken(session.id);
 
             await tx.refreshToken.update({
-                where: { id: tokenId },
-                data: {
+                where: {id: tokenId}, data: {
                     revoked: true,
                     replaceTokenId: newRefreshToken.tokenId,
                     replacedAt: new Date(),
@@ -89,50 +91,6 @@ export class AuthService {
 
             return newRefreshToken;
         });
-    }
-
-    private static async verifyIntegrity(refreshToken: RefreshTokenDTO, session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO ) {
-        const expectedSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh");
-
-        if (refreshToken.signature === expectedSignature) return true;
-
-        // Check Legacy
-        const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
-        if (isLegacy) {
-            await prisma.refreshToken.update({
-                where: { id: refreshToken.id },
-                data: { signature: expectedSignature }
-            });
-            return true;
-        }
-
-        // If we reach here, tampering is suspected
-        console.error("ALERT: Database tampering detected for token:", refreshToken.id);
-        await this.handleSecurityBreach(session, allSessionTokens);
-        return false;
-    }
-
-    private static async handleSecurityBreach(session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
-        // 1. Verify Session Integrity specifically
-        const expectedSessionSig = this.signState(session.id, session.revoked, session.userId, "session");
-        const isSessionTampered = session.signature !== expectedSessionSig &&
-            session.signature !== this.signState(session.id, session.revoked, session.userId, "session", false);
-
-        if (isSessionTampered) {
-            console.error("ALERT: Database tampering detected for session:", session.id);
-        }
-
-        // 2. Revoke everything linked to this session
-        await Promise.all([
-            ...allSessionTokens.map(record => prisma.refreshToken.update({
-                where: { id: record.id },
-                data: { revoked: true, signature: this.signState(record.id, true, session.id, "refresh") }
-            })),
-            prisma.session.update({
-                where: { id: session.id },
-                data: { revoked: true, signature: this.signState(session.id, true, session.userId, "session") }
-            })
-        ]);
     }
 
     static async createSession(userId: string, userAgent: string, ip: string) {
@@ -220,6 +178,45 @@ export class AuthService {
         setEnvValue(activeKey as keyof typeof env, newPepper);
         setEnvValue(legacyKey as keyof typeof env, activeSecret.secretValue);
         return true;
+    }
+
+    private static async verifyIntegrity(refreshToken: RefreshTokenDTO, session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
+        const expectedSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh");
+
+        if (refreshToken.signature === expectedSignature) return true;
+
+        // Check Legacy
+        const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
+        if (isLegacy) {
+            await prisma.refreshToken.update({
+                where: {id: refreshToken.id}, data: {signature: expectedSignature}
+            });
+            return true;
+        }
+
+        // If we reach here, tampering is suspected
+        console.error("ALERT: Database tampering detected for token:", refreshToken.id);
+        await this.handleSecurityBreach(session, allSessionTokens);
+        return false;
+    }
+
+    private static async handleSecurityBreach(session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
+        // 1. Verify Session Integrity specifically
+        const expectedSessionSig = this.signState(session.id, session.revoked, session.userId, "session");
+        const isSessionTampered = session.signature !== expectedSessionSig && session.signature !== this.signState(session.id, session.revoked, session.userId, "session", false);
+
+        if (isSessionTampered) {
+            console.error("ALERT: Database tampering detected for session:", session.id);
+        }
+
+        // 2. Revoke everything linked to this session
+        await Promise.all([...allSessionTokens.map(record => prisma.refreshToken.update({
+            where: {id: record.id},
+            data: {revoked: true, signature: this.signState(record.id, true, session.id, "refresh")}
+        })), prisma.session.update({
+            where: {id: session.id},
+            data: {revoked: true, signature: this.signState(session.id, true, session.userId, "session")}
+        })]);
     }
 
     private static signState(id: string, revoked: boolean, foreignKeyId: string, type: "refresh" | "session", success: boolean = true) {

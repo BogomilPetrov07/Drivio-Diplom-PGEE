@@ -1,4 +1,4 @@
-import Redis from "ioredis";
+import {Redis} from "ioredis";
 import { env } from "./env.js";
 
 let internalRedis: Redis | null = null;
@@ -39,7 +39,7 @@ const initRedis = (): Redis => {
 };
 
 export const redis = new Proxy({} as Redis, {
-    get: (target, prop) => {
+    get: (_target, prop) => {
         const instance = initRedis();
         const value = Reflect.get(instance, prop);
 
