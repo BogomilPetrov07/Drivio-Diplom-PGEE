@@ -15,7 +15,7 @@ export const initCronJobs = async () => {
             if (redisResponse) {
                 await AuthService.rotatePepper("refresh");
             } else {
-                console.log('Revoking monthly task...');
+                console.log('Revoking weekly task...');
                 console.log("Admin already ran monthly task!");
             }
         } catch (error) {

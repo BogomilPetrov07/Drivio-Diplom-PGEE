@@ -1,15 +1,23 @@
 {
   "compilerOptions": {
-    "jsx": "react",
+    /* Base Options */
     "target": "ES2022",
     "module": "NodeNext",
-    "moduleResolution": "nodenext",
-    "rootDir": ".",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"], // Add DOM if you're using React types
+
+    /* JSX Support (For your emails) */
+    "jsx": "react-jsx",
+
+    "rootDir": "src",
     "outDir": "dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src",
     "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": "."
-  }
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts"]
 }

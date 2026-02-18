@@ -4,7 +4,7 @@ services:
     container_name: drivio-cache
     ports:
       - "6379:6379"
-    restart: always
+    restart: no
 
   nginx:
     image: nginx:alpine

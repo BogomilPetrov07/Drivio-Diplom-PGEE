@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import {AuthPayload} from "../modules/auth/auth.types.js";
 import {redis} from "../config/redis.js";
+import {REDIS_KEYS} from '../config/redis-keys.js'
 
 // Access Token: Signed with Private Key
 export const signAccessToken = (payload: { userId: string; role: string; sessionId: string }) => {
@@ -17,7 +18,7 @@ export const verifyAccessToken = async (token: string) => {
         const decoded = jwt.verify(token, env.JWT_PUBLIC_KEY, { algorithms: ["ES256"] }) as AuthPayload;
 
         // HIGH PERFORMANCE CHECK: Check Upstash instead of Prisma
-        const isBlacklisted = await redis.get(`revoked:${decoded.sessionId}`);
+        const isBlacklisted = await redis.get(REDIS_KEYS.SESSION_REVOKE(decoded.sessionId));
         if (isBlacklisted) return { isValid: false };
 
         return {

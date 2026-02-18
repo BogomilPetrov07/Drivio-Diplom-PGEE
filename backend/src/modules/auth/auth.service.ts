@@ -18,8 +18,13 @@ export class AuthService {
         if (!user) return null;
 
         const {id, role, email, sessions} = user;
-        const isLoggedIn = sessions.reverse().find(session => session.ip === ip);
-        if (isLoggedIn !== undefined) {
+
+        const isLoggedIn = await prisma.session.findFirst({
+            where: { userId: user.id, ip: ip, revoked: false },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (isLoggedIn !== null) {
             if (!isLoggedIn.revoked) {
                 return undefined;
             }
@@ -149,8 +154,8 @@ export class AuthService {
         const environment = process.env.NODE_ENV === "production" ? "prod" : "dev";
         const projectId = process.env.INFISICAL_PROJECT_ID!;
 
-        const activeKey = type ? "PEPPER_REFRESH_ACTIVE" : "PEPPER_SESSION_ACTIVE";
-        const legacyKey = type ? "PEPPER_REFRESH_LEGACY" : "PEPPER_SESSION_LEGACY";
+        const activeKey = type === 'refresh' ? "PEPPER_REFRESH_ACTIVE" : "PEPPER_SESSION_ACTIVE";
+        const legacyKey = type === 'refresh' ? "PEPPER_REFRESH_LEGACY" : "PEPPER_SESSION_LEGACY";
 
         // 1) Fetch current active pepper from Infisical
         const activeSecret = await client.secrets().getSecret({
