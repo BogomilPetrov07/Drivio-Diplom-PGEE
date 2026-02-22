@@ -14,7 +14,7 @@
     "migrate:stag": "infisical run --env=staging -- npx prisma migrate deploy",
     "build:stag": "infisical run --env=staging -- npm run prisma:gen && tsc",
     "build": "tsx src/scripts/prisma-gen.ts && tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/src/server.js"
   },
   "keywords": [],
   "author": "Bogomil Petrov",
