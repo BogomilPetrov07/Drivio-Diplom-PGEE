@@ -1,5 +1,8 @@
 import {NextFunction, Request, Response} from "express";
-import {Role} from "@prisma/client";
+import {roleEnum} from "../../drizzle/schemas/enums.js";
+
+
+type Role = typeof roleEnum.enumValues[number];
 
 export function authorizeMiddleware(roles: Role[]) {
     return (req: Request, res: Response, next: NextFunction) => {

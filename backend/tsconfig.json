@@ -1,23 +1,21 @@
 {
   "compilerOptions": {
-    /* Base Options */
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2022", "DOM"], // Add DOM if you're using React types
-
-    /* JSX Support (For your emails) */
+    "lib": ["ES2022","DOM"],
     "jsx": "react-jsx",
-
     "rootDir": "./",
     "outDir": "dist",
-    "baseUrl": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "incremental": true
   },
-  "include": ["src/**/*", "prisma.config.ts"],
-  "exclude": ["node_modules", "**/*.test.ts"]
+  "include": ["src/**/*","drizzle.config.ts","drizzle/schemas/**/*"],
+  "exclude": ["node_modules","**/*.test.ts"]
 }

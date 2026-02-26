@@ -1,12 +1,12 @@
 import {NextFunction, Request, Response} from "express";
 import {verifyAccessToken} from "../utils/jwt.js";
-import {Role} from "@prisma/client";
+import { roleEnum } from "../../drizzle/schemas/enums.js";
 
 export async function authenticateMiddleware(req: Request, res: Response, next: NextFunction) {
     // 1. Get token from the HttpOnly cookie
     const token = req.cookies["accessToken"];
 
-    if (!token) return res.sendStatus(404);
+    if (!token) return res.sendStatus(401);
 
     try {
         const {isValid, userId, role, sessionId} = await verifyAccessToken(token);
@@ -14,7 +14,7 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
 
         // 2. Map the decoded payload to your User type structure
         req.user = {
-            id: userId!, role: role as Role, sessionId: sessionId!
+            id: userId!, role: role as typeof roleEnum.enumValues[number], sessionId: sessionId!
         };
 
         next();

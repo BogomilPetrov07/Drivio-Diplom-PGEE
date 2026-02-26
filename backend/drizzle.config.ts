@@ -1,6 +1,4 @@
-import "dotenv/config";
-import { defineConfig } from "prisma/config";
-
+import {defineConfig} from "drizzle-kit";
 
 const getUrl = () => {
     // Fallback to 'development' if NODE_ENV is not set
@@ -10,6 +8,8 @@ const getUrl = () => {
         case "production":
             return process.env.DATABASE_URL;
         case "test":
+        case "staging":
+            // Drizzle uses the same URL logic as your prisma.config.ts
             return process.env.DIRECT_URL;
         case "development":
         default:
@@ -18,11 +18,14 @@ const getUrl = () => {
 };
 
 export default defineConfig({
-    schema: "./prisma/schemas",
-    migrations: {
-        path: "prisma/migrations",
+    dialect: "postgresql",
+    // POINT TO YOUR NEW FOLDER
+    schema: "./drizzle/schemas/*.ts",
+    // SPECIFY THE MIGRATIONS FOLDER
+    out: "./drizzle/migrations",
+    dbCredentials: {
+        url: getUrl()!,
     },
-    datasource: {
-        url: getUrl(),
-    },
+    strict: true,
+    verbose: true,
 });

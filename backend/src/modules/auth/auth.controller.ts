@@ -1,8 +1,8 @@
 import {Request, Response} from "express";
+import {env} from "../../config/env.js";
+import {signAccessToken} from "../../utils/jwt.js";
 import {AuthService} from "./auth.service.js";
 import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
-import {signAccessToken} from "../../utils/jwt.js";
-import {env} from "../../config/env.js";
 
 export class AuthController {
 
@@ -14,26 +14,25 @@ export class AuthController {
     };
 
     static login = async (req: Request, res: Response) => {
-        const data: LoginDTO = req.body;
-        const user = await AuthService.login(data.username, data.password, req.ip);
-        if (user === undefined) return res.status(409).json("User already logged in");
-        if (user === null) return res.sendStatus(404);
+        try {
+            const data: LoginDTO = req.body;
+            const user = await AuthService.login(data.username, data.password, req.ip);
+            if (user === undefined) return res.status(409).json("User already logged in");
+            if (user === null) return res.sendStatus(404);
 
-        const sessionId = await AuthService.createSession(user.id, req.headers["user-agent"] as string, req.ip as string);
-        const refreshToken = await AuthService.createRefreshToken(sessionId);
-        const accessToken = signAccessToken({userId: user.id, role: user.role, sessionId: sessionId});
+            const sessionId = await AuthService.createSession(user.id, req.headers["user-agent"] as string, req.ip as string);
+            const refreshToken = await AuthService.createRefreshToken(sessionId);
+            const accessToken = signAccessToken({userId: user.id, role: user.role, sessionId: sessionId});
 
-        res.cookie("accessToken", accessToken, {
-            ...this.cookieOptions,
-            maxAge: 15 * 60 * 1000
-        });
+            res.cookie("accessToken", accessToken, this.getCookieOptions(15 * 60 * 1000));
 
-        res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, {
-            ...this.cookieOptions,
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+            res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-        res.json({username: user.username});
+            res.json({username: user.username, cookie: accessToken});
+        } catch (err) {
+            console.log(err);
+            res.sendStatus(500);
+        }
     };
 
     static logout = async (req: Request, res: Response) => {
@@ -100,7 +99,7 @@ export class AuthController {
     }
 
     // TODO: To make an Super Admin audit history log
-    static auditLog  = async (req: Request, res: Response) => {
+    static auditLog = async (req: Request, res: Response) => {
 
     }
 
@@ -114,5 +113,24 @@ export class AuthController {
             console.error(error);
             res.sendStatus(500);
         }
+    }
+
+    private static getCookieOptions(maxAge: number) {
+        const baseOptions = {
+            httpOnly: true,
+            secure: env.NODE_ENV === "production",
+            sameSite: "lax" as const,
+            maxAge
+        };
+
+        // Only attach domain if explicitly defined
+        if (env.COOKIE_DOMAIN !== "empty") {
+            return {
+                ...baseOptions,
+                domain: env.COOKIE_DOMAIN
+            };
+        }
+
+        return baseOptions;
     }
 }

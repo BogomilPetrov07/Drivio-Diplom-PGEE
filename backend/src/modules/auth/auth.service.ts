@@ -1,98 +1,99 @@
-import {Role} from "@prisma/client";
+import { eq, and, desc } from "drizzle-orm";
 import crypto from 'crypto';
-import {v4 as uuid4} from "uuid";
-import {env} from "../../config/env.js";
-import {client} from "../../config/infisical.js";
-import {prisma} from "../../config/prisma.js";
-import {REDIS_KEYS} from "../../config/redis-keys.js";
-import {redis} from "../../config/redis.js";
-import {sendWelcomeEmailReact} from "../../utils/email.js";
-import {compare, hash} from "../../utils/password.js";
-import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types.js";
-
+import { v4 as uuid4 } from "uuid";
+import { env } from "../../config/env.js";
+import { client } from "../../config/infisical.js";
+import { db } from "../../config/drizzle.js"; // Your Drizzle Proxy client
+import { users, sessions, refreshTokens } from "../../../drizzle/schemas/index.js"; // Modular schema exports
+import { REDIS_KEYS } from "../../config/redis-keys.js";
+import { redis } from "../../config/redis.js";
+import { sendWelcomeEmailReact } from "../../utils/email.js";
+import { compare, hash } from "../../utils/password.js";
+import { RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO } from "./auth.types.js";
 
 export class AuthService {
     static async login(username: string, password: string, ip: string | undefined) {
-        const user = await prisma.user.findUnique({where: {username}, include: {sessions: true}});
+        // Relational query to include sessions
+        const user = await db.query.users.findFirst({
+            where: eq(users.username, username),
+            with: { sessions: true }
+        });
 
         if (!user) return null;
 
-        const {id, role, email, sessions} = user;
+        const { id, role, email } = user;
 
-        const isLoggedIn = await prisma.session.findFirst({
-            where: { userId: user.id, ip: ip, revoked: false },
-            orderBy: { createdAt: 'desc' }
+        const isLoggedIn = await db.query.sessions.findFirst({
+            where: and(
+                eq(sessions.userId, user.id),
+                eq(sessions.ip, ip || ""),
+                eq(sessions.revoked, false)
+            ),
+            orderBy: [desc(sessions.createdAt)]
         });
 
-        if (isLoggedIn !== null) {
-            if (!isLoggedIn.revoked) {
-                return undefined;
-            }
+        if (isLoggedIn && !isLoggedIn.revoked) {
+            return undefined;
         }
+
         const ok = await compare(password, user.password);
-        return ok ? {id, username, role, email} : null;
+        return ok ? { id, username, role, email } : null;
     }
 
     static async createRefreshToken(sessionId: string) {
         const tokenValue = this.generateRefreshToken();
         const tokenId = uuid4();
         const hashedValue = this.generateHash(tokenValue, tokenId);
-
-        // Calculate signature for the new record
         const signature = this.signState(tokenId, false, sessionId, "refresh");
 
-        await prisma.refreshToken.create({
-            data: {
-                id: tokenId, tokenHash: hashedValue, sessionId: sessionId, signature: signature
-            }
+        // Standard insert syntax
+        await db.insert(refreshTokens).values({
+            id: tokenId,
+            tokenHash: hashedValue,
+            sessionId: sessionId,
+            signature: signature
         });
-        return {tokenId, tokenValue};
+
+        return { tokenId, tokenValue };
     }
 
     static async rotateRefreshToken(tokenId: string, tokenValue: string) {
-        const record = await prisma.refreshToken.findUnique({
-            where: {id: tokenId}, select: {
-                id: true,
-                signature: true,
-                revoked: true,
-                tokenHash: true,
-                session: {select: {id: true, revoked: true, userId: true, signature: true}}
-            }
+        // Fetch token with its parent session
+        const record = await db.query.refreshTokens.findFirst({
+            where: eq(refreshTokens.id, tokenId),
+            with: { session: true }
         });
 
         if (!record) return null;
-        const {session, ...token} = record;
+        const { session, ...token } = record;
 
-        // Get sibling tokens for potential mass-revocation
-        const allSessionTokens = await prisma.refreshToken.findMany({
-            where: {sessionId: session.id}, select: {id: true}
+        // Fetch sibling tokens
+        const allSessionTokens = await db.query.refreshTokens.findMany({
+            where: eq(refreshTokens.sessionId, session.id),
         });
 
-        // Step 1: Integrity Check
-        const isIntegrityValid = await this.verifyIntegrity(token, session, allSessionTokens);
+        const isIntegrityValid = await this.verifyIntegrity(token as any, session as any, allSessionTokens as any);
         if (!isIntegrityValid) return null;
 
-        // Step 2: Logic Check (Reuse Detection)
         if (token.revoked || session.revoked) {
             if (token.revoked) console.warn("Possible reuse attack! Token was already revoked.");
             return null;
         }
 
-        // Step 3: Secret Hash Check
         if (this.generateHash(tokenValue, token.id) !== token.tokenHash) return null;
 
-        // Step 4: Atomic Rotation
-        return await prisma.$transaction(async (tx) => {
+        // Drizzle transaction syntax
+        return await db.transaction(async (tx) => {
             const newRefreshToken = await this.createRefreshToken(session.id);
 
-            await tx.refreshToken.update({
-                where: {id: tokenId}, data: {
+            await tx.update(refreshTokens)
+                .set({
                     revoked: true,
                     replaceTokenId: newRefreshToken.tokenId,
                     replacedAt: new Date(),
                     signature: this.signState(tokenId, true, session.id, "refresh")
-                }
-            });
+                })
+                .where(eq(refreshTokens.id, tokenId));
 
             return newRefreshToken;
         });
@@ -100,14 +101,14 @@ export class AuthService {
 
     static async createSession(userId: string, userAgent: string, ip: string) {
         const sessionId = uuid4();
-
-        // Calculate signature for the new record
         const signature = this.signState(sessionId, false, userId, "session");
 
-        await prisma.session.create({
-            data: {
-                id: sessionId, userId: userId, deviceName: userAgent, ip: ip, signature: signature
-            }
+        await db.insert(sessions).values({
+            id: sessionId,
+            userId: userId,
+            deviceName: userAgent,
+            ip: ip,
+            signature: signature
         });
 
         return sessionId;
@@ -115,31 +116,37 @@ export class AuthService {
 
     static async register(username: string, password: string, role: string, email: string) {
         const hashedPassword = await hash(password);
-        return prisma.user.create({
-            data: {
-                username, email, password: hashedPassword, role: role as Role
-            }
-        });
+        // Drizzle needs .returning() to get the object back
+        const [newUser] = await db.insert(users).values({
+            username,
+            email,
+            password: hashedPassword,
+            role: role as any
+        }).returning();
+
+        return newUser;
     }
 
     static async logout(sessionId: string, userId: string) {
-        // 1. Revoke all refresh tokens linked to the session
-        const refreshTokenRecords = await prisma.refreshToken.findMany({
-            where: {sessionId: sessionId}, select: {id: true}
+        const refreshTokenRecords = await db.query.refreshTokens.findMany({
+            where: eq(refreshTokens.sessionId, sessionId)
         });
 
-        await Promise.all(refreshTokenRecords.map((record) => prisma.refreshToken.update({
-            where: {id: record.id}, // Use the specific ID here!
-            data: {
-                revoked: true, signature: this.signState(record.id, true, sessionId, "refresh")
-            }
-        })));
+        // Update all related refresh tokens
+        await Promise.all(refreshTokenRecords.map((record) =>
+            db.update(refreshTokens)
+                .set({
+                    revoked: true,
+                    signature: this.signState(record.id, true, sessionId, "refresh")
+                })
+                .where(eq(refreshTokens.id, record.id))
+        ));
 
-        // 2. Permanent change in DB for log outed session
         const newSignature = this.signState(sessionId, true, userId, "session");
-        await prisma.session.update({where: {id: sessionId}, data: {revoked: true, signature: newSignature}});
+        await db.update(sessions)
+            .set({ revoked: true, signature: newSignature })
+            .where(eq(sessions.id, sessionId));
 
-        // 3. Immediate Blacklist in Upstash (Expires in 16 mins / 960 seconds)
         await redis.set(REDIS_KEYS.SESSION_REVOKE(sessionId), "true", "EX", 960);
     }
 
@@ -150,14 +157,11 @@ export class AuthService {
 
     static async rotatePepper(type: 'refresh' | 'session') {
         const newPepper = crypto.randomBytes(32).toString("hex");
-
         const environment = process.env.NODE_ENV === "production" ? "prod" : "dev";
         const projectId = process.env.INFISICAL_PROJECT_ID!;
-
         const activeKey = type === 'refresh' ? "PEPPER_REFRESH_ACTIVE" : "PEPPER_SESSION_ACTIVE";
         const legacyKey = type === 'refresh' ? "PEPPER_REFRESH_LEGACY" : "PEPPER_SESSION_LEGACY";
 
-        // 1) Fetch current active pepper from Infisical
         const activeSecret = await client.secrets().getSecret({
             projectId, environment, secretName: activeKey
         });
@@ -166,12 +170,10 @@ export class AuthService {
             throw new Error(`Missing current active pepper: ${activeKey}`);
         }
 
-        // 2) Move current active -> legacy
         await client.secrets().updateSecret(legacyKey, {
             projectId, environment, secretValue: activeSecret.secretValue
         });
 
-        // 3) Set new active pepper
         await client.secrets().updateSecret(activeKey, {
             projectId, environment, secretValue: newPepper
         });
@@ -190,23 +192,20 @@ export class AuthService {
 
         if (refreshToken.signature === expectedSignature) return true;
 
-        // Check Legacy
         const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
         if (isLegacy) {
-            await prisma.refreshToken.update({
-                where: {id: refreshToken.id}, data: {signature: expectedSignature}
-            });
+            await db.update(refreshTokens)
+                .set({ signature: expectedSignature })
+                .where(eq(refreshTokens.id, refreshToken.id));
             return true;
         }
 
-        // If we reach here, tampering is suspected
         console.error("ALERT: Database tampering detected for token:", refreshToken.id);
         await this.handleSecurityBreach(session, allSessionTokens);
         return false;
     }
 
     private static async handleSecurityBreach(session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
-        // 1. Verify Session Integrity specifically
         const expectedSessionSig = this.signState(session.id, session.revoked, session.userId, "session");
         const isSessionTampered = session.signature !== expectedSessionSig && session.signature !== this.signState(session.id, session.revoked, session.userId, "session", false);
 
@@ -214,14 +213,15 @@ export class AuthService {
             console.error("ALERT: Database tampering detected for session:", session.id);
         }
 
-        // 2. Revoke everything linked to this session
-        await Promise.all([...allSessionTokens.map(record => prisma.refreshToken.update({
-            where: {id: record.id},
-            data: {revoked: true, signature: this.signState(record.id, true, session.id, "refresh")}
-        })), prisma.session.update({
-            where: {id: session.id},
-            data: {revoked: true, signature: this.signState(session.id, true, session.userId, "session")}
-        })]);
+        await Promise.all([...allSessionTokens.map(record =>
+            db.update(refreshTokens)
+                .set({ revoked: true, signature: this.signState(record.id, true, session.id, "refresh") })
+                .where(eq(refreshTokens.id, record.id))
+        ),
+            db.update(sessions)
+                .set({ revoked: true, signature: this.signState(session.id, true, session.userId, "session") })
+                .where(eq(sessions.id, session.id))
+        ]);
     }
 
     private static signState(id: string, revoked: boolean, foreignKeyId: string, type: "refresh" | "session", success: boolean = true) {
