@@ -9,16 +9,22 @@ let internalDb: DrizzleClient | null = null;
 const initDb = (): DrizzleClient => {
     if (internalDb) return internalDb;
 
-    const environment = env.NODE_ENV;
-    let connectionString = environment === 'production' ? env.DATABASE_URL : environment === 'test' ? env.DIRECT_URL : env.LOCAL_DB_URL;
+    const connectionString =
+        env.DATABASE_URL ||
+        env.LOCAL_DB_URL ||
+        env.DIRECT_URL;
 
     if (!connectionString) {
-        throw new Error("❌ Drizzle Proxy: No connection string found. Is Infisical initialized?");
+        throw new Error(`❌ Drizzle Error: No authorized database URL found in the ${env.NODE_ENV} vault.`);
     }
 
-    const pool = new pg.Pool({ connectionString });
+    const isPooled = !!env.DATABASE_URL;
 
-    // Pass the schema object to enable Relational Queries (db.query...)
+    const pool = new pg.Pool({
+        connectionString,
+        max: isPooled ? 10 : 20
+    });
+
     internalDb = drizzle(pool, { schema });
     return internalDb;
 };

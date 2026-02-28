@@ -7,7 +7,7 @@ import {client, initInfisical} from "./infisical.js";
  */
 export type EnvConfig = {
     // CORS config secrets
-    NODE_ENV: "development" | "production" | "test";
+    NODE_ENV: "dev" | "staging" | "prod" | "test";
     PORT: number;
     COOKIE_DOMAIN: string;
     FRONTEND_URL: string;
@@ -53,17 +53,13 @@ export const getEnv = (): EnvConfig => {
  * 3. Configuration Bootstrapper
  * Called once in your index.ts/server.ts before the app starts.
  */
-export async function initConfig(path: string = "/backend", isBuild = false) {
+export async function initConfig(path: string, isBuild = false) {
     try {
         // Authenticate with Infisical Machine Identity
         await initInfisical();
 
-        const environment =
-            process.env.NODE_ENV === "production"
-                ? "prod"
-                : process.env.NODE_ENV === "staging"
-                    ? "staging"
-                    : "dev";
+        const environment = process.env.INFISICAL_ENV!;
+
         // Fetch all secrets for the project
         const rootResponse = await client.secrets().listSecrets({
             environment: environment,
@@ -79,7 +75,7 @@ export async function initConfig(path: string = "/backend", isBuild = false) {
             const dbResponse = await client.secrets().listSecrets({
                 environment,
                 projectId: process.env.INFISICAL_PROJECT_ID!,
-                secretPath: `${path}/DB`,
+                secretPath: `${path}/db`,
                 recursive: false,
             });
             secrets = [...secrets, ...dbResponse.secrets];
@@ -94,12 +90,12 @@ export async function initConfig(path: string = "/backend", isBuild = false) {
             return secret.secretValue;
         };
 
-        const getEnv = (): "production" | "test" | "development" | undefined => {
+        const getEnv = (): "dev" | "staging" | "prod" | "test" => {
             const secret = secrets.find((s) => s.secretKey === "NODE_ENV");
             if (!secret || !secret.secretValue) {
                 throw new Error(`Missing required secret: NODE_ENV in ${environment} environment.`);
             }
-            return secret.secretValue as "production" | "test" | "development" | undefined;
+            return secret.secretValue as "dev" | "staging" | "prod" | "test";
         }
 
         const getValOptional = (key: string): string | undefined => {

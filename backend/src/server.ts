@@ -4,7 +4,7 @@ import {initCronJobs} from "./config/cron.js";
 async function bootstrap() {
     try {
         // 1. Load all secrets from Infisical first
-        await initConfig();
+        await initConfig("/backend/app");
 
         //2. Initialize cron jobs
         await initCronJobs();

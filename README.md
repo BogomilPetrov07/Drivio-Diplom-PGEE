@@ -13,3 +13,8 @@ git checkout main
 git rebase staging
 git push origin main --force
 ```
+
+```
+net start postgresql-x64-18
+net stop http
+```

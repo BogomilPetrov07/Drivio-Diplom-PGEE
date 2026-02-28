@@ -1,5 +1,5 @@
 import {Redis} from "ioredis";
-import { env } from "./env.js";
+import {env} from "./env.js";
 
 let internalRedis: Redis | null = null;
 
@@ -9,15 +9,13 @@ const initRedis = (): Redis => {
     const environment = env.NODE_ENV;
     let url: string | undefined = "";
     switch (environment) {
-        case 'development':
+        case 'dev':
             url = env.DOCKER_REDIS_URL;
             break;
 
-        case 'production':
-            url = env.UPSTASH_REDIS_URL;
-            break;
-
+        case 'staging':
         case 'test':
+        case 'prod':
             url = env.UPSTASH_REDIS_URL;
             break;
     }

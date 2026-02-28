@@ -27,7 +27,8 @@ export const verifyAccessToken = async (token: string) => {
             role: decoded.role!,
             sessionId: decoded.sessionId
         };
-    } catch {
+    } catch(err) {
+        console.log(err);
         return { isValid: false };
     }
 };

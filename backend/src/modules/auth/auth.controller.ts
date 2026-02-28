@@ -5,14 +5,6 @@ import {AuthService} from "./auth.service.js";
 import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
 
 export class AuthController {
-
-    private static cookieOptions = {
-        httpOnly: true,
-        secure: env.NODE_ENV === "production" || env.NODE_ENV === "test",
-        sameSite: "lax" as const,
-        domain: env.COOKIE_DOMAIN, // .localhost in dev, .drivio-bg.com in prod
-    };
-
     static login = async (req: Request, res: Response) => {
         try {
             const data: LoginDTO = req.body;
@@ -28,7 +20,7 @@ export class AuthController {
 
             res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
-            res.json({username: user.username, cookie: accessToken});
+            res.json({username: user.username});
         } catch (err) {
             console.log(err);
             res.sendStatus(500);
@@ -68,10 +60,7 @@ export class AuthController {
 
         if (!newRefreshToken) return res.sendStatus(401);
 
-        res.cookie("refreshToken", `${newRefreshToken.tokenId}:${newRefreshToken.tokenValue}`, {
-            ...this.cookieOptions,
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        res.cookie("refreshToken", `${newRefreshToken.tokenId}:${newRefreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
         // Generate a new access token based on the old one
         const newAccessToken = signAccessToken({
@@ -80,10 +69,7 @@ export class AuthController {
             sessionId: req.user!.sessionId
         });
 
-        res.cookie("accessToken", newAccessToken, {
-            ...this.cookieOptions,
-            maxAge: 15 * 60 * 1000
-        });
+        res.cookie("accessToken", newAccessToken, this.getCookieOptions(15 * 60 * 1000));
 
         res.json({message: "Access token refreshed"});
     }
@@ -99,7 +85,7 @@ export class AuthController {
     }
 
     // TODO: To make an Super Admin audit history log
-    static auditLog = async (req: Request, res: Response) => {
+    static auditLog = async (_req: Request, _res: Response) => {
 
     }
 
@@ -118,7 +104,7 @@ export class AuthController {
     private static getCookieOptions(maxAge: number) {
         const baseOptions = {
             httpOnly: true,
-            secure: env.NODE_ENV === "production",
+            secure: env.NODE_ENV === "prod" || env.NODE_ENV === "staging",
             sameSite: "lax" as const,
             maxAge
         };
