@@ -10,9 +10,9 @@ const router = Router();
 router.use(errorMiddleware);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
+router.get("/refresh", AuthController.refreshAccessToken);
 router.use(authenticateMiddleware);
 router.post("/sendEmail", AuthController.sendEmail);
-router.get("/refresh", AuthController.refreshAccessToken);
 router.post("/rotate", authorizeMiddleware(["SUPERADMIN"]), AuthController.rotatePepper);
 router.get("/auditLog", authorizeMiddleware(["SUPERADMIN"]), AuthController.auditLog)
 router.get("/logout", AuthController.logout);

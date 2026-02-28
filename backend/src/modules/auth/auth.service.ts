@@ -1,27 +1,27 @@
-import { eq, and, desc } from "drizzle-orm";
 import crypto from 'crypto';
-import { v4 as uuid4 } from "uuid";
-import { env } from "../../config/env.js";
-import { client } from "../../config/infisical.js";
-import { db } from "../../config/drizzle.js"; // Your Drizzle Proxy client
-import { users, sessions, refreshTokens } from "../../../drizzle/schemas/index.js"; // Modular schema exports
-import { REDIS_KEYS } from "../../config/redis-keys.js";
-import { redis } from "../../config/redis.js";
-import { sendWelcomeEmailReact } from "../../utils/email.js";
-import { compare, hash } from "../../utils/password.js";
-import { RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO } from "./auth.types.js";
+import {and, desc, eq} from "drizzle-orm";
+import {v4 as uuid4} from "uuid";
+import {refreshTokens, sessions, users} from "../../../drizzle/schemas/index.js"; // Modular schema exports
+import {db} from "../../config/drizzle.js"; // Your Drizzle Proxy client
+import {env} from "../../config/env.js";
+import {client} from "../../config/infisical.js";
+import {REDIS_KEYS} from "../../config/redis-keys.js";
+import {redis} from "../../config/redis.js";
+import {sendWelcomeEmailReact} from "../../utils/email.js";
+import {compare, hash} from "../../utils/password.js";
+import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types.js";
 
 export class AuthService {
     static async login(username: string, password: string, ip: string | undefined) {
         // Relational query to include sessions
         const user = await db.query.users.findFirst({
             where: eq(users.username, username),
-            with: { sessions: true }
+            with: {sessions: true}
         });
 
         if (!user) return null;
 
-        const { id, role, email } = user;
+        const {id, role, email} = user;
 
         const isLoggedIn = await db.query.sessions.findFirst({
             where: and(
@@ -37,7 +37,7 @@ export class AuthService {
         }
 
         const ok = await compare(password, user.password);
-        return ok ? { id, username, role, email } : null;
+        return ok ? {id, username, role, email} : null;
     }
 
     static async createRefreshToken(sessionId: string) {
@@ -54,18 +54,30 @@ export class AuthService {
             signature: signature
         });
 
-        return { tokenId, tokenValue };
+        return {tokenId, tokenValue};
     }
 
     static async rotateRefreshToken(tokenId: string, tokenValue: string) {
         // Fetch token with its parent session
         const record = await db.query.refreshTokens.findFirst({
             where: eq(refreshTokens.id, tokenId),
-            with: { session: true }
+            with: {
+                session: {
+                    with: {
+                        user: {
+                            columns: {
+                                id: true,
+                                role: true
+                            }
+                        }
+                    }
+                }
+            }
         });
 
-        if (!record) return null;
+        if (!record || !record.session || !record.session.user) return null;
         const { session, ...token } = record;
+        const user = session.user;
 
         // Fetch sibling tokens
         const allSessionTokens = await db.query.refreshTokens.findMany({
@@ -95,7 +107,11 @@ export class AuthService {
                 })
                 .where(eq(refreshTokens.id, tokenId));
 
-            return newRefreshToken;
+            return {
+                refreshToken: newRefreshToken,
+                user: user,
+                sessionId: session.id
+            };
         });
     }
 
@@ -144,7 +160,7 @@ export class AuthService {
 
         const newSignature = this.signState(sessionId, true, userId, "session");
         await db.update(sessions)
-            .set({ revoked: true, signature: newSignature })
+            .set({revoked: true, signature: newSignature})
             .where(eq(sessions.id, sessionId));
 
         await redis.set(REDIS_KEYS.SESSION_REVOKE(sessionId), "true", "EX", 960);
@@ -188,14 +204,13 @@ export class AuthService {
     }
 
     private static async verifyIntegrity(refreshToken: RefreshTokenDTO, session: SessionDTO, allSessionTokens: RefreshTokenCollectionDTO) {
-        const expectedSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh");
+        const activeSignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh");
+        if (refreshToken.signature === activeSignature) return true;
 
-        if (refreshToken.signature === expectedSignature) return true;
-
-        const isLegacy = refreshToken.signature === this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
-        if (isLegacy) {
+        const legacySignature = this.signState(refreshToken.id, refreshToken.revoked, session.id, "refresh", false);
+        if (refreshToken.signature === legacySignature) {
             await db.update(refreshTokens)
-                .set({ signature: expectedSignature })
+                .set({signature: activeSignature})
                 .where(eq(refreshTokens.id, refreshToken.id));
             return true;
         }
@@ -215,11 +230,11 @@ export class AuthService {
 
         await Promise.all([...allSessionTokens.map(record =>
             db.update(refreshTokens)
-                .set({ revoked: true, signature: this.signState(record.id, true, session.id, "refresh") })
+                .set({revoked: true, signature: this.signState(record.id, true, session.id, "refresh")})
                 .where(eq(refreshTokens.id, record.id))
         ),
             db.update(sessions)
-                .set({ revoked: true, signature: this.signState(session.id, true, session.userId, "session") })
+                .set({revoked: true, signature: this.signState(session.id, true, session.userId, "session")})
                 .where(eq(sessions.id, session.id))
         ]);
     }

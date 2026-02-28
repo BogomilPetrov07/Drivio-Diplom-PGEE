@@ -1,4 +1,6 @@
 import {NextFunction, Request, Response} from "express";
+import {REDIS_KEYS} from "../config/redis-keys.js";
+import {redis} from "../config/redis.js";
 import {verifyAccessToken} from "../utils/jwt.js";
 import { roleEnum } from "../../drizzle/schemas/enums.js";
 
@@ -9,8 +11,16 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
     if (!token) return res.sendStatus(401);
 
     try {
-        const {isValid, userId, role, sessionId} = await verifyAccessToken(token);
+        const checkup = await verifyAccessToken(token);
+        if (!checkup) return res.sendStatus(401);
+
+        const {isValid, userId, role, sessionId} = checkup;
+
         if (!isValid) return res.sendStatus(401);
+        if (!sessionId) return res.sendStatus(401);
+
+        const isRevoked = await redis.get(REDIS_KEYS.SESSION_REVOKE(sessionId));
+        if (isRevoked) return res.sendStatus(401);
 
         // 2. Map the decoded payload to your User type structure
         req.user = {
@@ -18,7 +28,8 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
         };
 
         next();
-    } catch {
+    } catch(error) {
+        console.log(error);
         res.sendStatus(401);
     }
 }

@@ -56,17 +56,17 @@ export class AuthController {
 
         // Construct new refresh token from old one
         const [tokenId, refreshTokenValue] = refreshTokenCookie.split(":");
-        const newRefreshToken = await AuthService.rotateRefreshToken(tokenId, refreshTokenValue);
+        const result = await AuthService.rotateRefreshToken(tokenId, refreshTokenValue);
 
-        if (!newRefreshToken) return res.sendStatus(401);
+        if (!result) return res.sendStatus(401);
 
-        res.cookie("refreshToken", `${newRefreshToken.tokenId}:${newRefreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
+        res.cookie("refreshToken", `${result.refreshToken.tokenId}:${result.refreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
         // Generate a new access token based on the old one
         const newAccessToken = signAccessToken({
-            userId: req.user!.id,
-            role: req.user!.role,
-            sessionId: req.user!.sessionId
+            userId: result.user.id,
+            role: result.user.role,
+            sessionId: result.sessionId
         });
 
         res.cookie("accessToken", newAccessToken, this.getCookieOptions(15 * 60 * 1000));
