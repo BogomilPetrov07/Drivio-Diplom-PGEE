@@ -91,10 +91,15 @@ export class AuthController {
 
     static sendEmail = async (req: Request, res: Response) => {
         try {
-            const {email, username} = req.body;
-            const response = await AuthService.sendEmail(email, username);
-            if (!response) return res.sendStatus(500);
-            res.sendStatus(200);
+            const { email, username } = req.body;
+
+            // Fire and forget: don't 'await' this for the HTTP response
+            AuthService.sendEmail(email, username).catch(err => {
+                console.error("Delayed Email Error:", err);
+            });
+
+            // Tell Postman/Client we've accepted the request
+            res.status(202).json({ message: "Email is being processed" });
         } catch (error) {
             console.error(error);
             res.sendStatus(500);

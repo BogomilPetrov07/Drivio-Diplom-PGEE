@@ -20,18 +20,16 @@ export type EnvConfig = {
     // Auth config secrets
     UPSTASH_REDIS_URL?: string;
     DOCKER_REDIS_URL?: string;
-    JWT_PRIVATE_KEY: string;
     JWT_PUBLIC_KEY: string;
+    JWT_PRIVATE_KEY: string;
     PEPPER_REFRESH_ACTIVE: string;
     PEPPER_REFRESH_LEGACY: string;
     PEPPER_SESSION_ACTIVE: string;
     PEPPER_SESSION_LEGACY: string;
 
     // Email config secrets
-    SMTP_HOST: string;
-    SMTP_PORT: number;
-    SMTP_USER: string;
-    SMTP_PASS: string;
+    MJ_APIKEY_PUBLIC: string;
+    MJ_APIKEY_PRIVATE: string;
     EMAIL_FROM: string;
 };
 
@@ -131,18 +129,16 @@ export async function initConfig(path: string, isBuild = false) {
             // Auth config secrets
             UPSTASH_REDIS_URL: getValOptional("UPSTASH_REDIS_URL"),
             DOCKER_REDIS_URL: getValOptional("DOCKER_REDIS_URL"),
-            JWT_PRIVATE_KEY: getVal("JWT_PRIVATE_KEY"),
             JWT_PUBLIC_KEY: getVal("JWT_PUBLIC_KEY"),
+            JWT_PRIVATE_KEY: getVal("JWT_PRIVATE_KEY"),
             PEPPER_REFRESH_ACTIVE: getVal("PEPPER_REFRESH_ACTIVE"),
             PEPPER_REFRESH_LEGACY: getVal("PEPPER_REFRESH_LEGACY"),
             PEPPER_SESSION_ACTIVE: getVal("PEPPER_SESSION_ACTIVE"),
             PEPPER_SESSION_LEGACY: getVal("PEPPER_SESSION_LEGACY"),
 
             // Email config secrets
-            SMTP_HOST: getVal("SMTP_HOST"),
-            SMTP_PORT: Number(getVal("SMTP_PORT")),
-            SMTP_USER: getVal("SMTP_USER"),
-            SMTP_PASS: getVal("SMTP_PASS"),
+            MJ_APIKEY_PUBLIC: getVal("MJ_APIKEY_PUBLIC"),
+            MJ_APIKEY_PRIVATE: getVal("MJ_APIKEY_PRIVATE"),
             EMAIL_FROM: getVal("EMAIL_FROM"),
         };
 

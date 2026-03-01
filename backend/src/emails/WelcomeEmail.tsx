@@ -17,7 +17,7 @@ export const WelcomeEmail = ({username}: WelcomeEmailProps) => {
                         We're excited to have you on board. Your account has been successfully created.
                     </Text>
                     <Section style={buttonContainer}>
-                        <Link href="https://drivio.com/dashboard" style={button}>
+                        <Link href="https://drivio-bg.com/" style={button}>
                             Go to Dashboard
                         </Link>
                     </Section>

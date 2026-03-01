@@ -1,4 +1,4 @@
-import {Role} from "@prisma/client";
+import { roleEnum } from "../../drizzle/schemas/enums.js";
 
 declare global {
     namespace Express {
@@ -10,6 +10,6 @@ declare global {
 
 interface User {
     id: string;
-    role: Role;
+    role: roleEnum;
     sessionId: string;
 }

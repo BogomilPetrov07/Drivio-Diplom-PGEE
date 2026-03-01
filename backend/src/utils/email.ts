@@ -1,37 +1,39 @@
-import nodemailer from 'nodemailer';
+import Mailjet from 'node-mailjet';
 import { render } from '@react-email/render';
 import { WelcomeEmail } from '../emails/WelcomeEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
-let transporter: nodemailer.Transporter | null = null;
-
-const getTransporter = () => {
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            host: env.SMTP_HOST,
-            port: env.SMTP_PORT,
-            secure: env.SMTP_PORT === 465,
-            auth: {
-                user: env.SMTP_USER,
-                pass: env.SMTP_PASS,
-            },
-        });
-    }
-    return transporter;
-};
+// Initialize Mailjet with your API Keys
+const mailjet = new Mailjet.Client({
+    apiKey: env.MJ_APIKEY_PUBLIC,
+    apiSecret: env.MJ_APIKEY_PRIVATE
+});
 
 export const sendWelcomeEmailReact = async (to: string, username: string) => {
-    // 1. Render the React component to an HTML string
-    // This handles all the complex inlining for you
+    // 1. Render your React Email component
     const emailHtml = await render(React.createElement(WelcomeEmail, { username }));
 
-    // 2. Send the email using the generated HTML
-    const transporter = getTransporter();
-    return transporter.sendMail({
-        from: `"${env.EMAIL_FROM}" <${env.SMTP_USER}>`,
-        to,
-        subject: "Welcome to Drivio!",
-        html: emailHtml,
-    });
+    // 2. Send via Mailjet API (Not SMTP)
+    return mailjet
+        .post("send", { version: 'v3.1' })
+        .request({
+            AdvanceErrorHandling: true,
+            Messages: [
+                {
+                    From: {
+                        Email: "noreply@drivio-bg.com",
+                        Name: env.EMAIL_FROM
+                    },
+                    To: [
+                        {
+                            Email: to,
+                            Name: username
+                        }
+                    ],
+                    Subject: "Welcome to Drivio!",
+                    HTMLPart: emailHtml,
+                }
+            ]
+        });
 };

@@ -167,8 +167,19 @@ export class AuthService {
     }
 
     static async sendEmail(email: string, username: string) {
-        const info = await sendWelcomeEmailReact(email, username);
-        return info !== null;
+        try {
+            const result: any = await sendWelcomeEmailReact(email, username);
+            const message = result.body.Messages[0];
+
+            // CHECK THIS: If MessageID is "0", it was NOT sent.
+            console.log("Message ID:", message.To[0].MessageID);
+            console.log("Status:", message.Status);
+
+            return message.Status === 'success';
+        } catch (err: any) {
+            console.error("Mailjet Error:", err.response?._body || err.message);
+            return false;
+        }
     }
 
     static async rotatePepper(type: 'refresh' | 'session') {
