@@ -11,8 +11,6 @@ import routes from "./routes.js";
 export const app = express();
 
 app.set('trust proxy', 1);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 app.use(morgan('dev'));
 app.use(cors(corsOptions));
@@ -35,6 +33,7 @@ app.get('/health', (_req, res) => {
     res.status(200).send('OK');
 });
 
-app.use(express.static(path.join(__dirname, '../public')));
+const rootPath = process.cwd(); // Gets the root directory of the project
+app.use(express.static(path.join(rootPath, 'public')));
 
 export default app;
