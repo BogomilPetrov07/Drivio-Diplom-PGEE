@@ -3,7 +3,6 @@ import cors from "cors";
 import express from "express";
 import morgan from "morgan";
 import path from 'path';
-import {fileURLToPath} from 'url';
 import {corsOptions} from "./config/cors.js";
 import {errorMiddleware} from "./middlewares/error.middleware.js";
 import routes from "./routes.js";
@@ -20,6 +19,11 @@ app.use(cookieParser());
 app.use("/api", routes);
 
 app.use(errorMiddleware);
+
+app.use((_req, res, next) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    next();
+});
 
 app.get("/", (_req, res) => {
     res.send("Drivio API is running!");
