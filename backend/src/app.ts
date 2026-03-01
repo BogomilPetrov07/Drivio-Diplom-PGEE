@@ -1,14 +1,18 @@
-import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import express from "express";
 import morgan from "morgan";
-import { corsOptions } from "./config/cors.js";
+import path from 'path';
+import {fileURLToPath} from 'url';
+import {corsOptions} from "./config/cors.js";
+import {errorMiddleware} from "./middlewares/error.middleware.js";
 import routes from "./routes.js";
-import { errorMiddleware } from "./middlewares/error.middleware.js";
 
 export const app = express();
 
 app.set('trust proxy', 1);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 app.use(morgan('dev'));
 app.use(cors(corsOptions));
@@ -30,5 +34,7 @@ app.head('/health', (_req, res) => {
 app.get('/health', (_req, res) => {
     res.status(200).send('OK');
 });
+
+app.use(express.static(path.join(__dirname, '../public')));
 
 export default app;

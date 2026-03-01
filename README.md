@@ -14,7 +14,14 @@ git rebase staging
 git push origin main --force
 ```
 
+# Docker and PostgreSQL commands
 ```
 net start postgresql-x64-18
 net stop http
+```
+
+# Packets check
+```
+npx npm-check
+npx depcheck
 ```

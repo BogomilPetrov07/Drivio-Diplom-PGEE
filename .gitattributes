@@ -1,0 +1,2 @@
+# Force SVG files to always use LF line endings
+*.svg text eol=lf
