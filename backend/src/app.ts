@@ -16,14 +16,15 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api", routes);
-
-app.use(errorMiddleware);
-
 app.use((_req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     next();
 });
+
+app.use("/api", routes);
+
+app.use(errorMiddleware);
+
 
 app.get("/", (_req, res) => {
     res.send("Drivio API is running!");
