@@ -4,14 +4,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL
 
 
 const api = axios.create({
-    baseURL: `${API_BASE_URL}/api`,
+    baseURL: `${API_BASE_URL}`,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     }
 });
 
-api.get('/api/auth/refresh').then(response => {
+api.get('/auth/refresh').then(response => {
     console.log(response);
 })
 
@@ -22,7 +22,7 @@ api.interceptors.response.use(
         // If the cookie is expired or invalid, the server returns 401
         if (error.response?.status === 401) {
             // Logic to redirect to log in or update global auth state
-            const response = await api.get('/refresh');
+            const response = await api.get('/auth/refresh');
             if (response.status === 401) {
                 window.location.href = '/login';
             }

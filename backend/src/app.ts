@@ -21,6 +21,8 @@ app.use((_req, res, next) => {
     next();
 });
 
+app.disable('x-powered-by');
+
 app.use("/api", routes);
 
 app.use(errorMiddleware);

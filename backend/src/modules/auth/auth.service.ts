@@ -168,16 +168,17 @@ export class AuthService {
 
     static async sendEmail(email: string, username: string) {
         try {
-            const result: any = await sendWelcomeEmailReact(email, username);
-            const message = result.body.Messages[0];
+            const { data, error } = await sendWelcomeEmailReact(email, username);
 
-            // CHECK THIS: If MessageID is "0", it was NOT sent.
-            console.log("Message ID:", message.To[0].MessageID);
-            console.log("Status:", message.Status);
+            if (error) {
+                console.error("Resend Error Details:", error);
+                return false;
+            }
 
-            return message.Status === 'success';
+            console.log("Email sent successfully. ID:", data?.id);
+            return true;
         } catch (err: any) {
-            console.error("Mailjet Error:", err.response?._body || err.message);
+            console.error("Critical Email Error:", err.message);
             return false;
         }
     }

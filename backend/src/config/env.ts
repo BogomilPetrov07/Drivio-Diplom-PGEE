@@ -28,9 +28,14 @@ export type EnvConfig = {
     PEPPER_SESSION_LEGACY: string;
 
     // Email config secrets
-    MJ_APIKEY_PUBLIC: string;
-    MJ_APIKEY_PRIVATE: string;
-    EMAIL_FROM: string;
+    RESEND_API_KEY: string;
+    MARKETING_EMAIL: string;
+    TRANSACTIONAL_EMAIL: string;
+
+    // Mobile push notification secrets
+    VAPID_PUBLIC_KEY: string;
+    VAPID_PRIVATE_KEY: string;
+    VAPID_EMAIL: string;
 };
 
 // Internal variable held in memory after initialization
@@ -137,9 +142,14 @@ export async function initConfig(path: string, isBuild = false) {
             PEPPER_SESSION_LEGACY: getVal("PEPPER_SESSION_LEGACY"),
 
             // Email config secrets
-            MJ_APIKEY_PUBLIC: getVal("MJ_APIKEY_PUBLIC"),
-            MJ_APIKEY_PRIVATE: getVal("MJ_APIKEY_PRIVATE"),
-            EMAIL_FROM: getVal("EMAIL_FROM"),
+            RESEND_API_KEY: getVal("RESEND_API_KEY"),
+            MARKETING_EMAIL: getVal("MARKETING_EMAIL"),
+            TRANSACTIONAL_EMAIL: getVal("TRANSACTIONAL_EMAIL"),
+
+            // Mobile push notification secrets
+            VAPID_PUBLIC_KEY: getValOptional("VAPID_PUBLIC_KEY"),
+            VAPID_PRIVATE_KEY: getValOptional("VAPID_PRIVATE_KEY"),
+            VAPID_EMAIL: getValOptional("VAPID_EMAIL")
         };
 
         console.log(`✅ Secrets loaded successfully from Infisical [Env: ${environment}]`);
