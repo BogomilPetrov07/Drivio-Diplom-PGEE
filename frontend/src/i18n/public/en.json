@@ -1,0 +1,116 @@
+{
+  "hero": {
+    "badge": "The new driving school platform in Bulgaria",
+    "heading1": "Manage your",
+    "heading2": "path to success",
+    "description": "Drivio connects students, instructors, and driving schools in one intelligent platform. Book lessons, track your progress, and get your driving license easier than ever.",
+    "features": ["Easy booking", "For all roles", "Secure platform"]
+  },
+  "features": {
+    "heading": "Everything you need",
+    "description": "Drivio provides a complete toolkit for students and driving schools to make the learning process easier and more efficient.",
+    "items": [
+      {
+        "title": "Online booking",
+        "description": "Book practical lessons easily through the platform, anytime."
+      },
+      {
+        "title": "Theory training",
+        "description": "Access interactive lessons, tests, and exam prep materials."
+      },
+      {
+        "title": "Progress tracking",
+        "description": "Track your progress in real time with lessons, scores, and exam readiness."
+      },
+      {
+        "title": "Stats and analytics",
+        "description": "Detailed reporting for driving schools to optimize training."
+      },
+      {
+        "title": "Student management",
+        "description": "Complete management system for students and instructors."
+      },
+      {
+        "title": "Data security",
+        "description": "Your data is protected with modern encryption technologies."
+      }
+    ]
+  },
+  "students": {
+    "badge": "For Students",
+    "heading": "Get your license easier",
+    "description": "Drivio helps you find the right driving school and track your full progress in one place, without unnecessary complexity.",
+    "benefits": [
+      "Find the most suitable driving school for you",
+      "Book lessons online without phone calls",
+      "Track your progress in real time",
+      "Prepare with interactive tests"
+    ],
+    "cta": "Find your driving school",
+    "steps": [
+      {
+        "title": "Choose a driving school",
+        "description": "Browse and compare driving schools in your area."
+      },
+      {
+        "title": "Enroll",
+        "description": "Sign up and choose a training schedule that fits you."
+      },
+      {
+        "title": "Finish the course",
+        "description": "Learn the theory, gain practical experience, and pass your exam."
+      }
+    ]
+  },
+  "schools": {
+    "badge": "For Driving Schools",
+    "heading": "Digitize your driving school",
+    "description": "Modern tools to manage students, instructors, and your full driving school operations.",
+    "cta": "Contact us",
+    "benefits": [
+      {
+        "title": "Increase revenue",
+        "description": "Reach more students through our platform."
+      },
+      {
+        "title": "Save time",
+        "description": "Automate bookings, payments, and communication."
+      },
+      {
+        "title": "Digital documentation",
+        "description": "Keep all documents in one place with easy access."
+      },
+      {
+        "title": "Team management",
+        "description": "Coordinate instructors and assign responsibilities."
+      },
+      {
+        "title": "Fast setup",
+        "description": "Start working in minutes, not days."
+      },
+      {
+        "title": "24/7 support",
+        "description": "Our team is always available to help."
+      }
+    ]
+  },
+  "footer": {
+    "summary": "Digitalizing the future of driving courses in Bulgaria through innovative technology and automation.",
+    "location": "Sofia, Bulgaria",
+    "copyrightSuffix": "All rights reserved.",
+    "headings": {
+      "legal": "Legal Information",
+      "contact": "Contact Us"
+    },
+    "utilityLinks": [
+      { "name": "Privacy Policy", "href": "/privacy" },
+      { "name": "Terms of Use", "href": "/terms" }
+    ]
+  },
+  "cookie": {
+    "title": "We use cookies",
+    "description": "We use cookies to enhance your experience and analyze our traffic. By clicking \"Accept\", you consent to our use of cookies.",
+    "accept": "Accept all",
+    "settings": "Settings"
+  }
+}

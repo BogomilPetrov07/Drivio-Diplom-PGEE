@@ -1,19 +1,17 @@
 import type { Language } from '../../../i18n/public'
-import Features from '../components/Features'
 import Footer from '../components/Footer'
-import Hero from '../components/Hero'
+import ForStudents from '../components/ForStudents'
 
-interface LandingPageProps {
+interface StudentsPageProps {
   language: Language
   theme: 'drivio-pro-light' | 'drivio-pro-dark'
 }
 
-export default function LandingPage({ language, theme }: LandingPageProps) {
+export default function StudentsPage({ language, theme }: StudentsPageProps) {
   return (
     <>
       <main>
-        <Hero language={language} />
-        <Features language={language} />
+        <ForStudents language={language} />
       </main>
       <Footer theme={theme} language={language} />
     </>
