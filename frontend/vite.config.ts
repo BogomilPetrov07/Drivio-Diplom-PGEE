@@ -22,18 +22,25 @@ export default defineConfig(({mode}) => {
             tailwindcss(),
             VitePWA({
                 registerType: 'autoUpdate',
+                devOptions: {
+                    enabled: true,
+                },
                 manifest: {
+                    id: '/',
                     name: 'Drivio - Driving School Platform',
                     short_name: 'Drivio',
                     description: 'The modern web platform for driving school management',
-                    theme_color: 'oklch(35% 0.144 278.697)',
-                    background_color: 'oklch(100% 0 0)',
+                    theme_color: '#3d2a85',
+                    background_color: '#ffffff',
+                    start_url: '/',
+                    scope: '/',
                     display: 'standalone',
                     icons: [
                         {
                             src: 'icons/icon-192.png',
                             sizes: '192x192',
-                            type: 'image/png'
+                            type: 'image/png',
+                            purpose: 'any maskable'
                         },
                         {
                             src: 'icons/icon-512.png',

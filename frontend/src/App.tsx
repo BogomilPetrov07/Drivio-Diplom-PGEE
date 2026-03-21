@@ -1,21 +1,14 @@
-//import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import {Analytics} from "@vercel/analytics/react"
-import {SpeedInsights} from "@vercel/speed-insights/react"
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import LandingPage from './modules/public/pages/LandingPage.js'
 
 function App() {
-
-
-    return (
-        <>
-            <Analytics/>
-            <SpeedInsights/>
-        </>
-        // <Router>
-        //     <Routes>
-        //
-        //     </Routes>
-        // </Router>
-    );
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+      </Routes>
+    </Router>
+  )
 }
 
-export default App;
+export default App
