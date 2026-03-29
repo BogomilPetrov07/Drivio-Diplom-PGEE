@@ -5,6 +5,7 @@ import * as schema from '../../drizzle/schemas/index.js';
 
 type DrizzleClient = NodePgDatabase<typeof schema>;
 let internalDb: DrizzleClient | null = null;
+let internalPool: pg.Pool | null = null;
 
 const initDb = (): DrizzleClient => {
     if (internalDb) return internalDb;
@@ -25,8 +26,17 @@ const initDb = (): DrizzleClient => {
         max: isPooled ? 10 : 20
     });
 
+    internalPool = pool;
     internalDb = drizzle(pool, { schema });
     return internalDb;
+};
+
+export const initializeDb = async () => {
+    initDb();
+    if (!internalPool) throw new Error("Database pool was not initialized.");
+
+    await internalPool.query("SELECT 1");
+    console.log("✅ Connected to PostgreSQL");
 };
 
 export const db = new Proxy({} as DrizzleClient, {

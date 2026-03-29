@@ -3,6 +3,7 @@ import { Menu, X, Sun, Moon, Globe, Monitor } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import logoLight from '../../../assets/logo_light.svg'
 import logoDark from '../../../assets/logo_dark.svg'
+import { getAppUrl } from '../../../utils/app-domain'
 
 interface HeaderProps {
   themePreference: 'system' | 'light' | 'dark'
@@ -61,9 +62,13 @@ export default function Header({
   }, [])
 
   useEffect(() => {
-    setLanguageOpen(false)
-    setThemeOpen(false)
-    setMobileMenuOpen(false)
+    const rafId = window.requestAnimationFrame(() => {
+      setLanguageOpen(false)
+      setThemeOpen(false)
+      setMobileMenuOpen(false)
+    })
+
+    return () => window.cancelAnimationFrame(rafId)
   }, [location.pathname])
 
   const navLinks = [
@@ -71,6 +76,7 @@ export default function Header({
     { id: 'students', label: language === 'bg' ? 'За курсисти' : 'For Students', href: '/students' },
     { id: 'schools', label: language === 'bg' ? 'За автошколи' : 'For Driving Schools', href: '/schools' },
   ]
+  const loginHref = getAppUrl('/login')
 
   return (
     <header
@@ -148,9 +154,9 @@ export default function Header({
               </ul>
             </div>
 
-            <Link to="/login" className="btn btn-primary rounded-full px-6 hidden lg:flex">
+            <a href={loginHref} className="btn btn-primary rounded-full px-6 hidden lg:flex">
               {language === 'bg' ? 'Вход' : 'Login'}
-            </Link>
+            </a>
 
             <div className="lg:hidden">
               <button
@@ -195,11 +201,12 @@ export default function Header({
               )
             })}
           </div>
-          <Link to="/login" className="btn btn-primary btn-block rounded-full mt-4" onClick={() => setMobileMenuOpen(false)}>
+          <a href={loginHref} className="btn btn-primary btn-block rounded-full mt-4" onClick={() => setMobileMenuOpen(false)}>
             {language === 'bg' ? 'Вход' : 'Login'}
-          </Link>
+          </a>
         </nav>
       </div>
     </header>
   )
 }
+

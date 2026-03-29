@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import {and, desc, eq} from "drizzle-orm";
+import {and, desc, eq, or} from "drizzle-orm";
 import {v4 as uuid4} from "uuid";
 import {refreshTokens, sessions, users} from "../../../drizzle/schemas/index.js"; // Modular schema exports
 import {db} from "../../config/drizzle.js"; // Your Drizzle Proxy client
@@ -11,33 +11,58 @@ import {sendWelcomeEmailReact} from "../../utils/email.js";
 import {compare, hash} from "../../utils/password.js";
 import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types.js";
 
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 export class AuthService {
-    static async login(username: string, password: string, ip: string | undefined) {
+    static async login(identifier: string, password: string, ip: string | undefined) {
         // Relational query to include sessions
         const user = await db.query.users.findFirst({
-            where: eq(users.username, username),
+            where: or(eq(users.username, identifier), eq(users.email, identifier)),
             with: {sessions: true}
         });
 
         if (!user) return null;
 
-        const {id, role, email} = user;
+        const {id, role, email, username} = user;
 
-        const isLoggedIn = await db.query.sessions.findFirst({
+        const ok = await compare(password, user.password);
+        return ok ? {id, username, role, email} : null;
+    }
+
+    static async revokeActiveSessionsForIp(userId: string, ip: string | undefined) {
+        const activeSessions = await db.query.sessions.findMany({
             where: and(
-                eq(sessions.userId, user.id),
+                eq(sessions.userId, userId),
                 eq(sessions.ip, ip || ""),
                 eq(sessions.revoked, false)
             ),
             orderBy: [desc(sessions.createdAt)]
         });
 
-        if (isLoggedIn && !isLoggedIn.revoked) {
-            return undefined;
-        }
+        await Promise.all(activeSessions.map(async (session) => {
+            const refreshTokenRecords = await db.query.refreshTokens.findMany({
+                where: eq(refreshTokens.sessionId, session.id)
+            });
 
-        const ok = await compare(password, user.password);
-        return ok ? {id, username, role, email} : null;
+            await Promise.all(refreshTokenRecords.map((record) =>
+                db.update(refreshTokens)
+                    .set({
+                        revoked: true,
+                        signature: this.signState(record.id, true, session.id, "refresh")
+                    })
+                    .where(eq(refreshTokens.id, record.id))
+            ));
+
+            await db.update(sessions)
+                .set({
+                    revoked: true,
+                    signature: this.signState(session.id, true, userId, "session")
+                })
+                .where(eq(sessions.id, session.id));
+
+            await redis.set(REDIS_KEYS.SESSION_REVOKE(session.id), "true", "EX", 960);
+        }));
     }
 
     static async createRefreshToken(sessionId: string) {
@@ -51,7 +76,8 @@ export class AuthService {
             id: tokenId,
             tokenHash: hashedValue,
             sessionId: sessionId,
-            signature: signature
+            signature: signature,
+            expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS)
         });
 
         return {tokenId, tokenValue};
@@ -78,6 +104,26 @@ export class AuthService {
         if (!record || !record.session || !record.session.user) return null;
         const { session, ...token } = record;
         const user = session.user;
+        const now = new Date();
+
+        if (token.expiresAt <= now || session.expiresAt <= now) {
+            await db.update(refreshTokens)
+                .set({
+                    revoked: true,
+                    signature: this.signState(token.id, true, session.id, "refresh")
+                })
+                .where(eq(refreshTokens.id, token.id));
+
+            await db.update(sessions)
+                .set({
+                    revoked: true,
+                    signature: this.signState(session.id, true, session.userId, "session")
+                })
+                .where(eq(sessions.id, session.id));
+
+            await redis.set(REDIS_KEYS.SESSION_REVOKE(session.id), "true", "EX", 960);
+            return null;
+        }
 
         // Fetch sibling tokens
         const allSessionTokens = await db.query.refreshTokens.findMany({
@@ -124,7 +170,8 @@ export class AuthService {
             userId: userId,
             deviceName: userAgent,
             ip: ip,
-            signature: signature
+            signature: signature,
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS)
         });
 
         return sessionId;
@@ -164,6 +211,31 @@ export class AuthService {
             .where(eq(sessions.id, sessionId));
 
         await redis.set(REDIS_KEYS.SESSION_REVOKE(sessionId), "true", "EX", 960);
+    }
+
+    static async logoutByRefreshToken(refreshTokenCookie: string) {
+        const [tokenId, tokenValue] = refreshTokenCookie.split(":");
+        if (!tokenId || !tokenValue) return;
+
+        const record = await db.query.refreshTokens.findFirst({
+            where: eq(refreshTokens.id, tokenId),
+            with: {
+                session: {
+                    with: {
+                        user: {
+                            columns: {
+                                id: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!record || !record.session || !record.session.user) return;
+        if (this.generateHash(tokenValue, tokenId) !== record.tokenHash) return;
+
+        await this.logout(record.session.id, record.session.user.id);
     }
 
     static async sendEmail(email: string, username: string) {

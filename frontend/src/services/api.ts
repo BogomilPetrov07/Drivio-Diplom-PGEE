@@ -1,7 +1,19 @@
 import axios from 'axios'
+import type { InternalAxiosRequestConfig } from 'axios'
+import { getAppUrl } from '../utils/app-domain'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+    _retry?: boolean
+}
 
+const API_BASE_URL = (() => {
+    if (typeof window !== 'undefined' && window.location.hostname.endsWith('localhost')) {
+        return '/api'
+    }
+    return import.meta.env.VITE_API_URL ?? '/api'
+})()
+let isRefreshing = false
+let refreshPromise: Promise<unknown> | null = null
 
 const api = axios.create({
     baseURL: `${API_BASE_URL}`,
@@ -11,26 +23,38 @@ const api = axios.create({
     }
 });
 
-api.get('/auth/refresh').then(response => {
-    console.log(response);
-})
-
 // Response interceptor for session management
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        // If the cookie is expired or invalid, the server returns 401
-        if (error.response?.status === 401) {
-            // Logic to redirect to log in or update global auth state
-            const response = await api.get('/auth/refresh');
-            if (response.status === 401) {
-                window.location.href = '/login';
+        const originalRequest = error.config as RetriableRequestConfig | undefined
+
+        if (error.response?.status === 401 && originalRequest && originalRequest.url !== '/auth/refresh' && !originalRequest._retry) {
+            originalRequest._retry = true
+
+            if (!isRefreshing) {
+                isRefreshing = true
+                refreshPromise = api.get('/auth/refresh')
+                    .finally(() => {
+                        isRefreshing = false
+                        refreshPromise = null
+                    })
+            }
+
+            try {
+                await refreshPromise
+                return api(originalRequest)
+            } catch {
+                localStorage.removeItem('drivio-auth')
+                if (window.location.pathname.startsWith('/dashboard')) {
+                    window.location.assign(getAppUrl('/login'))
+                }
+                return Promise.reject(error)
             }
         }
 
-        // If the user with this cookie hasn't the right privileges, the server returns 403
         if (error.response?.status === 403) {
-            window.location.href = '/unauthorized';
+            window.location.href = getAppUrl('/unauthorized');
         }
         return Promise.reject(error);
     }

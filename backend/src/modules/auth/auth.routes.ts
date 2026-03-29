@@ -11,10 +11,11 @@ router.use(errorMiddleware);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
 router.get("/refresh", AuthController.refreshAccessToken);
+router.get("/logout", AuthController.logout);
 router.use(authenticateMiddleware);
+router.get("/hello", AuthController.hello);
 router.post("/sendEmail", AuthController.sendEmail);
 router.post("/rotate", authorizeMiddleware(["SUPERADMIN"]), AuthController.rotatePepper);
 router.get("/auditLog", authorizeMiddleware(["SUPERADMIN"]), AuthController.auditLog)
-router.get("/logout", AuthController.logout);
 
 export default router;

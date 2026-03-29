@@ -1,11 +1,19 @@
-import { Link } from 'react-router-dom'
+import { type SyntheticEvent, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Language } from '../../../i18n/public/index.js'
+import { useAuth } from '../hooks.js'
+import { getRoleDashboardPath } from '../types.js'
 
 interface LoginPageProps {
   language: Language
 }
 
 export default function LoginPage({ language }: LoginPageProps) {
+  const navigate = useNavigate()
+  const { login, loading, error, clearError, role, isAuthenticated } = useAuth()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+
   const text = language === 'bg'
     ? {
         title: 'Вход в Drivio',
@@ -28,6 +36,22 @@ export default function LoginPage({ language }: LoginPageProps) {
         back: 'Back to landing page',
       }
 
+  useEffect(() => {
+    if (isAuthenticated && role) {
+      navigate(getRoleDashboardPath(role), { replace: true })
+    }
+  }, [isAuthenticated, role, navigate])
+
+  const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    clearError()
+    try {
+      await login({ username, password })
+    } catch {
+      // Error state is already handled in the auth store.
+    }
+  }
+
   return (
     <main className="min-h-screen bg-base-200 flex items-center justify-center px-4 py-24">
       <div className="w-full max-w-md card bg-base-100 shadow-xl border border-base-300">
@@ -35,23 +59,45 @@ export default function LoginPage({ language }: LoginPageProps) {
           <h1 className="text-heading text-base-content">{text.title}</h1>
           <p className="text-helper text-base-content/70 mb-3">{text.subtitle}</p>
 
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
             <div className="form-control">
               <label className="label">
                 <span className="label-text text-body">{text.userLabel}</span>
               </label>
-              <input type="text" className="input input-bordered w-full" placeholder={text.userPlaceholder} autoComplete="username" />
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                placeholder={text.userPlaceholder}
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                required
+              />
             </div>
 
             <div className="form-control">
               <label className="label">
                 <span className="label-text text-body">{text.passLabel}</span>
               </label>
-              <input type="password" className="input input-bordered w-full" placeholder={text.passPlaceholder} autoComplete="current-password" />
+              <input
+                type="password"
+                className="input input-bordered w-full"
+                placeholder={text.passPlaceholder}
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
             </div>
 
-            <button type="submit" className="btn btn-primary w-full">
-              {text.submit}
+            {error ? (
+              <p className="text-sm text-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+              {loading ? '...' : text.submit}
             </button>
           </form>
 

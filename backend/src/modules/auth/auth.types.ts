@@ -3,6 +3,13 @@ export interface LoginDTO {
     password: string;
 }
 
+export interface AuthUserDTO {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+}
+
 export interface RegisterDTO extends LoginDTO {
     role: string;
     email: string;

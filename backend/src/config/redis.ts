@@ -36,6 +36,12 @@ const initRedis = (): Redis => {
     return internalRedis;
 };
 
+export const initializeRedis = async () => {
+    const instance = initRedis();
+    await instance.ping();
+    console.log("✅ Redis ping successful");
+};
+
 export const redis = new Proxy({} as Redis, {
     get: (_target, prop) => {
         const instance = initRedis();

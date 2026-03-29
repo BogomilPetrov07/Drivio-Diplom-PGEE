@@ -1,7 +1,15 @@
 ﻿import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
+import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom'
 import type { Language } from './i18n/public'
 import Header from './modules/public/components/Header'
+import AuthnGuard from './modules/auth/components/AuthnGuard'
+import AuthzGuard from './modules/auth/components/AuthzGuard'
+import DashboardHomeRedirect from './modules/dashboard/pages/DashboardHomeRedirect'
+import InstructorDashboardPage from './modules/dashboard/pages/InstructorDashboardPage'
+import SchoolAdminDashboardPage from './modules/dashboard/pages/SchoolAdminDashboardPage'
+import StudentDashboardPage from './modules/dashboard/pages/StudentDashboardPage'
+import SuperAdminDashboardPage from './modules/dashboard/pages/SuperAdminDashboardPage'
+import UnauthorizedPage from './modules/dashboard/pages/UnauthorizedPage'
 import ScrollToTop from './modules/public/components/ScrollToTop'
 import LandingPage from './modules/public/pages/LandingPage'
 import LoginPage from './modules/auth/pages/LoginPage.js'
@@ -9,6 +17,7 @@ import PrivacyPage from './modules/public/pages/PrivacyPage'
 import SchoolsPage from './modules/public/pages/SchoolsPage'
 import StudentsPage from './modules/public/pages/StudentsPage'
 import TermsPage from './modules/public/pages/TermsPage'
+import { ensureCorrectDomainForPath } from './utils/app-domain'
 
 type Theme = 'drivio-pro-light' | 'drivio-pro-dark'
 type ThemePreference = 'system' | 'light' | 'dark'
@@ -48,6 +57,16 @@ function getInitialLanguage(): Language {
   return 'bg'
 }
 
+function DomainGuard() {
+  const location = useLocation()
+
+  useEffect(() => {
+    ensureCorrectDomainForPath(location.pathname)
+  }, [location.pathname])
+
+  return null
+}
+
 export default function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>(getInitialThemePreference)
   const [resolvedTheme, setResolvedTheme] = useState<Theme>('drivio-pro-light')
@@ -84,6 +103,7 @@ export default function App() {
 
   return (
     <Router>
+      <DomainGuard />
       <ScrollToTop />
       <div className="min-h-screen bg-base-100">
         <Header
@@ -100,6 +120,27 @@ export default function App() {
           <Route path="/login" element={<LoginPage language={language} />} />
           <Route path="/privacy" element={<PrivacyPage language={language} theme={resolvedTheme} />} />
           <Route path="/terms" element={<TermsPage language={language} theme={resolvedTheme} />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+          <Route element={<AuthnGuard />}>
+            <Route path="/dashboard" element={<DashboardHomeRedirect />} />
+
+            <Route element={<AuthzGuard allowedRoles={['SUPERADMIN']} />}>
+              <Route path="/dashboard/superadmin" element={<SuperAdminDashboardPage />} />
+            </Route>
+
+            <Route element={<AuthzGuard allowedRoles={['SCHOOLADMIN']} />}>
+              <Route path="/dashboard/school-admin" element={<SchoolAdminDashboardPage />} />
+            </Route>
+
+            <Route element={<AuthzGuard allowedRoles={['INSTRUCTOR']} />}>
+              <Route path="/dashboard/instructor" element={<InstructorDashboardPage />} />
+            </Route>
+
+            <Route element={<AuthzGuard allowedRoles={['STUDENT']} />}>
+              <Route path="/dashboard/student" element={<StudentDashboardPage />} />
+            </Route>
+          </Route>
         </Routes>
       </div>
     </Router>

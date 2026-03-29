@@ -15,7 +15,14 @@ export default defineConfig(({mode}) => {
     return {
         server: {
             host: true,
-            allowedHosts: hosts
+            allowedHosts: hosts,
+            proxy: {
+                '/api': {
+                    target: 'http://api.localhost',
+                    changeOrigin: true,
+                    secure: false
+                }
+            }
         },
         plugins: [
             react(),
@@ -23,7 +30,7 @@ export default defineConfig(({mode}) => {
             VitePWA({
                 registerType: 'autoUpdate',
                 devOptions: {
-                    enabled: true,
+                    enabled: false,
                 },
                 manifest: {
                     id: '/',

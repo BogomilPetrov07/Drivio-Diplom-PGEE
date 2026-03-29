@@ -2,25 +2,39 @@ import {Request, Response} from "express";
 import {env} from "../../config/env.js";
 import {signAccessToken} from "../../utils/jwt.js";
 import {AuthService} from "./auth.service.js";
-import {LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
+import {AuthUserDTO, LoginDTO, RegisterDTO, RotateDTO} from "./auth.types.js";
+
+const ACCESS_COOKIE_TTL_MS = 15 * 60 * 1000;
+const REFRESH_COOKIE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class AuthController {
     static login = async (req: Request, res: Response) => {
         try {
             const data: LoginDTO = req.body;
             const user = await AuthService.login(data.username, data.password, req.ip);
-            if (user === undefined) return res.status(409).json("User already logged in");
             if (user === null) return res.sendStatus(404);
+
+            await AuthService.revokeActiveSessionsForIp(user.id, req.ip);
 
             const sessionId = await AuthService.createSession(user.id, req.headers["user-agent"] as string, req.ip as string);
             const refreshToken = await AuthService.createRefreshToken(sessionId);
-            const accessToken = signAccessToken({userId: user.id, role: user.role, sessionId: sessionId});
+            this.setAuthCookies(res, {
+                userId: user.id,
+                role: user.role,
+                sessionId: sessionId
+            }, {
+                tokenId: refreshToken.tokenId,
+                tokenValue: refreshToken.tokenValue
+            });
 
-            res.cookie("accessToken", accessToken, this.getCookieOptions(15 * 60 * 1000));
+            const authUser: AuthUserDTO = {
+                id: user.id,
+                username: user.username,
+                email: user.email ?? null,
+                role: user.role
+            };
 
-            res.cookie("refreshToken", `${refreshToken.tokenId}:${refreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
-
-            res.json({username: user.username});
+            res.json({user: authUser});
         } catch (err) {
             console.log(err);
             res.sendStatus(500);
@@ -28,10 +42,16 @@ export class AuthController {
     };
 
     static logout = async (req: Request, res: Response) => {
-        await AuthService.logout(req.user!.sessionId, req.user!.id);
+        if (req.user) {
+            await AuthService.logout(req.user.sessionId, req.user.id);
+        } else {
+            const refreshTokenCookie = req.cookies["refreshToken"];
+            if (refreshTokenCookie) {
+                await AuthService.logoutByRefreshToken(refreshTokenCookie);
+            }
+        }
 
-        res.clearCookie("accessToken");
-        res.clearCookie("refreshToken");
+        this.clearAuthCookies(res);
         res.status(204).json({message: "User logged out"});
     };
 
@@ -56,20 +76,19 @@ export class AuthController {
 
         // Construct new refresh token from old one
         const [tokenId, refreshTokenValue] = refreshTokenCookie.split(":");
+        if (!tokenId || !refreshTokenValue) return res.sendStatus(401);
         const result = await AuthService.rotateRefreshToken(tokenId, refreshTokenValue);
 
         if (!result) return res.sendStatus(401);
 
-        res.cookie("refreshToken", `${result.refreshToken.tokenId}:${result.refreshToken.tokenValue}`, this.getCookieOptions(7 * 24 * 60 * 60 * 1000));
-
-        // Generate a new access token based on the old one
-        const newAccessToken = signAccessToken({
+        this.setAuthCookies(res, {
             userId: result.user.id,
             role: result.user.role,
             sessionId: result.sessionId
+        }, {
+            tokenId: result.refreshToken.tokenId,
+            tokenValue: result.refreshToken.tokenValue
         });
-
-        res.cookie("accessToken", newAccessToken, this.getCookieOptions(15 * 60 * 1000));
 
         res.json({message: "Access token refreshed"});
     }
@@ -106,16 +125,25 @@ export class AuthController {
         }
     }
 
+    static hello = async (req: Request, res: Response) => {
+        if (!req.user) return res.sendStatus(401);
+
+        return res.status(200).json({
+            message: `Hello, ${req.user.role}! Your protected request succeeded.`
+        });
+    }
+
     private static getCookieOptions(maxAge: number) {
         const baseOptions = {
             httpOnly: true,
-            secure: env.NODE_ENV === "prod" || env.NODE_ENV === "staging",
+            secure: this.shouldUseSecureCookies(),
             sameSite: "lax" as const,
+            path: "/",
             maxAge
         };
 
-        // Only attach domain if explicitly defined
-        if (env.COOKIE_DOMAIN !== "empty") {
+        // Avoid forcing cookie domain in localhost/dev because browsers may reject it.
+        if (this.shouldAttachCookieDomain()) {
             return {
                 ...baseOptions,
                 domain: env.COOKIE_DOMAIN
@@ -123,5 +151,61 @@ export class AuthController {
         }
 
         return baseOptions;
+    }
+
+    private static setAuthCookies(
+        res: Response,
+        payload: { userId: string; role: string; sessionId: string },
+        refreshToken: { tokenId: string; tokenValue: string }
+    ) {
+        const accessToken = signAccessToken(payload);
+        res.cookie("accessToken", accessToken, this.getCookieOptions(ACCESS_COOKIE_TTL_MS));
+        res.cookie(
+            "refreshToken",
+            `${refreshToken.tokenId}:${refreshToken.tokenValue}`,
+            this.getCookieOptions(REFRESH_COOKIE_TTL_MS)
+        );
+    }
+
+    private static getClearCookieOptions() {
+        const baseOptions = {
+            path: "/",
+            sameSite: "lax" as const,
+            secure: this.shouldUseSecureCookies()
+        };
+
+        if (this.shouldAttachCookieDomain()) {
+            return {
+                ...baseOptions,
+                domain: env.COOKIE_DOMAIN
+            };
+        }
+
+        return baseOptions;
+    }
+
+    private static clearAuthCookies(res: Response) {
+        res.clearCookie("accessToken", this.getClearCookieOptions());
+        res.clearCookie("refreshToken", this.getClearCookieOptions());
+    }
+
+    private static shouldAttachCookieDomain() {
+        if (env.COOKIE_DOMAIN === "empty") return false;
+        const normalized = env.COOKIE_DOMAIN.toLowerCase();
+        if (normalized.includes("localhost")) return false;
+        return true;
+    }
+
+    private static shouldUseSecureCookies() {
+        if (env.NODE_ENV !== "prod" && env.NODE_ENV !== "staging") return false;
+
+        const cookieDomain = env.COOKIE_DOMAIN.toLowerCase();
+        const frontendUrls = env.FRONTEND_URL.toLowerCase();
+
+        const hasLocalhostTarget =
+            cookieDomain.includes("localhost") ||
+            frontendUrls.includes("localhost");
+
+        return !hasLocalhostTarget;
     }
 }

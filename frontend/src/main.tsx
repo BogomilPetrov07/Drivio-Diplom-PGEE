@@ -6,7 +6,9 @@ import { registerSW } from 'virtual:pwa-register'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 
-registerSW({ immediate: true })
+if (import.meta.env.PROD) {
+    registerSW({ immediate: true })
+}
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
