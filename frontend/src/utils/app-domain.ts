@@ -1,3 +1,5 @@
+const AUTH_LABEL = 'app'
+
 function isAuthPath(pathname: string) {
   return (
     pathname === '/login' ||
@@ -7,18 +9,33 @@ function isAuthPath(pathname: string) {
   )
 }
 
+function isLocalhostHost(hostname: string) {
+  return hostname === 'localhost' || hostname.endsWith('.localhost')
+}
+
 export function getAppHostname(currentHostname: string) {
-  if (currentHostname === 'localhost') return 'app.localhost'
-  if (currentHostname === 'app.localhost') return currentHostname
-  if (currentHostname.endsWith('.localhost')) return 'app.localhost'
-  if (currentHostname.startsWith('app.')) return currentHostname
-  return `app.${currentHostname}`
+  const labels = currentHostname.split('.')
+  if (labels.includes(AUTH_LABEL)) return currentHostname
+
+  if (isLocalhostHost(currentHostname)) {
+    if (currentHostname === 'localhost') return `${AUTH_LABEL}.localhost`
+    labels.splice(labels.length - 1, 0, AUTH_LABEL)
+    return labels.join('.')
+  }
+
+  // Insert auth label before the registrable domain (last 2 labels).
+  labels.splice(Math.max(labels.length - 2, 0), 0, AUTH_LABEL)
+  return labels.join('.')
 }
 
 export function getBaseHostname(currentHostname: string) {
-  if (currentHostname === 'app.localhost') return 'localhost'
-  if (currentHostname.startsWith('app.')) return currentHostname.slice(4)
-  return currentHostname
+  const labels = currentHostname.split('.')
+  const authIdx = labels.indexOf(AUTH_LABEL)
+  if (authIdx !== -1) labels.splice(authIdx, 1)
+
+  const baseHostname = labels.join('.')
+  if (baseHostname === '') return currentHostname
+  return baseHostname
 }
 
 export function getAppUrl(path: string) {
