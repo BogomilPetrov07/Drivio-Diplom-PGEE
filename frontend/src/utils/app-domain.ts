@@ -1,6 +1,6 @@
 const AUTH_LABEL = 'app'
 
-function isAuthPath(pathname: string) {
+export function isAuthPath(pathname: string) {
   return (
     pathname === '/login' ||
     pathname.startsWith('/register') ||
@@ -38,11 +38,13 @@ export function getBaseHostname(currentHostname: string) {
   return baseHostname
 }
 
-export function getAppUrl(path: string) {
+export function getDomainAwareUrl(path: string) {
   if (typeof window === 'undefined') return path
 
   const targetUrl = new URL(window.location.href)
-  targetUrl.hostname = getAppHostname(window.location.hostname)
+  targetUrl.hostname = isAuthPath(path)
+    ? getAppHostname(window.location.hostname)
+    : getBaseHostname(window.location.hostname)
   targetUrl.pathname = path
   targetUrl.search = ''
   targetUrl.hash = ''

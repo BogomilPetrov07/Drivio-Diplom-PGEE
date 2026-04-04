@@ -3,7 +3,7 @@ import { Menu, X, Sun, Moon, Globe, Monitor } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import logoLight from '../../../assets/logo_light.svg'
 import logoDark from '../../../assets/logo_dark.svg'
-import { getAppUrl } from '../../../utils/app-domain'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 
 interface HeaderProps {
   themePreference: 'system' | 'light' | 'dark'
@@ -76,7 +76,7 @@ export default function Header({
     { id: 'students', label: language === 'bg' ? 'За курсисти' : 'For Students', href: '/students' },
     { id: 'schools', label: language === 'bg' ? 'За автошколи' : 'For Driving Schools', href: '/schools' },
   ]
-  const loginHref = getAppUrl('/login')
+  const loginHref = getDomainAwareUrl('/login')
 
   return (
     <header
