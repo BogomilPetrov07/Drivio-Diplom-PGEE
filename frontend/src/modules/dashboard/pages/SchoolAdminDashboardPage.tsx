@@ -1,17 +1,36 @@
+﻿import { getDashboardTranslations } from '../../../i18n/dashboard'
+import type { Language } from '../../../i18n/language'
 import DashboardShell from '../components/DashboardShell.js'
 
-export default function SchoolAdminDashboardPage() {
+interface SchoolAdminDashboardPageProps {
+  language: Language
+  setLanguage: (language: Language) => void
+  themePreference: 'system' | 'light' | 'dark'
+  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  setThemePreference: (theme: 'system' | 'light' | 'dark') => void
+}
+
+export default function SchoolAdminDashboardPage({
+  language,
+  setLanguage,
+  themePreference,
+  resolvedTheme,
+  setThemePreference,
+}: SchoolAdminDashboardPageProps) {
+  const t = getDashboardTranslations(language).roles.schoolAdmin
+
   return (
     <DashboardShell
-      title="School Admin Dashboard"
-      subtitle="Operational dashboard for your driving school."
-      items={[
-        'Approve instructor accounts and assign classes',
-        'Review lesson schedules and student allocation',
-        'Manage school profile, locations, and fleet',
-        'Track enrollment and completion metrics',
-      ]}
+      language={language}
+      setLanguage={setLanguage}
+      themePreference={themePreference}
+      resolvedTheme={resolvedTheme}
+      setThemePreference={setThemePreference}
+      title={t.title}
+      subtitle={t.subtitle}
+      items={t.items}
     />
   )
 }
+
 

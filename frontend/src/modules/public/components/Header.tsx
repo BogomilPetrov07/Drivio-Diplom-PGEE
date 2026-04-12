@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Menu, X, Sun, Moon, Globe, Monitor } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import logoLight from '../../../assets/logo_light.svg'
 import logoDark from '../../../assets/logo_dark.svg'
+import { getPublicTranslations } from '../../../i18n/public'
 import { getDomainAwareUrl } from '../../../utils/app-domain'
 
 interface HeaderProps {
@@ -30,6 +31,10 @@ export default function Header({
   const themeRef = useRef<HTMLDivElement | null>(null)
   const mobileRef = useRef<HTMLDivElement | null>(null)
   const mobileButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const t = getPublicTranslations(language)
+  const header = t.header
+  const common = t.common
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -72,9 +77,9 @@ export default function Header({
   }, [location.pathname])
 
   const navLinks = [
-    { id: 'home', label: language === 'bg' ? 'Начало' : 'Home', href: '/' },
-    { id: 'students', label: language === 'bg' ? 'За курсисти' : 'For Students', href: '/students' },
-    { id: 'schools', label: language === 'bg' ? 'За автошколи' : 'For Driving Schools', href: '/schools' },
+    { id: 'home', label: header.nav.home, href: '/' },
+    { id: 'students', label: header.nav.students, href: '/students' },
+    { id: 'schools', label: header.nav.schools, href: '/schools' },
   ]
   const loginHref = getDomainAwareUrl('/login')
 
@@ -121,7 +126,7 @@ export default function Header({
               <button
                 type="button"
                 className="btn btn-ghost btn-circle btn-sm"
-                aria-label="Change language"
+                aria-label={common.changeLanguage}
                 onClick={() => {
                   setLanguageOpen((prev) => !prev)
                   setThemeOpen(false)
@@ -139,7 +144,7 @@ export default function Header({
               <button
                 type="button"
                 className="btn btn-ghost btn-circle btn-sm"
-                aria-label="Change theme"
+                aria-label={common.changeTheme}
                 onClick={() => {
                   setThemeOpen((prev) => !prev)
                   setLanguageOpen(false)
@@ -148,14 +153,14 @@ export default function Header({
                 {themePreference === 'system' ? <Monitor className="w-5 h-5" /> : resolvedTheme === 'drivio-pro-dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
               <ul className="dropdown-content menu bg-base-100 rounded-xl shadow-xl w-44 p-2 mt-2 border border-base-content/10">
-                <li><button onClick={() => { setThemePreference('system'); setThemeOpen(false) }} className={themePreference === 'system' ? 'active' : ''}><Monitor className="w-4 h-4" /> System</button></li>
-                <li><button onClick={() => { setThemePreference('light'); setThemeOpen(false) }} className={themePreference === 'light' ? 'active' : ''}><Sun className="w-4 h-4" /> Light</button></li>
-                <li><button onClick={() => { setThemePreference('dark'); setThemeOpen(false) }} className={themePreference === 'dark' ? 'active' : ''}><Moon className="w-4 h-4" /> Dark</button></li>
+                <li><button onClick={() => { setThemePreference('system'); setThemeOpen(false) }} className={themePreference === 'system' ? 'active' : ''}><Monitor className="w-4 h-4" /> {common.themeSystem}</button></li>
+                <li><button onClick={() => { setThemePreference('light'); setThemeOpen(false) }} className={themePreference === 'light' ? 'active' : ''}><Sun className="w-4 h-4" /> {common.themeLight}</button></li>
+                <li><button onClick={() => { setThemePreference('dark'); setThemeOpen(false) }} className={themePreference === 'dark' ? 'active' : ''}><Moon className="w-4 h-4" /> {common.themeDark}</button></li>
               </ul>
             </div>
 
             <a href={loginHref} className="btn btn-primary rounded-full px-6 hidden lg:flex">
-              {language === 'bg' ? 'Вход' : 'Login'}
+              {header.login}
             </a>
 
             <div className="lg:hidden">
@@ -167,7 +172,7 @@ export default function Header({
                   event.stopPropagation()
                   setMobileMenuOpen((prev) => !prev)
                 }}
-                aria-label="Toggle menu"
+                aria-label={header.toggleMenu}
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
@@ -202,11 +207,10 @@ export default function Header({
             })}
           </div>
           <a href={loginHref} className="btn btn-primary btn-block rounded-full mt-4" onClick={() => setMobileMenuOpen(false)}>
-            {language === 'bg' ? 'Вход' : 'Login'}
+            {header.login}
           </a>
         </nav>
       </div>
     </header>
   )
 }
-

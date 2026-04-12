@@ -1,17 +1,36 @@
+﻿import { getDashboardTranslations } from '../../../i18n/dashboard'
+import type { Language } from '../../../i18n/language'
 import DashboardShell from '../components/DashboardShell.js'
 
-export default function StudentDashboardPage() {
+interface StudentDashboardPageProps {
+  language: Language
+  setLanguage: (language: Language) => void
+  themePreference: 'system' | 'light' | 'dark'
+  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  setThemePreference: (theme: 'system' | 'light' | 'dark') => void
+}
+
+export default function StudentDashboardPage({
+  language,
+  setLanguage,
+  themePreference,
+  resolvedTheme,
+  setThemePreference,
+}: StudentDashboardPageProps) {
+  const t = getDashboardTranslations(language).roles.student
+
   return (
     <DashboardShell
-      title="Student Dashboard"
-      subtitle="Your lessons, progress, and driving journey."
-      items={[
-        'See upcoming lessons and instructor assignments',
-        'Track completed modules and remaining milestones',
-        'Review instructor feedback and next practice goals',
-        'Manage reminders and notifications',
-      ]}
+      language={language}
+      setLanguage={setLanguage}
+      themePreference={themePreference}
+      resolvedTheme={resolvedTheme}
+      setThemePreference={setThemePreference}
+      title={t.title}
+      subtitle={t.subtitle}
+      items={t.items}
     />
   )
 }
+
 

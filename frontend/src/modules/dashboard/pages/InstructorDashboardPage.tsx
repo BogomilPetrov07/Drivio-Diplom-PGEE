@@ -1,17 +1,36 @@
+﻿import { getDashboardTranslations } from '../../../i18n/dashboard'
+import type { Language } from '../../../i18n/language'
 import DashboardShell from '../components/DashboardShell.js'
 
-export default function InstructorDashboardPage() {
+interface InstructorDashboardPageProps {
+  language: Language
+  setLanguage: (language: Language) => void
+  themePreference: 'system' | 'light' | 'dark'
+  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  setThemePreference: (theme: 'system' | 'light' | 'dark') => void
+}
+
+export default function InstructorDashboardPage({
+  language,
+  setLanguage,
+  themePreference,
+  resolvedTheme,
+  setThemePreference,
+}: InstructorDashboardPageProps) {
+  const t = getDashboardTranslations(language).roles.instructor
+
   return (
     <DashboardShell
-      title="Instructor Dashboard"
-      subtitle="Teaching workflow and student progress tools."
-      items={[
-        'View today lessons and route plans',
-        'Update student progress after each session',
-        'Submit attendance and practical exam readiness',
-        'Coordinate schedule adjustments with school admin',
-      ]}
+      language={language}
+      setLanguage={setLanguage}
+      themePreference={themePreference}
+      resolvedTheme={resolvedTheme}
+      setThemePreference={setThemePreference}
+      title={t.title}
+      subtitle={t.subtitle}
+      items={t.items}
     />
   )
 }
+
 

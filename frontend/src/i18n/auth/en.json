@@ -1,0 +1,30 @@
+{
+  "login": {
+    "title": "Sign in to Drivio",
+    "subtitle": "Use your account credentials to continue",
+    "userLabel": "Username or email",
+    "userPlaceholder": "name@example.com",
+    "passLabel": "Password",
+    "passPlaceholder": "********",
+    "submit": "Sign in",
+    "back": "Back to landing page"
+  },
+  "register": {
+    "title": "Driving School Registration",
+    "subtitle": "Registration flow for driving schools will continue here."
+  },
+  "completeSetup": {
+    "title": "Complete Driving School Setup",
+    "subtitle": "Set your school admin account and confirm school details.",
+    "schoolNameLabel": "Driving school name",
+    "schoolAddressLabel": "School address",
+    "schoolPhoneLabel": "School phone",
+    "usernameLabel": "Admin username",
+    "passwordLabel": "Admin password",
+    "submit": "Complete setup",
+    "submitting": "Completing...",
+    "invalidToken": "Invalid or missing setup token.",
+    "success": "Setup completed. You can now login as school admin.",
+    "error": "Could not complete setup. Token may be expired or invalid."
+  }
+}

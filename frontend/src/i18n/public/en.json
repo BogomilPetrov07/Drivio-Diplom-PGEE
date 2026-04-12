@@ -4,7 +4,11 @@
     "heading1": "Manage your",
     "heading2": "path to success",
     "description": "Drivio connects students, instructors, and driving schools in one intelligent platform. Book lessons, track your progress, and get your driving license easier than ever.",
-    "features": ["Easy booking", "For all roles", "Secure platform"]
+    "features": [
+      "Easy booking",
+      "For all roles",
+      "Secure platform"
+    ]
   },
   "features": {
     "heading": "Everything you need",
@@ -92,7 +96,20 @@
         "title": "24/7 support",
         "description": "Our team is always available to help."
       }
-    ]
+    ],
+    "joinForm": {
+      "title": "Request to Join Drivio",
+      "description": "Submit your school and contact details. Superadmin will review and approve your request.",
+      "schoolNameLabel": "Driving school name",
+      "schoolAddressLabel": "School address",
+      "schoolPhoneLabel": "School phone",
+      "contactNameLabel": "Contact person name",
+      "contactEmailLabel": "Contact email",
+      "submit": "Submit request",
+      "submitting": "Submitting...",
+      "success": "Your request was sent successfully.",
+      "error": "Could not submit request. Please try again."
+    }
   },
   "footer": {
     "summary": "Digitalizing the future of driving courses in Bulgaria through innovative technology and automation.",
@@ -103,8 +120,14 @@
       "contact": "Contact Us"
     },
     "utilityLinks": [
-      { "name": "Privacy Policy", "href": "/privacy" },
-      { "name": "Terms of Use", "href": "/terms" }
+      {
+        "name": "Privacy Policy",
+        "href": "/privacy"
+      },
+      {
+        "name": "Terms of Use",
+        "href": "/terms"
+      }
     ]
   },
   "cookie": {
@@ -112,5 +135,21 @@
     "description": "We use cookies to enhance your experience and analyze our traffic. By clicking \"Accept\", you consent to our use of cookies.",
     "accept": "Accept all",
     "settings": "Settings"
+  },
+  "common": {
+    "changeLanguage": "Change language",
+    "changeTheme": "Change theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
+  },
+  "header": {
+    "login": "Login",
+    "toggleMenu": "Toggle menu",
+    "nav": {
+      "home": "Home",
+      "students": "For Students",
+      "schools": "For Driving Schools"
+    }
   }
 }

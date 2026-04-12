@@ -1,6 +1,7 @@
-import { type SyntheticEvent, useEffect, useState } from 'react'
+﻿import { type SyntheticEvent, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import type { Language } from '../../../i18n/public/index.js'
+import { getAuthTranslations } from '../../../i18n/auth'
+import type { Language } from '../../../i18n/language'
 import { useAuth } from '../hooks.js'
 import { getRoleDashboardPath } from '../types.js'
 
@@ -13,28 +14,7 @@ export default function LoginPage({ language }: LoginPageProps) {
   const { login, loading, error, clearError, role, isAuthenticated } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-
-  const text = language === 'bg'
-    ? {
-        title: 'Вход в Drivio',
-        subtitle: 'Влезте с вашия профил, за да продължите',
-        userLabel: 'Потребителско име или имейл',
-        userPlaceholder: 'name@example.com',
-        passLabel: 'Парола',
-        passPlaceholder: '••••••••',
-        submit: 'Вход',
-        back: 'Назад към началната страница',
-      }
-    : {
-        title: 'Sign in to Drivio',
-        subtitle: 'Use your account credentials to continue',
-        userLabel: 'Username or email',
-        userPlaceholder: 'name@example.com',
-        passLabel: 'Password',
-        passPlaceholder: '••••••••',
-        submit: 'Sign in',
-        back: 'Back to landing page',
-      }
+  const text = getAuthTranslations(language).login
 
   useEffect(() => {
     if (isAuthenticated && role) {
@@ -109,3 +89,5 @@ export default function LoginPage({ language }: LoginPageProps) {
     </main>
   )
 }
+
+

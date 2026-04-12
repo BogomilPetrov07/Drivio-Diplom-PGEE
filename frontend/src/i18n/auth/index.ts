@@ -4,8 +4,7 @@ import type { Language } from '../language'
 
 const translations = { bg, en } as const
 
-export function getPublicTranslations(language: Language) {
+export function getAuthTranslations(language: Language) {
   return translations[language]
 }
 
-export type { Language }

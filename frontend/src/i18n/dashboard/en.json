@@ -1,0 +1,92 @@
+{
+  "shell": {
+    "signedInAs": "Signed in as",
+    "testHello": "Test Hello",
+    "testing": "Testing...",
+    "signOut": "Sign out",
+    "protectedHelloFailed": "Protected Hello test failed. Check session status.",
+    "notifications": "Notifications",
+    "profileMenu": "Profile menu",
+    "avatarAlt": "User avatar"
+  },
+  "roles": {
+    "superadmin": {
+      "title": "Super Admin Dashboard",
+      "subtitle": "Platform-level command center for Drivio.",
+      "items": [
+        "Monitor onboarding conversion across all schools",
+        "Review platform-wide security events and audit records",
+        "Manage system configuration and role governance",
+        "Track billing and active subscriptions"
+      ]
+    },
+    "schoolAdmin": {
+      "title": "School Admin Dashboard",
+      "subtitle": "Operational dashboard for your driving school.",
+      "items": [
+        "Approve instructor accounts and assign classes",
+        "Review lesson schedules and student allocation",
+        "Manage school profile, locations, and fleet",
+        "Track enrollment and completion metrics"
+      ]
+    },
+    "instructor": {
+      "title": "Instructor Dashboard",
+      "subtitle": "Teaching workflow and student progress tools.",
+      "items": [
+        "View today lessons and route plans",
+        "Update student progress after each session",
+        "Submit attendance and practical exam readiness",
+        "Coordinate schedule adjustments with school admin"
+      ]
+    },
+    "student": {
+      "title": "Student Dashboard",
+      "subtitle": "Your lessons, progress, and driving journey.",
+      "items": [
+        "See upcoming lessons and instructor assignments",
+        "Track completed modules and remaining milestones",
+        "Review instructor feedback and next practice goals",
+        "Manage reminders and notifications"
+      ]
+    }
+  },
+  "unauthorized": {
+    "title": "Unauthorized",
+    "description": "Your account does not have permission to open this dashboard.",
+    "back": "Back to login"
+  },
+  "common": {
+    "changeLanguage": "Change language",
+    "changeTheme": "Change theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
+  },
+  "layout": {
+    "searchPlaceholder": "Search...",
+    "yearly": "Yearly",
+    "export": "Export",
+    "metrics": [
+      "Total Visitors",
+      "Revenue",
+      "Orders",
+      "Active Items"
+    ],
+    "viewData": "View data",
+    "analyticsTitle": "Profit / Expenses Analytics",
+    "customersTitle": "Customers by Country",
+    "welcome": "Welcome!"
+  },
+  "onboarding": {
+    "title": "School Join Requests",
+    "refresh": "Refresh",
+    "loading": "Loading requests...",
+    "empty": "No pending requests.",
+    "contact": "Contact",
+    "approve": "Approve",
+    "approving": "Approving...",
+    "loadError": "Could not load pending requests.",
+    "approveError": "Could not approve request. Try again."
+  }
+}
