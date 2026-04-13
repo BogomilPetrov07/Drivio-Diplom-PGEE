@@ -17,7 +17,7 @@ function getCookieDomainForCurrentHost(): string | null {
   const { hostname } = window.location
 
   if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
-    return 'localhost'
+    return null
   }
 
   const labels = hostname.split('.')
@@ -25,45 +25,85 @@ function getCookieDomainForCurrentHost(): string | null {
   return `${labels[labels.length - 2]}.${labels[labels.length - 1]}`
 }
 
-function writeCookie(name: string, value: string) {
+function writeCookie(name: string, value: string, domain?: string) {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
   const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-  const domain = getCookieDomainForCurrentHost()
   const domainPart = domain ? `; Domain=${domain}` : ''
   document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${ONE_YEAR_SECONDS}; Path=/; SameSite=Lax${secure}${domainPart}`
 }
 
+function deleteCookie(name: string, domain?: string) {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
+  const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+  const domainPart = domain ? `; Domain=${domain}` : ''
+  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}${domainPart}`
+}
+
+function writePreferenceCookie(name: string, value: string) {
+  const sharedDomain = getCookieDomainForCurrentHost()
+  if (sharedDomain) {
+    writeCookie(name, value, sharedDomain)
+    // Clear any stale host-only cookie that could shadow shared state.
+    deleteCookie(name)
+    return
+  }
+  // Local/dev fallback where shared domain cookie is not supported.
+  writeCookie(name, value)
+}
+
 export function getInitialThemePreference(): ThemePreference {
   if (typeof window === 'undefined') return 'system'
-  const saved = localStorage.getItem(THEME_PREFERENCE_KEY)
-  if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
   const fromCookie = readCookie(THEME_PREFERENCE_KEY)
   if (fromCookie === 'light' || fromCookie === 'dark' || fromCookie === 'system') {
     localStorage.setItem(THEME_PREFERENCE_KEY, fromCookie)
     return fromCookie
+  }
+  const saved = localStorage.getItem(THEME_PREFERENCE_KEY)
+  if (saved === 'light' || saved === 'dark' || saved === 'system') {
+    writePreferenceCookie(THEME_PREFERENCE_KEY, saved)
+    return saved
   }
   return 'system'
 }
 
 export function setThemePreference(value: ThemePreference) {
   localStorage.setItem(THEME_PREFERENCE_KEY, value)
-  writeCookie(THEME_PREFERENCE_KEY, value)
+  writePreferenceCookie(THEME_PREFERENCE_KEY, value)
+}
+
+export function getThemePreferenceFromCookie(): ThemePreference | null {
+  const fromCookie = readCookie(THEME_PREFERENCE_KEY)
+  if (fromCookie === 'light' || fromCookie === 'dark' || fromCookie === 'system') {
+    return fromCookie
+  }
+  return null
 }
 
 export function getInitialLanguagePreference(): LanguagePreference {
   if (typeof window === 'undefined') return 'bg'
-  const saved = localStorage.getItem(LANGUAGE_PREFERENCE_KEY)
-  if (saved === 'bg' || saved === 'en') return saved
   const fromCookie = readCookie(LANGUAGE_PREFERENCE_KEY)
   if (fromCookie === 'bg' || fromCookie === 'en') {
     localStorage.setItem(LANGUAGE_PREFERENCE_KEY, fromCookie)
     return fromCookie
+  }
+  const saved = localStorage.getItem(LANGUAGE_PREFERENCE_KEY)
+  if (saved === 'bg' || saved === 'en') {
+    writePreferenceCookie(LANGUAGE_PREFERENCE_KEY, saved)
+    return saved
   }
   return 'bg'
 }
 
 export function setLanguagePreference(value: LanguagePreference) {
   localStorage.setItem(LANGUAGE_PREFERENCE_KEY, value)
-  writeCookie(LANGUAGE_PREFERENCE_KEY, value)
+  writePreferenceCookie(LANGUAGE_PREFERENCE_KEY, value)
+}
+
+export function getLanguagePreferenceFromCookie(): LanguagePreference | null {
+  const fromCookie = readCookie(LANGUAGE_PREFERENCE_KEY)
+  if (fromCookie === 'bg' || fromCookie === 'en') {
+    return fromCookie
+  }
+  return null
 }
 

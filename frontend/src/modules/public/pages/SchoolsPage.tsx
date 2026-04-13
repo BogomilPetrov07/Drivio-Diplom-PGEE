@@ -4,7 +4,7 @@ import ForSchools from '../components/ForSchools'
 
 interface SchoolsPageProps {
   language: Language
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
 }
 
 export default function SchoolsPage({ language, theme }: SchoolsPageProps) {

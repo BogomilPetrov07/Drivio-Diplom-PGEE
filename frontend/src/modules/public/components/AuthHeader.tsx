@@ -6,7 +6,7 @@ import type { Language } from '../../../i18n/language'
 
 interface AuthHeaderProps {
   themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
   language: Language
   setLanguage: (lang: Language) => void
@@ -28,7 +28,7 @@ export default function AuthHeader({
         <div className="flex h-full items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src={resolvedTheme === 'drivio-pro-light' ? logoLight : logoDark}
+              src={resolvedTheme === 'drivio-light' ? logoLight : logoDark}
               alt="Drivio Logo"
               className="h-10 w-auto"
             />
@@ -56,7 +56,7 @@ export default function AuthHeader({
                 className="btn btn-ghost btn-circle btn-sm"
                 aria-label={common.changeTheme}
               >
-                {themePreference === 'system' ? <Monitor className="h-5 w-5" /> : resolvedTheme === 'drivio-pro-dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                {themePreference === 'system' ? <Monitor className="h-5 w-5" /> : resolvedTheme === 'drivio-dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </button>
               <ul className="dropdown-content menu mt-2 w-44 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
                 <li><button onClick={() => setThemePreference('system')} className={themePreference === 'system' ? 'active' : ''}><Monitor className="h-4 w-4" /> {common.themeSystem}</button></li>

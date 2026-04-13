@@ -1,4 +1,4 @@
-﻿import { getDashboardTranslations } from '../../../i18n/dashboard'
+import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
 import DashboardShell from '../components/DashboardShell.js'
 
@@ -6,7 +6,7 @@ interface SchoolAdminDashboardPageProps {
   language: Language
   setLanguage: (language: Language) => void
   themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
 }
 

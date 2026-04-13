@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Bell,
@@ -24,7 +24,7 @@ interface DashboardShellProps {
   language: Language
   setLanguage: (language: Language) => void
   themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
   title: string
   subtitle: string
@@ -111,7 +111,7 @@ export default function DashboardShell({
       <section className="flex min-h-screen w-full overflow-hidden bg-base-100">
         <aside className="hidden w-72 shrink-0 bg-base-300 text-base-content lg:block">
           <div className="flex h-20 items-center border-b border-base-content/10 px-6">
-            <img src={resolvedTheme === 'drivio-pro-dark' ? logoDark : logoLight} alt="Drivio" className="h-8 w-auto" />
+            <img src={resolvedTheme === 'drivio-dark' ? logoDark : logoLight} alt="Drivio" className="h-8 w-auto" />
             <span className="ml-3 text-xl font-semibold">Drivio</span>
           </div>
           <nav className="p-4">
@@ -142,7 +142,7 @@ export default function DashboardShell({
             <div className="flex items-center gap-2">
               <div ref={themeRef} className={`dropdown dropdown-end ${themeOpen ? 'dropdown-open' : ''}`}>
                 <button type="button" className="btn btn-ghost btn-circle btn-sm" aria-label={common.changeTheme} onClick={() => { setThemeOpen((prev) => !prev); setLanguageOpen(false); setProfileOpen(false) }}>
-                  {themePreference === 'system' ? <Monitor className="h-4 w-4" /> : resolvedTheme === 'drivio-pro-dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                  {themePreference === 'system' ? <Monitor className="h-4 w-4" /> : resolvedTheme === 'drivio-dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
                 </button>
                 <ul className="dropdown-content menu mt-2 w-44 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
                   <li><button onClick={() => { setThemePreference('system'); setThemeOpen(false) }} className={themePreference === 'system' ? 'active' : ''}><Monitor className="h-4 w-4" /> {common.themeSystem}</button></li>

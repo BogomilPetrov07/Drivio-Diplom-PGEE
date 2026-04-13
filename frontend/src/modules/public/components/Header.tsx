@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Menu, X, Sun, Moon, Globe, Monitor } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import logoLight from '../../../assets/logo_light.svg'
@@ -8,7 +8,7 @@ import { getDomainAwareUrl } from '../../../utils/app-domain'
 
 interface HeaderProps {
   themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
   language: 'bg' | 'en'
   setLanguage: (lang: 'bg' | 'en') => void
@@ -81,6 +81,7 @@ export default function Header({
     { id: 'students', label: header.nav.students, href: '/students' },
     { id: 'schools', label: header.nav.schools, href: '/schools' },
   ]
+  const homeHref = getDomainAwareUrl('/')
   const loginHref = getDomainAwareUrl('/login')
 
   return (
@@ -91,16 +92,16 @@ export default function Header({
     >
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-20">
-          <Link to="/" className="flex items-center gap-3 group">
+          <a href={homeHref} className="flex items-center gap-3 group">
             <div className="relative">
               <img
-                src={resolvedTheme === 'drivio-pro-light' ? logoLight : logoDark}
+                src={resolvedTheme === 'drivio-light' ? logoLight : logoDark}
                 alt="Drivio Logo"
                 className="h-10 w-auto transition-transform group-hover:scale-105"
               />
             </div>
             <span className="text-2xl font-bold tracking-tight text-primary">Drivio</span>
-          </Link>
+          </a>
 
           <nav className="hidden lg:flex items-center">
             <div className="flex items-center bg-base-200/50 rounded-full px-2 py-1.5">
@@ -150,7 +151,7 @@ export default function Header({
                   setLanguageOpen(false)
                 }}
               >
-                {themePreference === 'system' ? <Monitor className="w-5 h-5" /> : resolvedTheme === 'drivio-pro-dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                {themePreference === 'system' ? <Monitor className="w-5 h-5" /> : resolvedTheme === 'drivio-dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
               <ul className="dropdown-content menu bg-base-100 rounded-xl shadow-xl w-44 p-2 mt-2 border border-base-content/10">
                 <li><button onClick={() => { setThemePreference('system'); setThemeOpen(false) }} className={themePreference === 'system' ? 'active' : ''}><Monitor className="w-4 h-4" /> {common.themeSystem}</button></li>

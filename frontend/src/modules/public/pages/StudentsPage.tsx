@@ -4,7 +4,7 @@ import ForStudents from '../components/ForStudents'
 
 interface StudentsPageProps {
   language: Language
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
 }
 
 export default function StudentsPage({ language, theme }: StudentsPageProps) {

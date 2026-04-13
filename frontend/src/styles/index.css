@@ -3,11 +3,11 @@
 @import "tailwindcss";
 
 @plugin "daisyui" {
-  themes: drivio-pro-light --default, drivio-pro-dark --prefersdark;
+  themes: drivio-light --default, drivio-dark --prefersdark;
 }
 
 @plugin "daisyui/theme" {
-  name: "drivio-pro-light";
+  name: "drivio-light";
   default: true;
   prefersdark: false;
   color-scheme: "light";
@@ -42,7 +42,7 @@
 }
 
 @plugin "daisyui/theme" {
-  name: "drivio-pro-dark";
+  name: "drivio-dark";
   default: false;
   prefersdark: true;
   color-scheme: "dark";

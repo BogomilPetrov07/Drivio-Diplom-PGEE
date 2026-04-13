@@ -1,11 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+
 import type { Language } from '../../../i18n/public'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 import Footer from '../components/Footer'
 
 interface PrivacyPageProps {
   language: Language
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
 }
 
 type Section = {
@@ -17,6 +18,7 @@ type Section = {
 export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
   const isBg = language === 'bg'
   const [activeId, setActiveId] = useState('data-collected')
+  const homeHref = getDomainAwareUrl('/')
 
   const sections = useMemo<Section[]>(
     () => [
@@ -25,7 +27,7 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
         title: isBg ? '1.0 Какви данни събираме' : '1.0 Data We Collect',
         content: isBg
           ? [
-              'Събираме данни, необходими за работата на Drivio: име, имейл, телефон, профилни данни, роля в системата, учебен прогрес, графици и комуникации.',
+              'Събираме данни, необходими за работата на Drivio: име, имейл, телефон, профилни данни, роли, обучителен прогрес, графици и комуникации.',
               'Автоматично обработваме технически данни като IP адрес, тип устройство, браузър, логове за сигурност и диагностична информация.',
             ]
           : [
@@ -38,8 +40,8 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
         title: isBg ? '2.0 Как използваме данните' : '2.0 How We Use Data',
         content: isBg
           ? [
-              'Използваме данните за предоставяне на услугата, управление на акаунти, синхронизация на графици и изпращане на важни системни известия.',
-              'Данните се използват и за подобряване на продукта, предотвратяване на злоупотреби, поддръжка и спазване на законови задължения.',
+              'Използваме данните за предоставяне на услугата, управление на профили, синхронизация на графици и изпращане на важни продуктови известия.',
+              'Данните се използват и за подобрение на продукта, предотвратяване на злоупотреби, поддръжка и спазване на законови изисквания.',
             ]
           : [
               'We use data to provide the service, manage accounts, synchronize schedules, and deliver critical product notifications.',
@@ -48,11 +50,11 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
       },
       {
         id: 'sharing',
-        title: isBg ? '3.0 Споделяне и обработващи страни' : '3.0 Sharing and Processors',
+        title: isBg ? '3.0 Споделяне и обработващи' : '3.0 Sharing and Processors',
         content: isBg
           ? [
-              'Не продаваме лични данни. Споделяме данни само с доверени доставчици (хостинг, аналитика, имейл) при договорни гаранции за поверителност и сигурност.',
-              'Предоставяме данни на компетентни органи само когато това се изисква по закон.',
+              'Не продаваме лични данни. Споделяме данни само с доверени доставчици (хостинг, анализи, имейл) при договорни гаранции за поверителност и сигурност.',
+              'Разкриваме данни на компетентни органи само когато това се изисква по закон.',
             ]
           : [
               'We do not sell personal data. We share data only with trusted service providers (hosting, analytics, email) under contractual privacy and security safeguards.',
@@ -63,7 +65,7 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
         id: 'cookies',
         title: isBg ? '4.0 Бисквитки и сходни технологии' : '4.0 Cookies and Similar Technologies',
         content: isBg
-          ? ['Използваме бисквитки за вход в системата, сигурност, езикови предпочитания и подобряване на потребителското изживяване.']
+          ? ['Използваме бисквитки за вход и сигурност, запазване на предпочитания и подобряване на потребителското изживяване.']
           : ['We use cookies for authentication, security, language preferences, and improving the user experience.'],
       },
       {
@@ -71,8 +73,8 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
         title: isBg ? '5.0 Вашите права (GDPR/CCPA)' : '5.0 Your Rights (GDPR/CCPA)',
         content: isBg
           ? [
-              'Имате право на достъп, корекция, ограничаване, възражение и преносимост на данни, когато е приложимо.',
-              'Имате право да поискате изтриване на личните си данни. При валидна заявка прилагаме изтриване без неоправдано забавяне, освен ако законът изисква съхранение.',
+              'Имате право на достъп, корекция, ограничаване, възражение и преносимост на данните, когато е приложимо.',
+              'Имате право да поискате изтриване на лични данни. При валидно искане изтриваме данните без неоправдано забавяне, освен ако законът изисква съхранение.',
             ]
           : [
               'You may request access, correction, restriction, objection, and portability of your data where applicable.',
@@ -84,8 +86,8 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
         title: isBg ? '6.0 Съхранение и сигурност' : '6.0 Retention and Security',
         content: isBg
           ? [
-              'Данните се съхраняват само за период, необходим за предоставяне на услугата и изпълнение на законовите изисквания.',
-              'Прилагаме технически и организационни мерки за сигурност, включително контрол на достъпа, логване и мониторинг на инциденти.',
+              'Данните се съхраняват само за периода, необходим за предоставяне на услугата и изпълнение на законови задължения.',
+              'Прилагаме технически и организационни мерки за сигурност, включително контрол на достъп, логване и мониторинг на инциденти.',
             ]
           : [
               'Data is retained only for the period necessary to provide the service and satisfy legal obligations.',
@@ -94,9 +96,9 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
       },
       {
         id: 'contact',
-        title: isBg ? '7.0 Контакт с нас' : '7.0 Contact Us',
+        title: isBg ? '7.0 Свържете се с нас' : '7.0 Contact Us',
         content: isBg
-          ? ['За въпроси относно поверителността, права на субекти на данни или заявки за изтриване: info@drivio.bg']
+          ? ['За въпроси относно поверителността, права по GDPR или искане за изтриване: info@drivio.bg']
           : ['For privacy inquiries, data subject rights, or deletion requests: info@drivio.bg'],
       },
     ],
@@ -168,26 +170,19 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
                   <h1 className="text-3xl font-bold text-base-content md:text-4xl">{isBg ? 'Политика за поверителност' : 'Privacy Policy'}</h1>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md border border-base-content/20 px-3 py-1 text-xs text-base-content/85">
-                    {isBg ? 'Обновено: 21.03.2026' : 'Last Updated: 2026-03-21'}
+                  <span className="min-w-[220px] whitespace-nowrap rounded-md border border-base-content/20 px-3 py-1 text-center text-xs text-base-content/85">
+                    {isBg ? 'Актуализирано: 21.03.2026' : 'Last Updated: 2026-03-21'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="rounded-md border border-base-content/20 px-3 py-1 text-xs text-base-content transition-colors hover:bg-base-content/10"
-                  >
-                    {isBg ? 'Печат / PDF' : 'Print to PDF'}
-                  </button>
                 </div>
               </header>
 
               <section className="mb-7 rounded-xl border border-base-content/15 bg-base-200/30 p-5">
-                <h2 className="mb-3 text-base font-semibold text-base-content">{isBg ? 'Бързо обобщение' : 'Quick Summary'}</h2>
+                <h2 className="mb-3 text-base font-semibold text-base-content">{isBg ? 'Кратко обобщение' : 'Quick Summary'}</h2>
                 <ul className="space-y-2 text-sm text-base-content/90">
-                  <li>{isBg ? 'Събираме само данни, нужни за предоставяне на услугата.' : 'We collect only the data needed to run the service.'}</li>
+                  <li>{isBg ? 'Събираме само данните, нужни за работата на услугата.' : 'We collect only the data needed to run the service.'}</li>
                   <li>{isBg ? 'Не продаваме лични данни на трети страни.' : 'We do not sell personal data to third parties.'}</li>
-                  <li>{isBg ? 'Можете да поискате достъп, корекция или изтриване на данните си.' : 'You can request access, correction, or deletion of your data.'}</li>
-                  <li>{isBg ? 'Прилагаме технически и организационни мерки за сигурност.' : 'We apply technical and organizational security safeguards.'}</li>
+                  <li>{isBg ? 'Можете да поискате достъп, корекция или изтриване на вашите данни.' : 'You can request access, correction, or deletion of your data.'}</li>
+                  <li>{isBg ? 'Прилагаме технически и организационни мерки за защита.' : 'We apply technical and organizational security safeguards.'}</li>
                 </ul>
               </section>
 
@@ -214,17 +209,17 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
                         <tbody>
                           <tr className="border-t border-base-content/10">
                             <td className="px-3 py-2">session_id</td>
-                            <td className="px-3 py-2">{isBg ? 'Сесия и удостоверяване' : 'Session and authentication'}</td>
+                            <td className="px-3 py-2">{isBg ? 'Сесия и автентикация' : 'Session and authentication'}</td>
                             <td className="px-3 py-2">{isBg ? 'До края на сесията' : 'Session'}</td>
                           </tr>
                           <tr className="border-t border-base-content/10">
-                            <td className="px-3 py-2">theme_preference</td>
-                            <td className="px-3 py-2">{isBg ? 'Запазване на визуална тема' : 'Persist visual theme choice'}</td>
+                            <td className="px-3 py-2">theme-preference</td>
+                            <td className="px-3 py-2">{isBg ? 'Запазва предпочитаната визуална тема' : 'Persist visual theme choice'}</td>
                             <td className="px-3 py-2">{isBg ? '12 месеца' : '12 months'}</td>
                           </tr>
                           <tr className="border-t border-base-content/10">
-                            <td className="px-3 py-2">lang</td>
-                            <td className="px-3 py-2">{isBg ? 'Запазване на език' : 'Persist language preference'}</td>
+                            <td className="px-3 py-2">language</td>
+                            <td className="px-3 py-2">{isBg ? 'Запазва предпочитания език' : 'Persist language preference'}</td>
                             <td className="px-3 py-2">{isBg ? '12 месеца' : '12 months'}</td>
                           </tr>
                         </tbody>
@@ -235,9 +230,9 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
               ))}
 
               <section className="mt-8 border-t border-base-content/15 pt-6">
-                <Link to="/" className="inline-flex rounded-md border border-base-content/20 px-4 py-2 text-sm font-medium hover:bg-base-content/10">
-                  {isBg ? 'Обратно към началната страница' : 'Return to Home Page'}
-                </Link>
+                <a href={homeHref} className="inline-flex rounded-md border border-base-content/20 px-4 py-2 text-sm font-medium hover:bg-base-content/10">
+                  {isBg ? 'Връщане към началната страница' : 'Return to Home Page'}
+                </a>
               </section>
             </article>
           </div>
@@ -247,3 +242,4 @@ export default function PrivacyPage({ language, theme }: PrivacyPageProps) {
     </>
   )
 }
+

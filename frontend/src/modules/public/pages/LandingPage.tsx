@@ -5,7 +5,7 @@ import Hero from '../components/Hero'
 
 interface LandingPageProps {
   language: Language
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
 }
 
 export default function LandingPage({ language, theme }: LandingPageProps) {

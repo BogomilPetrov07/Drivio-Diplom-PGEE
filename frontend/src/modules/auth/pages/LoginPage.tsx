@@ -1,7 +1,8 @@
 ﻿import { type SyntheticEvent, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { getAuthTranslations } from '../../../i18n/auth'
 import type { Language } from '../../../i18n/language'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 import { useAuth } from '../hooks.js'
 import { getRoleDashboardPath } from '../types.js'
 
@@ -15,6 +16,7 @@ export default function LoginPage({ language }: LoginPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const text = getAuthTranslations(language).login
+  const backHref = getDomainAwareUrl('/')
 
   useEffect(() => {
     if (isAuthenticated && role) {
@@ -81,9 +83,9 @@ export default function LoginPage({ language }: LoginPageProps) {
             </button>
           </form>
 
-          <Link to="/" className="text-helper text-center text-base-content/70 hover:text-primary mt-2">
+          <a href={backHref} className="text-helper text-center text-base-content/70 hover:text-primary mt-2">
             {text.back}
-          </Link>
+          </a>
         </div>
       </div>
     </main>

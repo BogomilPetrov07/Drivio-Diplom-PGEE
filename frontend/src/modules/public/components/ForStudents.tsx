@@ -1,5 +1,6 @@
 ﻿import { Award, Calendar, CheckCircle, Search, Sparkles, UserCheck } from 'lucide-react'
 import { getPublicTranslations, type Language } from '../../../i18n/public'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 
 const benefitIcons = [CheckCircle, UserCheck, Sparkles, Award]
 const stepIcons = [Search, Calendar, Award]
@@ -10,6 +11,7 @@ interface ForStudentsProps {
 
 export default function ForStudents({ language }: ForStudentsProps) {
   const data = getPublicTranslations(language).students
+  const loginHref = getDomainAwareUrl('/login')
 
   return (
     <section id="students" className="bg-base-100 py-16 md:py-24">
@@ -52,7 +54,7 @@ export default function ForStudents({ language }: ForStudentsProps) {
         </div>
 
         <div className="text-center">
-          <a href="/login" className="btn btn-primary btn-lg">
+          <a href={loginHref} className="btn btn-primary btn-lg">
             {data.cta}
           </a>
         </div>
@@ -60,3 +62,4 @@ export default function ForStudents({ language }: ForStudentsProps) {
     </section>
   )
 }
+

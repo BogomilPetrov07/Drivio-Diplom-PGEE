@@ -1,11 +1,12 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+
 import type { Language } from '../../../i18n/public'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 import Footer from '../components/Footer'
 
 interface TermsPageProps {
   language: Language
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
 }
 
 type Section = {
@@ -17,6 +18,7 @@ type Section = {
 export default function TermsPage({ language, theme }: TermsPageProps) {
   const isBg = language === 'bg'
   const [activeId, setActiveId] = useState('acceptance')
+  const homeHref = getDomainAwareUrl('/')
 
   const sections = useMemo<Section[]>(
     () => [
@@ -25,8 +27,8 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         title: isBg ? '1.0 Приемане на условията' : '1.0 Acceptance of Terms',
         content: isBg
           ? [
-              'С достъп или използване на Drivio приемате настоящите условия и се съгласявате да ги спазвате.',
-              'Ако не приемате условията, не следва да използвате платформата.',
+              'С достъп или използване на Drivio вие приемате настоящите Условия и се съгласявате да ги спазвате.',
+              'Ако не сте съгласни, не трябва да използвате платформата.',
             ]
           : [
               'By accessing or using Drivio, you agree to these Terms and to comply with them.',
@@ -35,11 +37,11 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
       },
       {
         id: 'accounts',
-        title: isBg ? '2.0 Акаунти и достъп' : '2.0 Accounts and Access',
+        title: isBg ? '2.0 Профили и достъп' : '2.0 Accounts and Access',
         content: isBg
           ? [
-              'Потребителите са отговорни за сигурността на своите акаунти и за действията, извършени чрез тях.',
-              'Запазваме право да ограничим или прекратим достъпа при нарушения, риск за сигурността или злоупотреба.',
+              'Потребителите носят отговорност за сигурността на профила си и всички действия, извършени чрез него.',
+              'Можем да ограничим или прекратим достъп при нарушения, рискове за сигурността или злоупотреба.',
             ]
           : [
               'Users are responsible for account security and all actions performed through their accounts.',
@@ -51,8 +53,8 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         title: isBg ? '3.0 Допустима употреба' : '3.0 Acceptable Use',
         content: isBg
           ? [
-              'Забранени са опити за неоторизиран достъп, reverse engineering, автоматизирани атаки, злонамерено съдържание и нарушаване на права на трети страни.',
-              'Платформата следва да се използва само за законни и професионални цели, свързани с предоставяните услуги.',
+              'Забранени са неоторизиран достъп, reverse engineering, автоматизирани атаки, злонамерено съдържание и нарушения на права на трети страни.',
+              'Платформата трябва да се използва само за законни и професионални цели, свързани с предоставяните услуги.',
             ]
           : [
               'Unauthorized access attempts, reverse engineering, automated attacks, malicious content, and third-party rights violations are prohibited.',
@@ -61,11 +63,11 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
       },
       {
         id: 'billing',
-        title: isBg ? '4.0 Планове, таксуване и промени' : '4.0 Plans, Billing, and Changes',
+        title: isBg ? '4.0 Планове, плащания и промени' : '4.0 Plans, Billing, and Changes',
         content: isBg
           ? [
-              'Някои функционалности може да изискват активен платен план. Таксите, цикълът на таксуване и лимитите се определят в приложимия план.',
-              'Можем да актуализираме функционалности, цени или условия при разумно предварително уведомление.',
+              'Някои функционалности може да изискват активен платен план. Таксите, периодите на плащане и лимитите се определят от приложимия план.',
+              'Можем да променяме функции, цени или условия с разумно предварително уведомление.',
             ]
           : [
               'Some features may require an active paid plan. Fees, billing cycle, and limits are defined by your applicable plan.',
@@ -78,7 +80,7 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         content: isBg
           ? [
               'Всички права върху Drivio, включително софтуер, дизайн, търговски марки и съдържание, са запазени.',
-              'Не придобивате права на собственост върху платформата, освен ограничено право на използване съгласно тези условия.',
+              'Не придобивате право на собственост върху платформата, а само ограничено право за ползване съгласно тези условия.',
             ]
           : [
               'All rights to Drivio, including software, design, trademarks, and content, are reserved.',
@@ -90,8 +92,8 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         title: isBg ? '6.0 Ограничаване на отговорността' : '6.0 Limitation of Liability',
         content: isBg
           ? [
-              'До степента, разрешена от закона, Drivio не носи отговорност за непреки, случайни или последващи вреди.',
-              'Общата отговорност на Drivio е ограничена до сумите, платени от вас за услугата за последните 12 месеца.',
+              'До степента, позволена от закона, Drivio не носи отговорност за косвени, случайни или последващи вреди.',
+              'Общата отговорност на Drivio е ограничена до сумите, платени от вас за услугата през предходните 12 месеца.',
             ]
           : [
               'To the extent permitted by law, Drivio is not liable for indirect, incidental, or consequential damages.',
@@ -103,8 +105,8 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         title: isBg ? '7.0 Прекратяване' : '7.0 Termination',
         content: isBg
           ? [
-              'Можете да прекратите използването по всяко време. Ние можем да прекратим достъпа при нарушение на условията.',
-              'При прекратяване определени данни може да бъдат запазени според законовите изисквания и политиката за поверителност.',
+              'Можете да прекратите използването на услугата по всяко време. Ние можем да прекратим достъп при нарушение на условията.',
+              'След прекратяване част от данните може да бъде съхранена съгласно закона и политиката за поверителност.',
             ]
           : [
               'You may stop using the service at any time. We may terminate access in case of Terms violations.',
@@ -116,8 +118,8 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
         title: isBg ? '8.0 Контакт и приложимо право' : '8.0 Contact and Governing Law',
         content: isBg
           ? [
-              'За въпроси относно условията се свържете с нас на info@drivio.bg.',
-              'Тези условия се тълкуват и прилагат съгласно приложимото законодателство.',
+              'За въпроси, свързани с условията, свържете се с нас на info@drivio.bg.',
+              'Тези условия се тълкуват и прилагат съгласно приложимото право.',
             ]
           : [
               'For terms-related questions, contact us at info@drivio.bg.',
@@ -191,26 +193,19 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
               <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <h1 className="text-3xl font-bold text-base-content md:text-4xl">{isBg ? 'Условия за ползване' : 'Terms of Service'}</h1>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-md border border-base-content/20 px-3 py-1 text-xs text-base-content/85">
-                    {isBg ? 'Обновено: 21.03.2026' : 'Last Updated: 2026-03-21'}
+                  <span className="min-w-[220px] whitespace-nowrap rounded-md border border-base-content/20 px-3 py-1 text-center text-xs text-base-content/85">
+                    {isBg ? 'Актуализирано: 21.03.2026' : 'Last Updated: 2026-03-21'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="rounded-md border border-base-content/20 px-3 py-1 text-xs text-base-content transition-colors hover:bg-base-content/10"
-                  >
-                    {isBg ? 'Печат / PDF' : 'Print to PDF'}
-                  </button>
                 </div>
               </header>
 
               <section className="mb-7 rounded-xl border border-base-content/15 bg-base-200/30 p-5">
-                <h2 className="mb-3 text-base font-semibold text-base-content">{isBg ? 'Бързо обобщение' : 'Quick Summary'}</h2>
+                <h2 className="mb-3 text-base font-semibold text-base-content">{isBg ? 'Кратко обобщение' : 'Quick Summary'}</h2>
                 <ul className="space-y-2 text-sm text-base-content/90">
                   <li>{isBg ? 'Използвайте платформата само за законни и професионални цели.' : 'Use the platform only for lawful, professional purposes.'}</li>
-                  <li>{isBg ? 'Пазете сигурността на акаунта си и данните за достъп.' : 'Keep your account secure and protect access credentials.'}</li>
-                  <li>{isBg ? 'Нарушенията може да доведат до ограничен или прекратен достъп.' : 'Violations may lead to restricted or terminated access.'}</li>
-                  <li>{isBg ? 'При въпроси: info@drivio.bg.' : 'Questions: info@drivio.bg.'}</li>
+                  <li>{isBg ? 'Пазете профила си защитен и не споделяйте данните за достъп.' : 'Keep your account secure and protect access credentials.'}</li>
+                  <li>{isBg ? 'Нарушения могат да доведат до ограничен или прекратен достъп.' : 'Violations may lead to restricted or terminated access.'}</li>
+                  <li>{isBg ? 'Въпроси: info@drivio.bg.' : 'Questions: info@drivio.bg.'}</li>
                 </ul>
               </section>
 
@@ -228,9 +223,9 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
               ))}
 
               <section className="mt-8 border-t border-base-content/15 pt-6">
-                <Link to="/" className="inline-flex rounded-md border border-base-content/20 px-4 py-2 text-sm font-medium hover:bg-base-content/10">
-                  {isBg ? 'Обратно към началната страница' : 'Return to Home Page'}
-                </Link>
+                <a href={homeHref} className="inline-flex rounded-md border border-base-content/20 px-4 py-2 text-sm font-medium hover:bg-base-content/10">
+                  {isBg ? 'Връщане към началната страница' : 'Return to Home Page'}
+                </a>
               </section>
             </article>
           </div>
@@ -240,3 +235,4 @@ export default function TermsPage({ language, theme }: TermsPageProps) {
     </>
   )
 }
+

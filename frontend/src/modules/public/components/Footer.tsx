@@ -1,22 +1,26 @@
-import { Mail, MapPin, Phone } from 'lucide-react'
+﻿import { Mail, MapPin, Phone } from 'lucide-react'
 import { getPublicTranslations, type Language } from '../../../i18n/public'
 import logoDark from '../../../assets/logo_dark.svg'
 import logoLight from '../../../assets/logo_light.svg'
+import { getDomainAwareUrl } from '../../../utils/app-domain'
 import FooterMap from './FooterMap'
 
 interface FooterProps {
-  theme: 'drivio-pro-light' | 'drivio-pro-dark'
+  theme: 'drivio-light' | 'drivio-dark'
   language: Language
 }
 
 export default function Footer({ theme, language }: FooterProps) {
   const data = getPublicTranslations(language).footer
+  const homeHref = getDomainAwareUrl('/')
+  const privacyHref = getDomainAwareUrl('/privacy')
+  const termsHref = getDomainAwareUrl('/terms')
   const valuePoints =
     language === 'bg'
       ? [
-          'Една платформа за курсисти, инструктори и администратори',
-          'По-малко ръчна работа чрез автоматизирани процеси',
-          'Ясна проследимост на прогрес, графици и комуникация',
+          'Ð•Ð´Ð½Ð° Ð¿Ð»Ð°Ñ‚Ñ„Ð¾Ñ€Ð¼Ð° Ð·Ð° ÐºÑƒÑ€ÑÐ¸ÑÑ‚Ð¸, Ð¸Ð½ÑÑ‚Ñ€ÑƒÐºÑ‚Ð¾Ñ€Ð¸ Ð¸ Ð°Ð´Ð¼Ð¸Ð½Ð¸ÑÑ‚Ñ€Ð°Ñ‚Ð¾Ñ€Ð¸',
+          'ÐŸÐ¾-Ð¼Ð°Ð»ÐºÐ¾ Ñ€ÑŠÑ‡Ð½Ð° Ñ€Ð°Ð±Ð¾Ñ‚Ð° Ñ‡Ñ€ÐµÐ· Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ð·Ð¸Ñ€Ð°Ð½Ð¸ Ð¿Ñ€Ð¾Ñ†ÐµÑÐ¸',
+          'Ð¯ÑÐ½Ð° Ð¿Ñ€Ð¾ÑÐ»ÐµÐ´Ð¸Ð¼Ð¾ÑÑ‚ Ð½Ð° Ð¿Ñ€Ð¾Ð³Ñ€ÐµÑ, Ð³Ñ€Ð°Ñ„Ð¸Ñ†Ð¸ Ð¸ ÐºÐ¾Ð¼ÑƒÐ½Ð¸ÐºÐ°Ñ†Ð¸Ñ',
         ]
       : [
           'One platform for students, instructors, and admins',
@@ -29,10 +33,10 @@ export default function Footer({ theme, language }: FooterProps) {
       <div className="container mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 mb-10 items-stretch">
           <div className="lg:col-span-5 h-full lg:pr-6">
-            <a href="/" className="flex items-center gap-3 mb-4 group">
+            <a href={homeHref} className="flex items-center gap-3 mb-4 group">
               <div className="relative">
                 <img
-                  src={theme === 'drivio-pro-light' ? logoLight : logoDark}
+                  src={theme === 'drivio-light' ? logoLight : logoDark}
                   alt="Drivio Logo"
                   className="h-10 w-auto transition-transform group-hover:scale-105"
                 />
@@ -45,13 +49,13 @@ export default function Footer({ theme, language }: FooterProps) {
             <div className="pt-5 mt-5 border-t border-base-content/10 max-w-lg">
               <p className="text-helper text-base-content/65 leading-relaxed mb-4">
                 {language === 'bg'
-                  ? 'Създадена за модерни автошколи, които искат по-добра организация и по-високо качество на услугата.'
+                  ? 'Ð¡ÑŠÐ·Ð´Ð°Ð´ÐµÐ½Ð° Ð·Ð° Ð¼Ð¾Ð´ÐµÑ€Ð½Ð¸ Ð°Ð²Ñ‚Ð¾ÑˆÐºÐ¾Ð»Ð¸, ÐºÐ¾Ð¸Ñ‚Ð¾ Ð¸ÑÐºÐ°Ñ‚ Ð¿Ð¾-Ð´Ð¾Ð±Ñ€Ð° Ð¾Ñ€Ð³Ð°Ð½Ð¸Ð·Ð°Ñ†Ð¸Ñ Ð¸ Ð¿Ð¾-Ð²Ð¸ÑÐ¾ÐºÐ¾ ÐºÐ°Ñ‡ÐµÑÑ‚Ð²Ð¾ Ð½Ð° ÑƒÑÐ»ÑƒÐ³Ð°Ñ‚Ð°.'
                   : 'Built for modern driving schools that want better operations and higher service quality.'}
               </p>
               <ul className="space-y-2">
                 {valuePoints.map((point, index) => (
                   <li key={index} className="text-helper text-base-content/70 leading-relaxed">
-                    • {point}
+                    â€¢ {point}
                   </li>
                 ))}
               </ul>
@@ -99,11 +103,11 @@ export default function Footer({ theme, language }: FooterProps) {
               &copy; {new Date().getFullYear()} Drivio. {data.copyrightSuffix}
             </p>
             <div className="flex items-center gap-4">
-              <a href="/privacy" className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
-                {language === 'bg' ? 'Поверителност' : 'Privacy'}
+              <a href={privacyHref} className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
+                {language === 'bg' ? 'ÐŸÐ¾Ð²ÐµÑ€Ð¸Ñ‚ÐµÐ»Ð½Ð¾ÑÑ‚' : 'Privacy'}
               </a>
-              <a href="/terms" className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
-                {language === 'bg' ? 'Условия' : 'Terms'}
+              <a href={termsHref} className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
+                {language === 'bg' ? 'Ð£ÑÐ»Ð¾Ð²Ð¸Ñ' : 'Terms'}
               </a>
             </div>
           </div>
@@ -112,3 +116,4 @@ export default function Footer({ theme, language }: FooterProps) {
     </footer>
   )
 }
+

@@ -1,4 +1,8 @@
 const AUTH_LABEL = 'app'
+const LANGUAGE_PREFERENCE_KEY = 'language'
+const THEME_PREFERENCE_KEY = 'theme-preference'
+const PREF_LANGUAGE_PARAM = '__pref_lang'
+const PREF_THEME_PARAM = '__pref_theme'
 
 export function isAuthPath(pathname: string) {
   return (
@@ -42,12 +46,14 @@ export function getDomainAwareUrl(path: string) {
   if (typeof window === 'undefined') return path
 
   const targetUrl = new URL(window.location.href)
-  targetUrl.hostname = isAuthPath(path)
+  const targetHostname = isAuthPath(path)
     ? getAppHostname(window.location.hostname)
     : getBaseHostname(window.location.hostname)
+  targetUrl.hostname = targetHostname
   targetUrl.pathname = path
   targetUrl.search = ''
   targetUrl.hash = ''
+  attachCrossDomainPreferenceParams(targetUrl, targetHostname)
 
   return targetUrl.toString()
 }
@@ -63,5 +69,22 @@ export function ensureCorrectDomainForPath(pathname: string) {
 
   const targetUrl = new URL(window.location.href)
   targetUrl.hostname = targetHostname
+  attachCrossDomainPreferenceParams(targetUrl, targetHostname)
   window.location.replace(targetUrl.toString())
+}
+
+function attachCrossDomainPreferenceParams(targetUrl: URL, targetHostname: string) {
+  if (typeof window === 'undefined') return
+  if (window.location.hostname === targetHostname) return
+
+  const language = localStorage.getItem(LANGUAGE_PREFERENCE_KEY)
+  const theme = localStorage.getItem(THEME_PREFERENCE_KEY)
+
+  if (language === 'bg' || language === 'en') {
+    targetUrl.searchParams.set(PREF_LANGUAGE_PARAM, language)
+  }
+
+  if (theme === 'light' || theme === 'dark' || theme === 'system') {
+    targetUrl.searchParams.set(PREF_THEME_PARAM, theme)
+  }
 }

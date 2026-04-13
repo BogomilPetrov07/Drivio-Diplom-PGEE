@@ -1,9 +1,9 @@
-{
+﻿{
   "hero": {
     "badge": "Новата платформа за автошколи в България",
     "heading1": "Управлявай своя",
     "heading2": "път към успеха",
-    "description": "Drivio свързва курсисти, инструктори и автошколи в една интелигентна платформа. Резервирай часове, следи прогреса си и получи своята шофьорска книжка по-лесно от всякога.",
+    "description": "Drivio свързва курсисти, инструктори и автошколи в една интелигентна платформа. Резервирай часове, следи прогреса си и вземи шофьорската книжка по-лесно от всякога.",
     "features": [
       "Лесно резервиране",
       "За всички роли",
@@ -11,130 +11,137 @@
     ]
   },
   "features": {
-    "heading": "Everything you need",
-    "description": "Drivio provides a complete toolkit for students and driving schools to make the learning process easier and more efficient.",
+    "heading": "Всичко, от което имате нужда",
+    "description": "Drivio предоставя пълен набор от инструменти за курсисти и автошколи, за да направи обучението по-лесно и по-ефективно.",
     "items": [
       {
-        "title": "Online booking",
-        "description": "Book practical lessons easily through the platform, anytime."
+        "title": "Онлайн записване",
+        "description": "Записвайте практически часове лесно през платформата, по всяко време."
       },
       {
-        "title": "Theory training",
-        "description": "Access interactive lessons, tests, and exam prep materials."
+        "title": "Теоретична подготовка",
+        "description": "Достъп до интерактивни уроци, тестове и материали за изпит."
       },
       {
-        "title": "Progress tracking",
-        "description": "Track your progress in real time with lessons, scores, and exam readiness."
+        "title": "Проследяване на прогреса",
+        "description": "Следете прогреса си в реално време с уроци, резултати и готовност за изпит."
       },
       {
-        "title": "Stats and analytics",
-        "description": "Detailed reporting for driving schools to optimize training."
+        "title": "Статистики и анализ",
+        "description": "Подробни отчети за автошколи за оптимизиране на обучението."
       },
       {
-        "title": "Student management",
-        "description": "Complete management system for students and instructors."
+        "title": "Управление на курсисти",
+        "description": "Пълна система за управление на курсисти и инструктори."
       },
       {
-        "title": "Data security",
-        "description": "Your data is protected with modern encryption technologies."
+        "title": "Сигурност на данните",
+        "description": "Данните ви са защитени с модерни технологии за криптиране."
       }
     ]
   },
   "students": {
-    "badge": "For Students",
-    "heading": "Get your license easier",
-    "description": "Drivio helps you find the right driving school and track your full progress in one place, without unnecessary complexity.",
+    "badge": "За курсисти",
+    "heading": "Вземи книжката по-лесно",
+    "description": "Drivio ви помага да намерите подходящата автошкола и да следите целия си прогрес на едно място, без излишна сложност.",
     "benefits": [
-      "Find the most suitable driving school for you",
-      "Book lessons online without phone calls",
-      "Track your progress in real time",
-      "Prepare with interactive tests"
+      "Намерете най-подходящата автошкола за вас",
+      "Записвайте часове онлайн без телефонни разговори",
+      "Следете прогреса си в реално време",
+      "Подгответе се с интерактивни тестове"
     ],
-    "cta": "Find your driving school",
+    "cta": "Намери своята автошкола",
     "steps": [
       {
-        "title": "Choose a driving school",
-        "description": "Browse and compare driving schools in your area."
+        "title": "Избери автошкола",
+        "description": "Разгледайте и сравнете автошколи във вашия район."
       },
       {
-        "title": "Enroll",
-        "description": "Sign up and choose a training schedule that fits you."
+        "title": "Запиши се",
+        "description": "Регистрирайте се и изберете график, който ви устройва."
       },
       {
-        "title": "Finish the course",
-        "description": "Learn the theory, gain practical experience, and pass your exam."
+        "title": "Завърши курса",
+        "description": "Научете теорията, натрупайте практика и вземете изпита."
       }
     ]
   },
   "schools": {
-    "badge": "For Driving Schools",
-    "heading": "Digitize your driving school",
-    "description": "Modern tools to manage students, instructors, and your full driving school operations.",
-    "cta": "Contact us",
+    "badge": "За автошколи",
+    "heading": "Дигитализирайте вашата автошкола",
+    "description": "Модерни инструменти за управление на курсисти, инструктори и всички процеси в автошколата.",
+    "cta": "Свържете се с нас",
     "benefits": [
       {
-        "title": "Increase revenue",
-        "description": "Reach more students through our platform."
+        "title": "Увеличете приходите",
+        "description": "Достигнете до повече курсисти чрез нашата платформа."
       },
       {
-        "title": "Save time",
-        "description": "Automate bookings, payments, and communication."
+        "title": "Спестете време",
+        "description": "Автоматизирайте записвания, плащания и комуникация."
       },
       {
-        "title": "Digital documentation",
-        "description": "Keep all documents in one place with easy access."
+        "title": "Дигитална документация",
+        "description": "Съхранявайте всички документи на едно място с лесен достъп."
       },
       {
-        "title": "Team management",
-        "description": "Coordinate instructors and assign responsibilities."
+        "title": "Управление на екипа",
+        "description": "Координирайте инструктори и разпределяйте отговорности."
       },
       {
-        "title": "Fast setup",
-        "description": "Start working in minutes, not days."
+        "title": "Бърз старт",
+        "description": "Започнете работа за минути, не за дни."
       },
       {
-        "title": "24/7 support",
-        "description": "Our team is always available to help."
+        "title": "24/7 поддръжка",
+        "description": "Нашият екип е винаги на разположение да помогне."
       }
     ],
     "joinForm": {
-      "title": "?????? ?? ?????????????? ??? Drivio",
-      "description": "????????? ????? ?? ?????? ????????? ? ???????. ?????????????????? ?? ???????? ? ?????? ????????.",
-      "schoolNameLabel": "??? ?? ?????????",
-      "schoolAddressLabel": "????? ?? ?????????",
-      "schoolPhoneLabel": "??????? ?? ?????????",
-      "contactNameLabel": "??? ?? ???? ?? ???????",
-      "contactEmailLabel": "????? ?? ???????",
-      "submit": "??????? ??????",
-      "submitting": "?????????...",
-      "success": "???????? ? ????????? ???????.",
-      "error": "???????? ?? ???? ?? ???? ?????????. ???????? ??????."
+      "title": "Заявка за присъединяване към Drivio",
+      "description": "Изпратете данни за автошколата и контакт. Суперадминистратор ще прегледа и одобри заявката.",
+      "schoolNameLabel": "Име на автошкола",
+      "schoolAddressLabel": "Адрес на автошкола",
+      "schoolPhoneLabel": "Телефон на автошкола",
+      "contactNameLabel": "Име на лице за контакт",
+      "contactEmailLabel": "Имейл за контакт",
+      "submit": "Изпрати заявка",
+      "submitting": "Изпращане...",
+      "success": "Заявката е изпратена успешно.",
+      "error": "Заявката не можа да бъде изпратена. Опитайте отново."
     }
   },
   "footer": {
     "summary": "Дигитализираме бъдещето на шофьорските курсове в България чрез иновативни технологии и автоматизация.",
-    "location": "гр. София, България",
+    "location": "София, България",
     "copyrightSuffix": "Всички права запазени.",
     "headings": {
       "legal": "Правна информация",
-      "contact": "Контакти"
+      "contact": "Свържете се с нас"
     },
     "utilityLinks": [
       {
-        "name": "Поверителност",
+        "name": "Политика за поверителност",
         "href": "/privacy"
       },
       {
-        "name": "Условия",
+        "name": "Условия за ползване",
         "href": "/terms"
       }
     ]
   },
   "cookie": {
     "title": "Използваме бисквитки",
-    "description": "Използваме бисквитки, за да подобрим вашето изживяване и да анализираме трафика. С натискане на \"Приемам\" вие давате съгласие.",
+    "description": "Използваме бисквитки, за да подобрим вашето изживяване и да анализираме трафика. С натискане на \"Приемам\" вие давате съгласие за използването им.",
     "accept": "Приемам всички",
     "settings": "Настройки"
+  },
+  "common": {
+    "changeLanguage": "Смени език",
+    "changeTheme": "Смени тема",
+    "themeSystem": "Системна",
+    "themeLight": "Светла",
+    "themeDark": "Тъмна"
   },
   "header": {
     "login": "Вход",
@@ -144,12 +151,5 @@
       "students": "За курсисти",
       "schools": "За автошколи"
     }
-  },
-  "common": {
-    "changeLanguage": "Смени език",
-    "changeTheme": "Смени тема",
-    "themeSystem": "Системна",
-    "themeLight": "Светла",
-    "themeDark": "Тъмна"
   }
 }

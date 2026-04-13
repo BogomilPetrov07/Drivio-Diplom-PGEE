@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
 import { approveSchoolJoinRequest, fetchPendingSchoolJoinRequests, type SchoolJoinRequest } from '../api'
@@ -8,7 +8,7 @@ interface SuperAdminDashboardPageProps {
   language: Language
   setLanguage: (language: Language) => void
   themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-pro-light' | 'drivio-pro-dark'
+  resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
 }
 

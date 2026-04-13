@@ -1,0 +1,9 @@
+﻿{
+  "depcheck": {
+    "ignoreMatches": [
+      "tailwindcss",
+      "daisyui",
+      "virtual:pwa-register"
+    ]
+  }
+}

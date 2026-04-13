@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom'
 import type { Language } from './i18n/public'
 import Header from './modules/public/components/Header'
@@ -23,13 +23,31 @@ import TermsPage from './modules/public/pages/TermsPage'
 import { ensureCorrectDomainForPath } from './utils/app-domain'
 import {
   getInitialLanguagePreference,
+  getLanguagePreferenceFromCookie,
   getInitialThemePreference,
+  getThemePreferenceFromCookie,
   setLanguagePreference as persistLanguagePreference,
   setThemePreference as persistThemePreference,
   type ThemePreference,
 } from './utils/preferences'
 
-type Theme = 'drivio-pro-light' | 'drivio-pro-dark'
+type Theme = 'drivio-light' | 'drivio-dark'
+
+function readTransferredPreferencesFromUrl() {
+  if (typeof window === 'undefined') {
+    return { language: null as Language | null, theme: null as ThemePreference | null }
+  }
+
+  const url = new URL(window.location.href)
+  const languageParam = url.searchParams.get('__pref_lang')
+  const themeParam = url.searchParams.get('__pref_theme')
+
+  const language: Language | null = languageParam === 'bg' || languageParam === 'en' ? languageParam : null
+  const theme: ThemePreference | null =
+    themeParam === 'light' || themeParam === 'dark' || themeParam === 'system' ? themeParam : null
+
+  return { language, theme }
+}
 
 function DomainGuard() {
   const location = useLocation()
@@ -161,27 +179,60 @@ function AppRoutes({
 }
 
 export default function App() {
-  const [themePreference, setThemePreference] = useState<ThemePreference>(getInitialThemePreference)
-  const [resolvedTheme, setResolvedTheme] = useState<Theme>('drivio-pro-light')
-  const [language, setLanguage] = useState<Language>(getInitialLanguagePreference)
+  const transferredPrefs = readTransferredPreferencesFromUrl()
+  const [themePreference, setThemePreferenceState] = useState<ThemePreference>(() => transferredPrefs.theme ?? getInitialThemePreference())
+  const [resolvedTheme, setResolvedTheme] = useState<Theme>('drivio-light')
+  const [language, setLanguageState] = useState<Language>(() => transferredPrefs.language ?? getInitialLanguagePreference())
+
+  const setThemePreference = (next: ThemePreference) => {
+    setThemePreferenceState(next)
+    persistThemePreference(next)
+  }
+
+  const setLanguage = (next: Language) => {
+    setLanguageState(next)
+    persistLanguagePreference(next)
+  }
+
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    let changed = false
+
+    if (transferredPrefs.language) {
+      setLanguageState(transferredPrefs.language)
+      persistLanguagePreference(transferredPrefs.language)
+      changed = true
+    }
+
+    if (transferredPrefs.theme) {
+      setThemePreferenceState(transferredPrefs.theme)
+      persistThemePreference(transferredPrefs.theme)
+      changed = true
+    }
+
+    if (changed) {
+      url.searchParams.delete('__pref_lang')
+      url.searchParams.delete('__pref_theme')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+  }, [transferredPrefs.language, transferredPrefs.theme])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     const computeTheme = (): Theme => {
-      if (themePreference === 'light') return 'drivio-pro-light'
-      if (themePreference === 'dark') return 'drivio-pro-dark'
-      return media.matches ? 'drivio-pro-dark' : 'drivio-pro-light'
+      if (themePreference === 'light') return 'drivio-light'
+      if (themePreference === 'dark') return 'drivio-dark'
+      return media.matches ? 'drivio-dark' : 'drivio-light'
     }
 
     const applyTheme = () => {
       const nextTheme = computeTheme()
       setResolvedTheme(nextTheme)
       document.documentElement.setAttribute('data-theme', nextTheme)
-      document.documentElement.style.colorScheme = nextTheme === 'drivio-pro-dark' ? 'dark' : 'light'
+      document.documentElement.style.colorScheme = nextTheme === 'drivio-dark' ? 'dark' : 'light'
     }
 
     applyTheme()
-    persistThemePreference(themePreference)
 
     const handleMediaChange = () => {
       if (themePreference === 'system') applyTheme()
@@ -191,8 +242,31 @@ export default function App() {
   }, [themePreference])
 
   useEffect(() => {
-    persistLanguagePreference(language)
-  }, [language])
+    const syncFromCookie = () => {
+      const cookieTheme = getThemePreferenceFromCookie()
+      if (cookieTheme && cookieTheme !== themePreference) {
+        setThemePreferenceState(cookieTheme)
+      }
+
+      const cookieLanguage = getLanguagePreferenceFromCookie()
+      if (cookieLanguage && cookieLanguage !== language) {
+        setLanguageState(cookieLanguage)
+      }
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromCookie()
+      }
+    }
+
+    window.addEventListener('focus', syncFromCookie)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('focus', syncFromCookie)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [themePreference, language])
 
   return (
     <Router>
