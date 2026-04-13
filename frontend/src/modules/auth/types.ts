@@ -19,10 +19,10 @@ export interface AuthResponse {
 }
 
 export const ROLE_DASHBOARD_PATH: Record<Role, string> = {
-  SUPERADMIN: '/dashboard/superadmin',
-  SCHOOLADMIN: '/dashboard/school-admin',
-  INSTRUCTOR: '/dashboard/instructor',
-  STUDENT: '/dashboard/student',
+  SUPERADMIN: '/dashboard/superadmin/home',
+  SCHOOLADMIN: '/dashboard/schooladmin/home',
+  INSTRUCTOR: '/dashboard/instructor/home',
+  STUDENT: '/dashboard/student/home',
 }
 
 export const ROLE_PRIORITY: Role[] = ['SUPERADMIN', 'SCHOOLADMIN', 'INSTRUCTOR', 'STUDENT']

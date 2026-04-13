@@ -1,16 +1,42 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { Language } from './i18n/public'
 import Header from './modules/public/components/Header'
 import AuthHeader from './modules/public/components/AuthHeader'
 import AuthnGuard from './modules/auth/components/AuthnGuard'
 import AuthzGuard from './modules/auth/components/AuthzGuard'
 import DashboardHomeRedirect from './modules/dashboard/pages/DashboardHomeRedirect'
+import SuperAdminLayout from './modules/dashboard/pages/SuperAdminLayout'
+import SuperAdminHomePage from './modules/dashboard/pages/SuperAdminHomePage'
+import SuperAdminStatisticsPage from './modules/dashboard/pages/SuperAdminStatisticsPage'
+import SuperAdminRequestsPage from './modules/dashboard/pages/SuperAdminRequestsPage'
+import SuperAdminSupportPage from './modules/dashboard/pages/SuperAdminSupportPage'
+import SchoolAdminLayout from './modules/dashboard/pages/SchoolAdminLayout'
 import InstructorDashboardPage from './modules/dashboard/pages/InstructorDashboardPage'
+import InstructorLayout from './modules/dashboard/pages/InstructorLayout'
+import InstructorInboxPage from './modules/dashboard/pages/InstructorInboxPage'
+import InstructorSchedulePage from './modules/dashboard/pages/InstructorSchedulePage'
+import InstructorStudentsPage from './modules/dashboard/pages/InstructorStudentsPage'
 import SchoolAdminDashboardPage from './modules/dashboard/pages/SchoolAdminDashboardPage'
+import SchoolAdminInboxPage from './modules/dashboard/pages/SchoolAdminInboxPage'
+import SchoolAdminPeoplePage from './modules/dashboard/pages/SchoolAdminPeoplePage'
+import SchoolAdminPlannerPage from './modules/dashboard/pages/SchoolAdminPlannerPage'
+import SchoolAdminCarsPage from './modules/dashboard/pages/SchoolAdminCarsPage'
+import SchoolAdminSupportPage from './modules/dashboard/pages/SchoolAdminSupportPage'
+import StudentLayout from './modules/dashboard/pages/StudentLayout'
+import StudentSupportPage from './modules/dashboard/pages/StudentSupportPage'
+import StudentInboxPage from './modules/dashboard/pages/StudentInboxPage'
+import StudentInstructorsPage from './modules/dashboard/pages/StudentInstructorsPage'
+import StudentProgressPage from './modules/dashboard/pages/StudentProgressPage'
+import StudentSchedulePage from './modules/dashboard/pages/StudentSchedulePage'
+import InstructorSupportPage from './modules/dashboard/pages/InstructorSupportPage'
 import StudentDashboardPage from './modules/dashboard/pages/StudentDashboardPage'
-import SuperAdminDashboardPage from './modules/dashboard/pages/SuperAdminDashboardPage'
 import UnauthorizedPage from './modules/dashboard/pages/UnauthorizedPage'
+import DashboardProfilePage from './modules/dashboard/pages/DashboardProfilePage'
+import DashboardSettingsPage from './modules/dashboard/pages/DashboardSettingsPage'
+import DashboardNotificationsPage from './modules/dashboard/pages/DashboardNotificationsPage'
+import DashboardSecurityPage from './modules/dashboard/pages/DashboardSecurityPage'
+import DashboardFaqsPage from './modules/dashboard/pages/DashboardFaqsPage'
 import ScrollToTop from './modules/public/components/ScrollToTop'
 import LandingPage from './modules/public/pages/LandingPage'
 import LoginPage from './modules/auth/pages/LoginPage.js'
@@ -117,7 +143,7 @@ function AppRoutes({
             <Route
               path="/dashboard/superadmin"
               element={
-                <SuperAdminDashboardPage
+                <SuperAdminLayout
                   language={language}
                   setLanguage={setLanguage}
                   themePreference={themePreference}
@@ -125,14 +151,25 @@ function AppRoutes({
                   setThemePreference={setThemePreference}
                 />
               }
-            />
+            >
+              <Route index element={<Navigate to="/dashboard/superadmin/home" replace />} />
+              <Route path="home" element={<SuperAdminHomePage language={language} />} />
+              <Route path="statistics" element={<SuperAdminStatisticsPage language={language} />} />
+              <Route path="requests" element={<SuperAdminRequestsPage language={language} />} />
+              <Route path="support" element={<SuperAdminSupportPage language={language} />} />
+              <Route path="profile" element={<DashboardProfilePage language={language} />} />
+              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
+              <Route path="security" element={<DashboardSecurityPage language={language} />} />
+              <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
+            </Route>
           </Route>
 
           <Route element={<AuthzGuard allowedRoles={['SCHOOLADMIN']} />}>
             <Route
-              path="/dashboard/school-admin"
+              path="/dashboard/schooladmin"
               element={
-                <SchoolAdminDashboardPage
+                <SchoolAdminLayout
                   language={language}
                   setLanguage={setLanguage}
                   themePreference={themePreference}
@@ -140,14 +177,27 @@ function AppRoutes({
                   setThemePreference={setThemePreference}
                 />
               }
-            />
+            >
+              <Route index element={<Navigate to="/dashboard/schooladmin/home" replace />} />
+              <Route path="home" element={<SchoolAdminDashboardPage language={language} />} />
+              <Route path="inbox" element={<SchoolAdminInboxPage language={language} />} />
+              <Route path="people" element={<SchoolAdminPeoplePage language={language} />} />
+              <Route path="planner" element={<SchoolAdminPlannerPage language={language} />} />
+              <Route path="cars" element={<SchoolAdminCarsPage language={language} />} />
+              <Route path="support" element={<SchoolAdminSupportPage language={language} />} />
+              <Route path="profile" element={<DashboardProfilePage language={language} />} />
+              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
+              <Route path="security" element={<DashboardSecurityPage language={language} />} />
+              <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
+            </Route>
           </Route>
 
           <Route element={<AuthzGuard allowedRoles={['INSTRUCTOR']} />}>
             <Route
               path="/dashboard/instructor"
               element={
-                <InstructorDashboardPage
+                <InstructorLayout
                   language={language}
                   setLanguage={setLanguage}
                   themePreference={themePreference}
@@ -155,14 +205,26 @@ function AppRoutes({
                   setThemePreference={setThemePreference}
                 />
               }
-            />
+            >
+              <Route index element={<Navigate to="/dashboard/instructor/home" replace />} />
+              <Route path="home" element={<InstructorDashboardPage language={language} />} />
+              <Route path="inbox" element={<InstructorInboxPage language={language} />} />
+              <Route path="schedule" element={<InstructorSchedulePage language={language} />} />
+              <Route path="students" element={<InstructorStudentsPage language={language} />} />
+              <Route path="support" element={<InstructorSupportPage language={language} />} />
+              <Route path="profile" element={<DashboardProfilePage language={language} />} />
+              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
+              <Route path="security" element={<DashboardSecurityPage language={language} />} />
+              <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
+            </Route>
           </Route>
 
           <Route element={<AuthzGuard allowedRoles={['STUDENT']} />}>
             <Route
               path="/dashboard/student"
               element={
-                <StudentDashboardPage
+                <StudentLayout
                   language={language}
                   setLanguage={setLanguage}
                   themePreference={themePreference}
@@ -170,7 +232,20 @@ function AppRoutes({
                   setThemePreference={setThemePreference}
                 />
               }
-            />
+            >
+              <Route index element={<Navigate to="/dashboard/student/home" replace />} />
+              <Route path="home" element={<StudentDashboardPage language={language} />} />
+              <Route path="inbox" element={<StudentInboxPage language={language} />} />
+              <Route path="instructors" element={<StudentInstructorsPage language={language} />} />
+              <Route path="progress" element={<StudentProgressPage language={language} />} />
+              <Route path="schedule" element={<StudentSchedulePage language={language} />} />
+              <Route path="support" element={<StudentSupportPage language={language} />} />
+              <Route path="profile" element={<DashboardProfilePage language={language} />} />
+              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
+              <Route path="security" element={<DashboardSecurityPage language={language} />} />
+              <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
+            </Route>
           </Route>
         </Route>
       </Routes>

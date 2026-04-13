@@ -1,36 +1,8 @@
-import { getDashboardTranslations } from '../../../i18n/dashboard'
+import RoleHomePage from './RoleHomePage'
 import type { Language } from '../../../i18n/language'
-import DashboardShell from '../components/DashboardShell.js'
 
-interface SchoolAdminDashboardPageProps {
-  language: Language
-  setLanguage: (language: Language) => void
-  themePreference: 'system' | 'light' | 'dark'
-  resolvedTheme: 'drivio-light' | 'drivio-dark'
-  setThemePreference: (theme: 'system' | 'light' | 'dark') => void
+interface Props { language: Language }
+
+export default function SchoolAdminDashboardPage({ language }: Props) {
+  return <RoleHomePage language={language} role='schoolAdmin' />
 }
-
-export default function SchoolAdminDashboardPage({
-  language,
-  setLanguage,
-  themePreference,
-  resolvedTheme,
-  setThemePreference,
-}: SchoolAdminDashboardPageProps) {
-  const t = getDashboardTranslations(language).roles.schoolAdmin
-
-  return (
-    <DashboardShell
-      language={language}
-      setLanguage={setLanguage}
-      themePreference={themePreference}
-      resolvedTheme={resolvedTheme}
-      setThemePreference={setThemePreference}
-      title={t.title}
-      subtitle={t.subtitle}
-      items={t.items}
-    />
-  )
-}
-
-

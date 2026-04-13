@@ -119,6 +119,19 @@
       "legal": "Legal Information",
       "contact": "Contact Us"
     },
+    "questionForm": {
+      "title": "Ask a question",
+      "description": "Send your question and we will reply to your email.",
+      "nameLabel": "Your name",
+      "emailLabel": "Your email",
+      "questionLabel": "Your question",
+      "questionPlaceholder": "Write your question here...",
+      "submit": "Send question",
+      "submitting": "Sending...",
+      "success": "Question sent. We will respond to your email.",
+      "error": "Could not send your question. Please try again.",
+      "directEmailPrefix": "Prefer direct email?"
+    },
     "utilityLinks": [
       {
         "name": "Privacy Policy",

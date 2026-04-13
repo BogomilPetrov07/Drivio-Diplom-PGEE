@@ -1,6 +1,9 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { WelcomeEmail } from '../emails/WelcomeEmail.js';
+import { PublicQuestionConfirmationEmail } from '../emails/PublicQuestionConfirmationEmail.js';
+import { PublicQuestionNotificationEmail } from '../emails/PublicQuestionNotificationEmail.js';
+import { PublicTicketStatusEmail } from '../emails/PublicTicketStatusEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
@@ -39,5 +42,63 @@ export const sendSchoolApprovalSetupEmail = async (
         to: [to],
         subject: "Complete your Drivio school admin setup",
         html,
+    });
+};
+
+export const sendPublicQuestionToSupport = async (
+    name: string,
+    email: string,
+    question: string,
+    threadId: string,
+    source: "PUBLIC" | "USER_DASHBOARD",
+) => {
+    const safeName = name.trim();
+    const safeEmail = email.trim().toLowerCase();
+    const safeQuestion = question.trim();
+    const emailHtml = await render(
+        React.createElement(PublicQuestionNotificationEmail, {
+            name: safeName,
+            email: safeEmail,
+            question: safeQuestion,
+        }),
+    );
+
+    return await resend.emails.send({
+        from: `Drivio Support <support@mail.drivio-bg.com>`,
+        to: ["support@mail.drivio-bg.com"],
+        replyTo: safeEmail,
+        subject: `New ${source === "PUBLIC" ? "public" : "dashboard"} question [TICKET:${threadId}]`,
+        html: emailHtml,
+    });
+};
+
+export const sendPublicQuestionConfirmationEmail = async (to: string, name: string, threadId: string) => {
+    const safeName = name.trim();
+    const safeTo = to.trim().toLowerCase();
+    const emailHtml = await render(React.createElement(PublicQuestionConfirmationEmail, { name: safeName }));
+
+    return await resend.emails.send({
+        from: `Drivio No Reply <noreply@mail.drivio-bg.com>`,
+        to: [safeTo],
+        subject: `Ticket accepted [TICKET:${threadId}]`,
+        html: emailHtml,
+    });
+};
+
+export const sendPublicTicketStatusEmail = async (
+    to: string,
+    name: string,
+    threadId: string,
+    status: "OPEN" | "CLOSED",
+) => {
+    const safeName = name.trim();
+    const safeTo = to.trim().toLowerCase();
+    const emailHtml = await render(React.createElement(PublicTicketStatusEmail, { name: safeName, status, threadId }));
+
+    return await resend.emails.send({
+        from: `Drivio No Reply <noreply@mail.drivio-bg.com>`,
+        to: [safeTo],
+        subject: status === "CLOSED" ? `Ticket closed [TICKET:${threadId}]` : `Ticket reopened [TICKET:${threadId}]`,
+        html: emailHtml,
     });
 };

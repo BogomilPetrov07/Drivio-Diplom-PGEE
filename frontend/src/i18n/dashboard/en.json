@@ -1,6 +1,7 @@
 {
   "shell": {
     "signedInAs": "Signed in as",
+    "role": "Role",
     "testHello": "Test Hello",
     "testing": "Testing...",
     "signOut": "Sign out",
@@ -11,43 +12,43 @@
   },
   "roles": {
     "superadmin": {
-      "title": "Super Admin Dashboard",
-      "subtitle": "Platform-level command center for Drivio.",
+      "title": "Home",
+      "subtitle": "Platform control center.",
       "items": [
-        "Monitor onboarding conversion across all schools",
-        "Review platform-wide security events and audit records",
-        "Manage system configuration and role governance",
-        "Track billing and active subscriptions"
+        "School onboarding",
+        "Support inbox",
+        "Security events",
+        "Platform settings"
       ]
     },
     "schoolAdmin": {
-      "title": "School Admin Dashboard",
-      "subtitle": "Operational dashboard for your driving school.",
+      "title": "Home",
+      "subtitle": "School operations at a glance.",
       "items": [
-        "Approve instructor accounts and assign classes",
-        "Review lesson schedules and student allocation",
-        "Manage school profile, locations, and fleet",
-        "Track enrollment and completion metrics"
+        "Team and classes",
+        "Schedules",
+        "School profile",
+        "Performance"
       ]
     },
     "instructor": {
-      "title": "Instructor Dashboard",
-      "subtitle": "Teaching workflow and student progress tools.",
+      "title": "Home",
+      "subtitle": "Teaching workflow and progress.",
       "items": [
-        "View today lessons and route plans",
-        "Update student progress after each session",
-        "Submit attendance and practical exam readiness",
-        "Coordinate schedule adjustments with school admin"
+        "Today lessons",
+        "Student progress",
+        "Attendance",
+        "Schedule updates"
       ]
     },
     "student": {
-      "title": "Student Dashboard",
-      "subtitle": "Your lessons, progress, and driving journey.",
+      "title": "Home",
+      "subtitle": "Lessons and progress.",
       "items": [
-        "See upcoming lessons and instructor assignments",
-        "Track completed modules and remaining milestones",
-        "Review instructor feedback and next practice goals",
-        "Manage reminders and notifications"
+        "Upcoming lessons",
+        "Learning progress",
+        "Instructor feedback",
+        "Reminders"
       ]
     }
   },
@@ -76,7 +77,19 @@
     "viewData": "View data",
     "analyticsTitle": "Profit / Expenses Analytics",
     "customersTitle": "Customers by Country",
-    "welcome": "Welcome!"
+    "welcome": "Welcome!",
+    "home": "Home",
+    "help": "Help",
+    "overview": "Overview",
+    "inbox": "Inbox",
+    "people": "People",
+    "planner": "Planner",
+    "cars": "Cars",
+    "schedule": "Schedule",
+    "students": "Students",
+    "statistics": "Statistics",
+    "instructors": "Instructors",
+    "progress": "Progress"
   },
   "onboarding": {
     "title": "School Join Requests",
@@ -88,5 +101,64 @@
     "approving": "Approving...",
     "loadError": "Could not load pending requests.",
     "approveError": "Could not approve request. Try again."
+  },
+  "support": {
+    "title": "Support",
+    "newTicket": "New ticket",
+    "closeTicket": "Close ticket",
+    "reopenTicket": "Reopen ticket",
+    "deleteTicket": "Delete ticket",
+    "refresh": "Refresh",
+    "loading": "Loading tickets...",
+    "empty": "No tickets yet.",
+    "noPreview": "No message preview.",
+    "selectThread": "Select a ticket.",
+    "emptyHint": "New requests will appear here.",
+    "selectHint": "Select a ticket to view the conversation history.",
+    "getStarted": "Get Started",
+    "messagesLoading": "Loading...",
+    "noMessages": "No messages yet.",
+    "replyLabel": "Reply",
+    "replyPlaceholder": "Type your reply...",
+    "reply": "Send reply",
+    "replying": "Sending...",
+    "loadError": "Could not load tickets.",
+    "messagesError": "Could not load messages.",
+    "replyError": "Could not send reply.",
+    "closeError": "Could not change ticket status.",
+    "deleteError": "Could not delete ticket.",
+    "externalTicket": "External ticket (email)",
+    "internalTicket": "Internal ticket (platform)",
+    "writeBackEmail": "Write back (email)"
+  },
+  "supportUser": {
+    "title": "Support",
+    "description": "Create a ticket and chat with support.",
+    "newTicket": "Create ticket",
+    "threads": "Tickets",
+    "noThreads": "No tickets yet.",
+    "conversation": "Conversation",
+    "emptyHint": "Your support requests will appear here.",
+    "selectHint": "Select a ticket to view the conversation history.",
+    "getStarted": "Get Started",
+    "noMessages": "No messages yet.",
+    "subjectLabel": "Topic",
+    "subjectPlaceholder": "Short topic (optional)",
+    "questionLabel": "Message",
+    "questionPlaceholder": "Describe your question...",
+    "submit": "Send",
+    "submitting": "Sending...",
+    "success": "Ticket accepted. Support will contact you soon.",
+    "error": "Could not send the question. Please try again.",
+    "replyPlaceholder": "Write a reply...",
+    "reply": "Send reply",
+    "replying": "Sending...",
+    "closeTicket": "Close ticket",
+    "closed": "Closed",
+    "open": "Open",
+    "waitingUser": "Waiting for you",
+    "loadError": "Could not load tickets.",
+    "messagesError": "Could not load messages.",
+    "closeError": "Could not close ticket."
   }
 }

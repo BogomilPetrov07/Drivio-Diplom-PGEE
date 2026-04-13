@@ -12,3 +12,14 @@ export async function submitDrivingSchoolJoinRequest(payload: JoinRequestPayload
   const { data } = await api.post('/onboarding/request', payload)
   return data as { message: string }
 }
+
+export interface PublicQuestionPayload {
+  name: string
+  email: string
+  question: string
+}
+
+export async function submitPublicQuestion(payload: PublicQuestionPayload) {
+  const { data } = await api.post('/support/question', payload)
+  return data as { message: string }
+}
