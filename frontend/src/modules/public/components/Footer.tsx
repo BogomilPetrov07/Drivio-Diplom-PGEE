@@ -18,9 +18,9 @@ export default function Footer({ theme, language }: FooterProps) {
   const valuePoints =
     language === 'bg'
       ? [
-          'Ð•Ð´Ð½Ð° Ð¿Ð»Ð°Ñ‚Ñ„Ð¾Ñ€Ð¼Ð° Ð·Ð° ÐºÑƒÑ€ÑÐ¸ÑÑ‚Ð¸, Ð¸Ð½ÑÑ‚Ñ€ÑƒÐºÑ‚Ð¾Ñ€Ð¸ Ð¸ Ð°Ð´Ð¼Ð¸Ð½Ð¸ÑÑ‚Ñ€Ð°Ñ‚Ð¾Ñ€Ð¸',
-          'ÐŸÐ¾-Ð¼Ð°Ð»ÐºÐ¾ Ñ€ÑŠÑ‡Ð½Ð° Ñ€Ð°Ð±Ð¾Ñ‚Ð° Ñ‡Ñ€ÐµÐ· Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ð·Ð¸Ñ€Ð°Ð½Ð¸ Ð¿Ñ€Ð¾Ñ†ÐµÑÐ¸',
-          'Ð¯ÑÐ½Ð° Ð¿Ñ€Ð¾ÑÐ»ÐµÐ´Ð¸Ð¼Ð¾ÑÑ‚ Ð½Ð° Ð¿Ñ€Ð¾Ð³Ñ€ÐµÑ, Ð³Ñ€Ð°Ñ„Ð¸Ñ†Ð¸ Ð¸ ÐºÐ¾Ð¼ÑƒÐ½Ð¸ÐºÐ°Ñ†Ð¸Ñ',
+          'Една платформа за курсисти, инструктори и администратори',
+          'По-малко ръчна работа чрез автоматизирани процеси',
+          'Ясна проследимост на прогрес, графици и комуникация',
         ]
       : [
           'One platform for students, instructors, and admins',
@@ -49,13 +49,13 @@ export default function Footer({ theme, language }: FooterProps) {
             <div className="pt-5 mt-5 border-t border-base-content/10 max-w-lg">
               <p className="text-helper text-base-content/65 leading-relaxed mb-4">
                 {language === 'bg'
-                  ? 'Ð¡ÑŠÐ·Ð´Ð°Ð´ÐµÐ½Ð° Ð·Ð° Ð¼Ð¾Ð´ÐµÑ€Ð½Ð¸ Ð°Ð²Ñ‚Ð¾ÑˆÐºÐ¾Ð»Ð¸, ÐºÐ¾Ð¸Ñ‚Ð¾ Ð¸ÑÐºÐ°Ñ‚ Ð¿Ð¾-Ð´Ð¾Ð±Ñ€Ð° Ð¾Ñ€Ð³Ð°Ð½Ð¸Ð·Ð°Ñ†Ð¸Ñ Ð¸ Ð¿Ð¾-Ð²Ð¸ÑÐ¾ÐºÐ¾ ÐºÐ°Ñ‡ÐµÑÑ‚Ð²Ð¾ Ð½Ð° ÑƒÑÐ»ÑƒÐ³Ð°Ñ‚Ð°.'
+                  ? 'Създадена за модерни автошколи, които искат по-добра организация и по-високо качество на услугата.'
                   : 'Built for modern driving schools that want better operations and higher service quality.'}
               </p>
               <ul className="space-y-2">
                 {valuePoints.map((point, index) => (
                   <li key={index} className="text-helper text-base-content/70 leading-relaxed">
-                    â€¢ {point}
+                    • {point}
                   </li>
                 ))}
               </ul>
@@ -104,10 +104,10 @@ export default function Footer({ theme, language }: FooterProps) {
             </p>
             <div className="flex items-center gap-4">
               <a href={privacyHref} className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
-                {language === 'bg' ? 'ÐŸÐ¾Ð²ÐµÑ€Ð¸Ñ‚ÐµÐ»Ð½Ð¾ÑÑ‚' : 'Privacy'}
+                {language === 'bg' ? 'Поверителност' : 'Privacy'}
               </a>
               <a href={termsHref} className="text-helper text-base-content/65 hover:opacity-80 transition-opacity duration-150">
-                {language === 'bg' ? 'Ð£ÑÐ»Ð¾Ð²Ð¸Ñ' : 'Terms'}
+                {language === 'bg' ? 'Условия' : 'Terms'}
               </a>
             </div>
           </div>
