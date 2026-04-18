@@ -23,6 +23,7 @@ import SchoolAdminPeoplePage from './modules/dashboard/pages/SchoolAdminPeoplePa
 import SchoolAdminPlannerPage from './modules/dashboard/pages/SchoolAdminPlannerPage'
 import SchoolAdminCarsPage from './modules/dashboard/pages/SchoolAdminCarsPage'
 import SchoolAdminSupportPage from './modules/dashboard/pages/SchoolAdminSupportPage'
+import SchoolAdminSchoolPage from './modules/dashboard/pages/SchoolAdminSchoolPage'
 import StudentLayout from './modules/dashboard/pages/StudentLayout'
 import StudentSupportPage from './modules/dashboard/pages/StudentSupportPage'
 import StudentInboxPage from './modules/dashboard/pages/StudentInboxPage'
@@ -42,13 +43,13 @@ import LandingPage from './modules/public/pages/LandingPage'
 import LoginPage from './modules/auth/pages/LoginPage.js'
 import DrivingSchoolRegisterPage from './modules/auth/pages/DrivingSchoolRegisterPage'
 import DrivingSchoolCompleteSetupPage from './modules/auth/pages/DrivingSchoolCompleteSetupPage'
-import SessionLoadingScreen from './modules/auth/components/SessionLoadingScreen'
 import { useAuth } from './modules/auth/hooks'
+import { hasSessionCookie } from './modules/auth/api'
 import PrivacyPage from './modules/public/pages/PrivacyPage'
 import SchoolsPage from './modules/public/pages/SchoolsPage'
 import StudentsPage from './modules/public/pages/StudentsPage'
 import TermsPage from './modules/public/pages/TermsPage'
-import { ensureCorrectDomainForPath, getBaseHostname, getDomainAwareUrl } from './utils/app-domain'
+import { ensureCorrectDomainForPath, getAppHostname, getDomainAwareUrl, isAuthPath } from './utils/app-domain'
 import { getRoleDashboardPath } from './modules/auth/types'
 import {
   getInitialLanguagePreference,
@@ -89,13 +90,19 @@ function DomainGuard() {
 }
 
 function SessionBootstrap() {
+  const location = useLocation()
   const { initialized, initialize } = useAuth()
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (location.pathname === '/session-check') return
+    const onAuthHostname = window.location.hostname === getAppHostname(window.location.hostname)
+    const shouldInitializeHere = onAuthHostname || isAuthPath(location.pathname)
+    if (!shouldInitializeHere) return
     if (!initialized) {
       void initialize()
     }
-  }, [initialized, initialize])
+  }, [location.pathname, initialized, initialize])
 
   return null
 }
@@ -106,47 +113,37 @@ interface PublicHomeEntryProps {
 }
 
 function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
-  const { initialized, loading, isAuthenticated, role } = useAuth()
-  const [alreadyChecked, setAlreadyChecked] = useState(false)
+  const { isAuthenticated, role } = useAuth()
+  const [hasAuthCookie, setHasAuthCookie] = useState<boolean | 'unknown' | null>(null)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const url = new URL(window.location.href)
-    const checked = url.searchParams.get('__session_checked') === '1'
-    setAlreadyChecked(checked)
-
-    if (checked) {
-      // Remove marker after paint so future root loads can re-probe session.
-      const timer = window.setTimeout(() => {
-        const cleanUrl = new URL(window.location.href)
-        cleanUrl.searchParams.delete('__session_checked')
-        window.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`)
-      }, 0)
-      return () => window.clearTimeout(timer)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!initialized || loading) return
     if (typeof window === 'undefined') return
     if (isAuthenticated) return
-    if (alreadyChecked) return
+    if (hasAuthCookie !== null) return
+    void hasSessionCookie()
+      .then((exists) => {
+        setHasAuthCookie(exists)
+      })
+      .catch(() => {
+        // In localhost dev, cross-subdomain probe can fail even when auth cookies exist.
+        // Treat as unknown and continue with session-check flow.
+        setHasAuthCookie('unknown')
+      })
+  }, [isAuthenticated, hasAuthCookie])
 
-    const sessionCheckUrl = new URL(getDomainAwareUrl('/session-check'))
-    sessionCheckUrl.searchParams.set('returnTo', `${window.location.pathname}${window.location.search}${window.location.hash}`)
-    window.location.replace(sessionCheckUrl.toString())
-  }, [initialized, loading, isAuthenticated, alreadyChecked])
-
-  if (!initialized || loading) {
-    return <SessionLoadingScreen language={language} />
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (isAuthenticated) return
+    if (hasAuthCookie !== true && hasAuthCookie !== 'unknown') return
+    window.location.replace(getDomainAwareUrl('/session-check'))
+  }, [isAuthenticated, hasAuthCookie])
 
   if (isAuthenticated && role) {
-    return <SessionRedirectToDashboard rolePath={getRoleDashboardPath(role)} language={language} />
+    return <SessionRedirectToDashboard rolePath={getRoleDashboardPath(role)} />
   }
 
-  if (!alreadyChecked) {
-    return <SessionLoadingScreen language={language} />
+  if (!isAuthenticated && hasAuthCookie === null) {
+    return <div className="min-h-screen bg-base-100" />
   }
 
   return <LandingPage language={language} theme={theme} />
@@ -154,53 +151,41 @@ function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
 
 interface SessionRedirectToDashboardProps {
   rolePath: string
-  language: Language
 }
 
-function SessionRedirectToDashboard({ rolePath, language }: SessionRedirectToDashboardProps) {
+function SessionRedirectToDashboard({ rolePath }: SessionRedirectToDashboardProps) {
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      window.location.replace(getDomainAwareUrl(rolePath))
-    }, 5000)
-
-    return () => window.clearTimeout(timer)
+    window.location.replace(getDomainAwareUrl(rolePath))
   }, [rolePath])
 
-  return <SessionLoadingScreen language={language} simulateProgress />
+  return <div className="min-h-screen bg-base-100" />
 }
 
 function SessionCheckEntry() {
-  const { initialized, loading, isAuthenticated, role } = useAuth()
-  const [redirectingWithDelay, setRedirectingWithDelay] = useState(false)
+  const { initialized, loading, isAuthenticated, role, forceRefreshSession } = useAuth()
+  const [hasVerifiedOnAppDomain, setHasVerifiedOnAppDomain] = useState(false)
 
   useEffect(() => {
+    if (hasVerifiedOnAppDomain) return
+
+    void forceRefreshSession().finally(() => {
+      setHasVerifiedOnAppDomain(true)
+    })
+  }, [hasVerifiedOnAppDomain, forceRefreshSession])
+
+  useEffect(() => {
+    if (!hasVerifiedOnAppDomain) return
     if (!initialized || loading) return
     if (typeof window === 'undefined') return
 
     if (isAuthenticated && role) {
-      setRedirectingWithDelay(true)
-      const timer = window.setTimeout(() => {
-        window.location.replace(getDomainAwareUrl(getRoleDashboardPath(role)))
-      }, 5000)
-      return () => window.clearTimeout(timer)
+      window.location.replace(getDomainAwareUrl(getRoleDashboardPath(role)))
+      return
     }
+    window.location.replace(getDomainAwareUrl('/'))
+  }, [hasVerifiedOnAppDomain, initialized, loading, isAuthenticated, role])
 
-    setRedirectingWithDelay(false)
-    const timer = window.setTimeout(() => {
-      const url = new URL(window.location.href)
-      const returnTo = url.searchParams.get('returnTo')
-      const safeReturnPath =
-        returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/'
-      const baseOrigin = new URL(window.location.href)
-      baseOrigin.hostname = getBaseHostname(baseOrigin.hostname)
-      baseOrigin.pathname = safeReturnPath
-      baseOrigin.searchParams.set('__session_checked', '1')
-      window.location.replace(baseOrigin.toString())
-    }, 0)
-    return () => window.clearTimeout(timer)
-  }, [initialized, loading, isAuthenticated, role])
-
-  return <SessionLoadingScreen simulateProgress={redirectingWithDelay} />
+  return <div className="min-h-screen bg-base-100" />
 }
 
 interface AppRoutesProps {
@@ -219,11 +204,7 @@ function AppRoutes({
   setLanguage,
 }: AppRoutesProps) {
   const location = useLocation()
-  const { initialized, loading, isAuthenticated } = useAuth()
-  const checkedOnBase = new URLSearchParams(location.search).get('__session_checked') === '1'
-  const isSessionTransitionRoute =
-    location.pathname === '/session-check' ||
-    (location.pathname === '/' && (!initialized || loading || (!isAuthenticated && !checkedOnBase)))
+  const isSessionTransitionRoute = location.pathname === '/session-check'
   const isPublicLayoutRoute = ['/', '/students', '/schools', '/privacy', '/terms'].includes(location.pathname)
   const isAuthLayoutRoute = ['/login', '/register', '/register/driving-school', '/register/driving-school/complete'].includes(location.pathname)
 
@@ -304,6 +285,7 @@ function AppRoutes({
             >
               <Route index element={<Navigate to="/dashboard/schooladmin/home" replace />} />
               <Route path="home" element={<SchoolAdminDashboardPage language={language} />} />
+              <Route path="school" element={<SchoolAdminSchoolPage language={language} />} />
               <Route path="inbox" element={<SchoolAdminInboxPage language={language} />} />
               <Route path="people" element={<SchoolAdminPeoplePage language={language} />} />
               <Route path="planner" element={<SchoolAdminPlannerPage language={language} />} />

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useAuthStore } from './store.js'
+import { getPreferredRole } from './types.js'
 
 export function useAuth() {
   const user = useAuthStore((state) => state.user)
@@ -9,6 +10,7 @@ export function useAuth() {
   const login = useAuthStore((state) => state.login)
   const logout = useAuthStore((state) => state.logout)
   const initialize = useAuthStore((state) => state.initialize)
+  const forceRefreshSession = useAuthStore((state) => state.forceRefreshSession)
   const clearError = useAuthStore((state) => state.clearError)
 
   return useMemo(
@@ -18,13 +20,15 @@ export function useAuth() {
       initialized,
       error,
       isAuthenticated: Boolean(user),
-      role: user?.role ?? null,
+      role: getPreferredRole(user),
+      roles: user?.roles ?? [],
       login,
       logout,
       initialize,
+      forceRefreshSession,
       clearError,
     }),
-    [user, loading, initialized, error, login, logout, initialize, clearError],
+    [user, loading, initialized, error, login, logout, initialize, forceRefreshSession, clearError],
   )
 }
 

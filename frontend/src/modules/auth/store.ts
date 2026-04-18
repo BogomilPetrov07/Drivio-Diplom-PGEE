@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import { login, logout, refreshSession } from './api.js'
 import type { AuthUser, LoginDTO } from './types.js'
 
@@ -10,6 +10,7 @@ interface AuthState {
   error: string | null
   login: (payload: LoginDTO) => Promise<AuthUser>
   initialize: () => Promise<void>
+  forceRefreshSession: () => Promise<void>
   logout: () => Promise<void>
   clearError: () => void
 }
@@ -56,6 +57,24 @@ export const useAuthStore = create<AuthState>()(
         return initializePromise
       },
 
+      forceRefreshSession: async () => {
+        if (initializePromise) return initializePromise
+
+        initializePromise = (async () => {
+          set({ loading: true, error: null })
+          try {
+            const { user } = await refreshSession()
+            set({ user, loading: false, initialized: true })
+          } catch {
+            set({ user: null, loading: false, initialized: true })
+          }
+        })().finally(() => {
+          initializePromise = null
+        })
+
+        return initializePromise
+      },
+
       logout: async () => {
         try {
           await logout()
@@ -68,6 +87,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'drivio-auth',
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,
       }),

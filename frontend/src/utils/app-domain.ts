@@ -1,6 +1,6 @@
+import { getLanguagePreferenceFromCookie, getThemePreferenceFromCookie } from './preferences'
+
 const AUTH_LABEL = 'app'
-const LANGUAGE_PREFERENCE_KEY = 'language'
-const THEME_PREFERENCE_KEY = 'theme-preference'
 const PREF_LANGUAGE_PARAM = '__pref_lang'
 const PREF_THEME_PARAM = '__pref_theme'
 
@@ -78,8 +78,8 @@ function attachCrossDomainPreferenceParams(targetUrl: URL, targetHostname: strin
   if (typeof window === 'undefined') return
   if (window.location.hostname === targetHostname) return
 
-  const language = localStorage.getItem(LANGUAGE_PREFERENCE_KEY)
-  const theme = localStorage.getItem(THEME_PREFERENCE_KEY)
+  const language = getLanguagePreferenceFromCookie()
+  const theme = getThemePreferenceFromCookie()
 
   if (language === 'bg' || language === 'en') {
     targetUrl.searchParams.set(PREF_LANGUAGE_PARAM, language)

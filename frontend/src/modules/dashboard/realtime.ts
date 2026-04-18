@@ -4,10 +4,13 @@ let socketRef: Socket | null = null
 let reconnectInFlight: Promise<void> | null = null
 
 async function tryRefreshSession() {
-  await fetch('/api/auth/refresh', {
+  const response = await fetch('/api/auth/refresh', {
     method: 'GET',
     credentials: 'include',
   })
+  if (!response.ok) {
+    throw new Error(`Refresh failed: ${response.status}`)
+  }
 }
 
 export function getRealtimeSocket() {

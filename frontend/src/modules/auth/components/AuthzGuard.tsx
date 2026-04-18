@@ -7,13 +7,14 @@ interface AuthzGuardProps {
 }
 
 export default function AuthzGuard({ allowedRoles }: AuthzGuardProps) {
-  const { role, isAuthenticated } = useAuth()
+  const { role, roles, isAuthenticated } = useAuth()
 
   if (!isAuthenticated || !role) {
     return <Navigate to="/login" replace />
   }
 
-  if (!allowedRoles.includes(role)) {
+  const userRoles = roles.length ? roles : [role]
+  if (!userRoles.some((userRole) => allowedRoles.includes(userRole))) {
     return <Navigate to="/unauthorized" replace />
   }
 

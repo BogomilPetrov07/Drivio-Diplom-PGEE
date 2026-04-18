@@ -55,19 +55,12 @@ export function getInitialThemePreference(): ThemePreference {
   if (typeof window === 'undefined') return 'system'
   const fromCookie = readCookie(THEME_PREFERENCE_KEY)
   if (fromCookie === 'light' || fromCookie === 'dark' || fromCookie === 'system') {
-    localStorage.setItem(THEME_PREFERENCE_KEY, fromCookie)
     return fromCookie
-  }
-  const saved = localStorage.getItem(THEME_PREFERENCE_KEY)
-  if (saved === 'light' || saved === 'dark' || saved === 'system') {
-    writePreferenceCookie(THEME_PREFERENCE_KEY, saved)
-    return saved
   }
   return 'system'
 }
 
 export function setThemePreference(value: ThemePreference) {
-  localStorage.setItem(THEME_PREFERENCE_KEY, value)
   writePreferenceCookie(THEME_PREFERENCE_KEY, value)
 }
 
@@ -83,19 +76,12 @@ export function getInitialLanguagePreference(): LanguagePreference {
   if (typeof window === 'undefined') return 'bg'
   const fromCookie = readCookie(LANGUAGE_PREFERENCE_KEY)
   if (fromCookie === 'bg' || fromCookie === 'en') {
-    localStorage.setItem(LANGUAGE_PREFERENCE_KEY, fromCookie)
     return fromCookie
-  }
-  const saved = localStorage.getItem(LANGUAGE_PREFERENCE_KEY)
-  if (saved === 'bg' || saved === 'en') {
-    writePreferenceCookie(LANGUAGE_PREFERENCE_KEY, saved)
-    return saved
   }
   return 'bg'
 }
 
 export function setLanguagePreference(value: LanguagePreference) {
-  localStorage.setItem(LANGUAGE_PREFERENCE_KEY, value)
   writePreferenceCookie(LANGUAGE_PREFERENCE_KEY, value)
 }
 

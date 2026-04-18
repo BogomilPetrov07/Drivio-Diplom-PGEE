@@ -8,7 +8,7 @@ interface Props {
 
 export default function DashboardFaqsPage({ language }: Props) {
   const { user } = useAuth()
-  const isSuperAdmin = user?.role === 'SUPERADMIN'
+  const isSuperAdmin = user?.roles?.includes('SUPERADMIN') ?? user?.role === 'SUPERADMIN'
 
   return (
     <section className="rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 p-4 sm:p-5 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)]">
@@ -44,4 +44,3 @@ export default function DashboardFaqsPage({ language }: Props) {
     </section>
   )
 }
-

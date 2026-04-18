@@ -10,7 +10,10 @@ export function authorizeMiddleware(roles: Role[]) {
             return res.status(401).json({message: "Unauthorized: No user found"});
         }
 
-        if (!roles.includes(req.user.role as Role)) {
+        const userRoles = req.user.roles?.length ? req.user.roles : [req.user.role as Role];
+        const isAllowed = userRoles.some((userRole) => roles.includes(userRole));
+
+        if (!isAllowed) {
             return res.status(403).json({message: "Forbidden: Access denied"});
         }
 

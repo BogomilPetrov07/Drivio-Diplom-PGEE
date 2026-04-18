@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Bell, CircleUserRound, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, CircleHelp, BellRing, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
@@ -10,13 +10,17 @@ import logoDark from '../../../assets/logo_dark.svg'
 import { fetchMyNotifications, markAllNotificationsAsRead, savePushSubscription, fetchPushPublicKey, deleteMyNotification, type DashboardNotification } from '../api'
 import { getRealtimeSocket } from '../realtime'
 
+export type DashboardNavItem =
+  | { kind: 'link'; label: string; icon?: ReactNode; to: string }
+  | { kind: 'section'; label: string }
+
 interface DashboardShellProps {
   language: Language
   setLanguage: (language: Language) => void
   themePreference: 'system' | 'light' | 'dark'
   resolvedTheme: 'drivio-light' | 'drivio-dark'
   setThemePreference: (theme: 'system' | 'light' | 'dark') => void
-  navItems: Array<{ label: string; icon?: ReactNode; to: string }>
+  navItems: DashboardNavItem[]
 }
 
 export default function DashboardShell({
@@ -37,7 +41,7 @@ export default function DashboardShell({
   const [notifications, setNotifications] = useState<DashboardNotification[]>([])
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>(() => {
     try {
-      const raw = localStorage.getItem('drivio_dismissed_notifications')
+      const raw = sessionStorage.getItem('drivio_dismissed_notifications')
       if (!raw) return []
       const parsed = JSON.parse(raw)
       return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []
@@ -46,8 +50,12 @@ export default function DashboardShell({
     }
   })
   const [unreadNotifications, setUnreadNotifications] = useState<number>(() => {
-    const raw = localStorage.getItem('drivio_unread_notifications')
-    return raw ? Number(raw) || 0 : 0
+    try {
+      const raw = sessionStorage.getItem('drivio_unread_notifications')
+      return raw ? Number(raw) || 0 : 0
+    } catch {
+      return 0
+    }
   })
   const profileRef = useRef<HTMLDivElement | null>(null)
   const languageRef = useRef<HTMLDivElement | null>(null)
@@ -58,31 +66,30 @@ export default function DashboardShell({
   const t = getDashboardTranslations(language)
   const shell = t.shell
   const common = t.common
-  const topBarHeightValue = 'clamp(3.5rem,9vmin,5rem)'
   const topBarHeightClass = 'h-[clamp(3.5rem,9vmin,5rem)]'
   const isBg = language === 'bg'
 
   const notificationCopyByType = useMemo(
     () => ({
       SUPPORT_TICKET_CREATED: {
-        title: isBg ? 'Създаден тикет' : 'Ticket created',
-        body: isBg ? 'Тикетът е създаден успешно.' : 'Your ticket was created successfully.',
+        title: isBg ? '???????? ?????' : 'Ticket created',
+        body: isBg ? '??????? ? ???????? ???????.' : 'Your ticket was created successfully.',
       },
       SUPPORT_STATUS: {
-        title: isBg ? 'Промяна в тикет' : 'Ticket status update',
-        body: isBg ? 'Има промяна по вашия тикет.' : 'There is a status update on your ticket.',
+        title: isBg ? '??????? ? ?????' : 'Ticket status update',
+        body: isBg ? '??? ??????? ?? ????? ?????.' : 'There is a status update on your ticket.',
       },
       SUPPORT_TICKET_DELETED: {
-        title: isBg ? 'Изтрит тикет' : 'Ticket deleted',
-        body: isBg ? 'Тикетът е изтрит от поддръжката.' : 'Your ticket was deleted by support.',
+        title: isBg ? '?????? ?????' : 'Ticket deleted',
+        body: isBg ? '??????? ? ?????? ?? ???????????.' : 'Your ticket was deleted by support.',
       },
       SUPPORT_REPLY: {
-        title: isBg ? 'Нов отговор' : 'New reply',
-        body: isBg ? 'Имате нов отговор по тикет.' : 'You have a new ticket reply.',
+        title: isBg ? '??? ???????' : 'New reply',
+        body: isBg ? '????? ??? ??????? ?? ?????.' : 'You have a new ticket reply.',
       },
       GENERAL: {
-        title: isBg ? 'Известие' : 'Notification',
-        body: isBg ? 'Имате ново известие.' : 'You have a new notification.',
+        title: isBg ? '????????' : 'Notification',
+        body: isBg ? '????? ???? ????????.' : 'You have a new notification.',
       },
     }),
     [isBg],
@@ -120,7 +127,7 @@ export default function DashboardShell({
       const data = await fetchMyNotifications()
       setNotifications(data.items)
       setUnreadNotifications(data.unreadCount)
-      localStorage.setItem('drivio_unread_notifications', String(data.unreadCount))
+      sessionStorage.setItem('drivio_unread_notifications', String(data.unreadCount))
     } catch {
       // no-op
     } finally {
@@ -187,7 +194,7 @@ export default function DashboardShell({
       setNotifications((prev) => [item, ...prev].slice(0, 30))
       setUnreadNotifications((prev) => {
         const next = prev + 1
-        localStorage.setItem('drivio_unread_notifications', String(next))
+        sessionStorage.setItem('drivio_unread_notifications', String(next))
         return next
       })
 
@@ -266,7 +273,7 @@ export default function DashboardShell({
 
     if (unreadNotifications > 0) {
       setUnreadNotifications(0)
-      localStorage.setItem('drivio_unread_notifications', '0')
+      sessionStorage.setItem('drivio_unread_notifications', '0')
       setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))
       try {
         await markAllNotificationsAsRead()
@@ -291,7 +298,7 @@ export default function DashboardShell({
       setNotifications((prev) => prev.filter((item) => item.id !== id))
       setDismissedNotificationIds((prev) => {
         const next = prev.filter((itemId) => itemId !== id)
-        localStorage.setItem('drivio_dismissed_notifications', JSON.stringify(next))
+        sessionStorage.setItem('drivio_dismissed_notifications', JSON.stringify(next))
         return next
       })
       setUnreadNotifications((prev) => Math.max(0, prev - 1))
@@ -301,43 +308,49 @@ export default function DashboardShell({
   }
 
   return (
-    <main className="h-screen overflow-hidden bg-base-100">
-      <section className="dashboard-shell flex h-full w-full overflow-hidden bg-base-100">
-        <aside className="hidden min-h-0 w-72 shrink-0 border-r border-base-300 bg-base-200/70 text-base-content lg:flex lg:flex-col">
+    <main className="h-screen overflow-hidden overflow-x-hidden bg-base-200/35">
+      <section className="dashboard-shell flex h-screen w-full bg-base-100">
+        <aside className="hidden min-h-0 w-72 shrink-0 border-r border-base-300 bg-base-200/70 text-base-content xl:flex xl:flex-col">
           <div className={`flex ${topBarHeightClass} items-center border-b border-base-300 px-6`}>
             <img src={resolvedTheme === 'drivio-dark' ? logoDark : logoLight} alt="Drivio" className="h-8 w-auto" />
             <span className="ml-3 text-xl font-semibold">Drivio</span>
           </div>
-          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-            {memoNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end
-                className={({ isActive }) =>
-                  `w-full rounded-xl px-4 py-3 text-left text-sm transition-colors flex items-center gap-2 ${
-                    isActive ? 'bg-primary text-primary-content font-semibold' : 'text-base-content/80 hover:bg-base-300 hover:text-base-content'
-                  }`
-                }
-              >
-                {item.icon ? <span className="inline-flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+          <nav className="min-h-0 flex-1 space-y-2 p-4">
+            {memoNavItems.map((item, index) =>
+              item.kind === 'section' ? (
+                <p key={`section-${index}-${item.label}`} className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                  {item.label}
+                </p>
+              ) : (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end
+                  className={({ isActive }) =>
+                    `w-full rounded-xl px-4 py-3 text-left text-sm transition-colors flex items-center gap-2 ${
+                      isActive ? 'bg-primary text-primary-content font-semibold' : 'text-base-content/80 hover:bg-base-300 hover:text-base-content'
+                    }`
+                  }
+                >
+                  {item.icon ? <span className="inline-flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
+                  <span>{item.label}</span>
+                </NavLink>
+              ),
+            )}
           </nav>
         </aside>
 
         {mobileNavOpen ? (
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-40 bg-black/40 xl:hidden"
             onClick={() => setMobileNavOpen(false)}
             aria-label="Close navigation"
           />
         ) : null}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-base-300 bg-base-200/95 text-base-content transition-transform duration-200 lg:hidden ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-base-300 bg-base-200/95 text-base-content transition-transform duration-200 xl:hidden ${
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -346,31 +359,37 @@ export default function DashboardShell({
             <span className="ml-3 text-xl font-semibold">Drivio</span>
           </div>
           <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-            {memoNavItems.map((item) => (
-              <NavLink
-                key={`mobile-${item.to}`}
-                to={item.to}
-                end
-                onClick={() => setMobileNavOpen(false)}
-                className={({ isActive }) =>
-                  `w-full rounded-xl px-4 py-3 text-left text-sm transition-colors flex items-center gap-2 ${
-                    isActive ? 'bg-primary text-primary-content font-semibold' : 'text-base-content/80 hover:bg-base-300 hover:text-base-content'
-                  }`
-                }
-              >
-                {item.icon ? <span className="inline-flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {memoNavItems.map((item, index) =>
+              item.kind === 'section' ? (
+                <p key={`mobile-section-${index}-${item.label}`} className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
+                  {item.label}
+                </p>
+              ) : (
+                <NavLink
+                  key={`mobile-${item.to}`}
+                  to={item.to}
+                  end
+                  onClick={() => setMobileNavOpen(false)}
+                  className={({ isActive }) =>
+                    `w-full rounded-xl px-4 py-3 text-left text-sm transition-colors flex items-center gap-2 ${
+                      isActive ? 'bg-primary text-primary-content font-semibold' : 'text-base-content/80 hover:bg-base-300 hover:text-base-content'
+                    }`
+                  }
+                >
+                  {item.icon ? <span className="inline-flex h-4 w-4 items-center justify-center">{item.icon}</span> : null}
+                  <span>{item.label}</span>
+                </NavLink>
+              ),
+            )}
           </nav>
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className={`flex ${topBarHeightClass} items-center justify-between border-b border-base-300 bg-base-100 px-[clamp(0.5rem,2vmin,0.75rem)] sm:px-4 md:px-8`}>
+        <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+          <header className={`flex ${topBarHeightClass} items-center justify-between border-b border-base-300/80 bg-base-100/95 px-[clamp(0.5rem,2vmin,0.75rem)] sm:px-4 md:px-8`}>
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                className="btn btn-ghost btn-circle btn-sm lg:hidden"
+                className="btn btn-ghost btn-circle btn-sm xl:hidden"
                 aria-label="Toggle menu"
                 onClick={() => setMobileNavOpen((prev) => !prev)}
               >
@@ -413,10 +432,10 @@ export default function DashboardShell({
                   {unreadNotifications > 0 ? <span className="badge badge-xs badge-primary absolute -right-0.5 -top-0.5">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span> : null}
                 </button>
                 <div className="dropdown-content mt-2 w-[min(92vw,24rem)] rounded-2xl border border-base-content/15 bg-base-100 p-2 shadow-2xl">
-                  <div className="px-2 py-1.5 text-xs font-semibold text-base-content/70">{language === 'bg' ? 'Известия' : 'Notifications'}</div>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-base-content/70">{language === 'bg' ? '????????' : 'Notifications'}</div>
                   <div className="max-h-80 overflow-y-auto px-1 py-1">
                     {visibleNotifications.length === 0 ? (
-                      <p className="px-2 py-3 text-xs text-base-content/60">{language === 'bg' ? 'Няма известия.' : 'No notifications yet.'}</p>
+                      <p className="px-2 py-3 text-xs text-base-content/60">{language === 'bg' ? '???? ????????.' : 'No notifications yet.'}</p>
                     ) : (
                       <div className="space-y-2">
                         {visibleNotifications.map((item) => {
@@ -432,7 +451,7 @@ export default function DashboardShell({
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs btn-circle mt-0.5 shrink-0"
-                                  aria-label={language === 'bg' ? 'Скрий известие' : 'Dismiss notification'}
+                                  aria-label={language === 'bg' ? '????? ????????' : 'Dismiss notification'}
                                   onClick={() => void dismissNotification(item.id)}
                                 >
                                   <X className="h-3.5 w-3.5" />
@@ -498,11 +517,10 @@ export default function DashboardShell({
             </div>
           </header>
 
-          <div
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-5 sm:px-4 md:px-8 [&>*]:h-full [&>*]:min-h-0"
-            style={{ height: `calc(100vh - ${topBarHeightValue})` }}
-          >
-            <Outlet />
+          <div className="flex min-h-0 flex-1 flex-col px-3 py-3 sm:px-4 sm:py-4 md:px-8">
+            <div className="h-full overflow-y-auto rounded-xl border border-base-300/70 bg-base-100/55 p-1 sm:p-2">
+              <Outlet />
+            </div>
           </div>
         </div>
       </section>

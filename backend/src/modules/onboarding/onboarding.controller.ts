@@ -31,9 +31,19 @@ export class OnboardingController {
     return res.status(200).json({ message: "Request approved and setup email sent" });
   };
 
+  static getSetupSession = async (req: Request, res: Response) => {
+    const token = String(req.query.token ?? "");
+    if (!token) return res.status(400).json({ message: "token is required" });
+
+    const session = await OnboardingService.getSetupSession(token);
+    if (!session) return res.status(400).json({ message: "Invalid or expired setup token" });
+
+    return res.status(200).json(session);
+  };
+
   static complete = async (req: Request, res: Response) => {
-    const { token, username, password, schoolName, schoolAddress, schoolPhone } = req.body ?? {};
-    if (!token || !username || !password || !schoolName || !schoolAddress || !schoolPhone) {
+    const { token, username, password, email, name, phone, wantsInstructorPrivileges, schoolName, schoolAddress, schoolPhone } = req.body ?? {};
+    if (!token || !username || !password || !email || !name || !schoolName || !schoolAddress || !schoolPhone) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -41,12 +51,28 @@ export class OnboardingController {
       token,
       username,
       password,
+      email,
+      name,
+      phone,
+      wantsInstructorPrivileges: Boolean(wantsInstructorPrivileges),
       schoolName,
       schoolAddress,
       schoolPhone,
     });
 
-    if (!result) return res.status(400).json({ message: "Invalid or expired setup token" });
-    return res.status(201).json({ message: "Driving school admin account created" });
+    if (result.status === "INVALID_OR_EXPIRED_TOKEN") {
+      return res.status(400).json({ message: "Invalid or expired setup token" });
+    }
+    if (result.status === "TOKEN_LIMIT_REACHED") {
+      return res.status(400).json({ message: "Setup token usage limit reached" });
+    }
+    if (result.status === "USERNAME_TAKEN") {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+    if (result.status === "EMAIL_TAKEN") {
+      return res.status(409).json({ message: "Email is already taken" });
+    }
+
+    return res.status(201).json({ message: "Driving school admin account created", schoolId: result.schoolId, adminUserId: result.adminUserId });
   };
 }

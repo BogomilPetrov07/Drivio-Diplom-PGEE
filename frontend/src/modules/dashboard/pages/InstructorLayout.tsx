@@ -21,12 +21,13 @@ export default function InstructorLayout({ language, setLanguage, themePreferenc
       resolvedTheme={resolvedTheme}
       setThemePreference={setThemePreference}
       navItems={[
-        { to: '/dashboard/instructor/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
-        { to: '/dashboard/instructor/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
-        { to: '/dashboard/instructor/schedule', label: t.layout.schedule, icon: <CalendarDays className='h-4 w-4' /> },
-        { to: '/dashboard/instructor/students', label: t.layout.students, icon: <Users className='h-4 w-4' /> },
-        { to: '/dashboard/instructor/support', label: t.layout.help, icon: <LifeBuoy className='h-4 w-4' /> },
+        { kind: 'link', to: '/dashboard/instructor/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
+        { kind: 'link', to: '/dashboard/instructor/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
+        { kind: 'link', to: '/dashboard/instructor/schedule', label: t.layout.schedule, icon: <CalendarDays className='h-4 w-4' /> },
+        { kind: 'link', to: '/dashboard/instructor/students', label: t.layout.students, icon: <Users className='h-4 w-4' /> },
+        { kind: 'link', to: '/dashboard/instructor/support', label: t.layout.help, icon: <LifeBuoy className='h-4 w-4' /> },
       ]}
     />
   )
 }
+

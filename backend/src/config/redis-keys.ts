@@ -4,4 +4,5 @@ export const REDIS_KEYS = {
     COOLDOWN: (type: "refresh" | "session") => `rotation:cooldown:${type}`, // type: 'refresh' or 'session'
     NOTIFICATIONS_LIST: (userId: string, limit: number) => `notifications:list:${userId}:${limit}`,
     NOTIFICATIONS_UNREAD_COUNT: (userId: string) => `notifications:unread-count:${userId}`,
+    ONBOARDING_SETUP_TOKEN_USES: (tokenHash: string) => `onboarding:setup:uses:${tokenHash}`,
 };

@@ -10,6 +10,7 @@ const router = Router();
 router.use(errorMiddleware);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
+router.get("/has-session-cookie", AuthController.hasSessionCookie);
 router.get("/refresh", AuthController.refreshAccessToken);
 router.get("/logout", AuthController.logout);
 router.use(authenticateMiddleware);

@@ -12,6 +12,9 @@ export interface AuthUser {
   username: string
   email: string | null
   role: Role
+  roles: Role[]
+  activeRole: Role
+  hasInstructorPrivileges: boolean
 }
 
 export interface AuthResponse {
@@ -31,3 +34,10 @@ export function getRoleDashboardPath(role: Role) {
   return ROLE_DASHBOARD_PATH[role]
 }
 
+export function getPreferredRole(user: AuthUser | null): Role | null {
+  if (!user) return null
+  const available = user.roles?.length ? user.roles : [user.role]
+  const byActiveRole = available.find((role) => role === user.activeRole)
+  if (byActiveRole) return byActiveRole
+  return ROLE_PRIORITY.find((role) => available.includes(role)) ?? available[0] ?? null
+}

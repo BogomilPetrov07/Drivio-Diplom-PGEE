@@ -5,7 +5,7 @@ import {redis} from "../config/redis.js";
 import {REDIS_KEYS} from '../config/redis-keys.js'
 
 // Access Token: Signed with Private Key
-export const signAccessToken = (payload: { userId: string; role: string; sessionId: string }) => {
+export const signAccessToken = (payload: AuthPayload) => {
     return jwt.sign(payload, env.JWT_PRIVATE_KEY, {
         algorithm: "ES256",
         expiresIn: "15m"
@@ -24,7 +24,9 @@ export const verifyAccessToken = async (token: string) => {
         return {
             isValid: true,
             userId: decoded.userId,
-            role: decoded.role!,
+            role: decoded.role,
+            roles: decoded.roles,
+            activeRole: decoded.activeRole,
             sessionId: decoded.sessionId
         };
     } catch(err) {

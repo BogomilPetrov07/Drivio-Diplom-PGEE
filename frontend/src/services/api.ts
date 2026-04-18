@@ -6,6 +6,11 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _retry?: boolean
 }
 
+function isRefreshRequest(url: string | undefined) {
+    if (!url) return false
+    return url === '/auth/refresh' || url.endsWith('/auth/refresh')
+}
+
 function normalizeApiBaseUrl(rawValue: string | undefined) {
     const fallback = '/api'
     if (!rawValue) return fallback
@@ -44,7 +49,7 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config as RetriableRequestConfig | undefined
 
-        if (error.response?.status === 401 && originalRequest && originalRequest.url !== '/auth/refresh' && !originalRequest._retry) {
+        if (error.response?.status === 401 && originalRequest && !isRefreshRequest(originalRequest.url) && !originalRequest._retry) {
             originalRequest._retry = true
 
             if (!isRefreshing) {
@@ -60,7 +65,6 @@ api.interceptors.response.use(
                 await refreshPromise
                 return api(originalRequest)
             } catch {
-                localStorage.removeItem('drivio-auth')
                 if (window.location.pathname.startsWith('/dashboard')) {
                     window.location.assign(getDomainAwareUrl('/login'))
                 }

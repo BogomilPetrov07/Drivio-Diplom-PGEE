@@ -58,6 +58,87 @@ export interface DashboardNotification {
   metadata?: unknown
 }
 
+export interface SchoolDetails {
+  id: string
+  name: string
+  address: string
+  phone: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type SchoolPersonRole = 'SCHOOLADMIN' | 'INSTRUCTOR' | 'STUDENT'
+
+export interface SchoolPerson {
+  id: string
+  username: string
+  email: string | null
+  name: string | null
+  role: SchoolPersonRole
+  createdAt: string
+  hasInstructorProfile: boolean
+  studentInstructorUserId: string | null
+}
+
+export interface InstructorDaySchedule {
+  enabled: boolean
+  startTime: string
+  endTime: string
+  blockedLessonKeys: string[]
+}
+
+export interface InstructorSchedule {
+  days: {
+    monday: InstructorDaySchedule
+    tuesday: InstructorDaySchedule
+    wednesday: InstructorDaySchedule
+    thursday: InstructorDaySchedule
+    friday: InstructorDaySchedule
+    saturday: InstructorDaySchedule
+    sunday: InstructorDaySchedule
+  }
+}
+
+export interface SchoolPersonPayload {
+  username: string
+  email: string
+  password?: string
+  name: string
+  role: SchoolPersonRole
+  instructorUserId?: string | null
+  hasInstructorPrivileges?: boolean
+}
+
+export async function fetchSchoolDetails() {
+  const { data } = await api.get<{ school: SchoolDetails }>('/dashboard/school-admin/school')
+  return data.school
+}
+
+export async function updateSchoolDetails(payload: Pick<SchoolDetails, 'name' | 'address' | 'phone'>) {
+  const { data } = await api.patch<{ school: SchoolDetails }>('/dashboard/school-admin/school', payload)
+  return data.school
+}
+
+export async function fetchSchoolPeople() {
+  const { data } = await api.get<{ people: SchoolPerson[] }>('/dashboard/school-admin/people')
+  return data.people
+}
+
+export async function createSchoolPerson(payload: SchoolPersonPayload) {
+  const { data } = await api.post<{ message: string; userId: string }>('/dashboard/school-admin/people', payload)
+  return data
+}
+
+export async function updateSchoolPerson(userId: string, payload: SchoolPersonPayload) {
+  const { data } = await api.patch<{ message: string; userId: string }>(`/dashboard/school-admin/people/${userId}`, payload)
+  return data
+}
+
+export async function deleteSchoolPerson(userId: string) {
+  const { data } = await api.delete<{ message: string }>(`/dashboard/school-admin/people/${userId}`)
+  return data
+}
+
 export async function submitDashboardSupportQuestion(question: string) {
   const { data } = await api.post<{ message: string; threadId: string }>('/support/user-question', { question })
   return data
@@ -131,4 +212,37 @@ export async function savePushSubscription(subscription: PushSubscriptionJSON) {
 export async function removePushSubscription(endpoint: string) {
   const { data } = await api.post<{ message: string }>('/notifications/push/unsubscribe', { endpoint })
   return data
+}
+
+export async function fetchInstructorSchedule() {
+  if (typeof window === 'undefined') return null
+  try {
+    const response = await fetch('/api/dashboard/instructor/schedule', {
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (!response.ok) return null
+    const data = await response.json() as { schedule?: InstructorSchedule | null }
+    return data.schedule ?? null
+  } catch {
+    return null
+  }
+}
+
+export async function saveInstructorSchedule(schedule: InstructorSchedule) {
+  const response = await fetch('/api/dashboard/instructor/schedule', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(schedule),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to save schedule: ${response.status}`)
+  }
+
+  const data = await response.json() as { schedule?: InstructorSchedule | null }
+  return data.schedule ?? null
 }

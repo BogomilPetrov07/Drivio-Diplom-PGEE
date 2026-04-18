@@ -24,6 +24,39 @@ export default defineConfig(({mode}) => {
                 }
             }
         },
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (!id.includes('node_modules')) {
+                            return;
+                        }
+
+                        if (id.includes('socket.io-client')) {
+                            return 'socket-io';
+                        }
+
+                        if (id.includes('axios')) {
+                            return 'http';
+                        }
+
+                        if (id.includes('zustand')) {
+                            return 'state';
+                        }
+
+                        if (id.includes('lucide-react')) {
+                            return 'icons';
+                        }
+
+                        if (id.includes('react-router')) {
+                            return 'router';
+                        }
+
+                        return 'vendor';
+                    }
+                }
+            }
+        },
         plugins: [
             react(),
             tailwindcss(),

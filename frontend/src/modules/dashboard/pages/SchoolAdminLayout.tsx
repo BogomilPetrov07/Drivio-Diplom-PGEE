@@ -1,7 +1,8 @@
-import { CarFront, CalendarClock, LayoutDashboard, LifeBuoy, Mail, UsersRound } from 'lucide-react'
-import DashboardShell from '../components/DashboardShell.js'
+import { CarFront, CalendarClock, GraduationCap, LayoutDashboard, LifeBuoy, Mail, School, UsersRound } from 'lucide-react'
+import DashboardShell, { type DashboardNavItem } from '../components/DashboardShell.js'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
+import { useAuth } from '../../auth/hooks.js'
 
 interface Props {
   language: Language
@@ -13,6 +14,28 @@ interface Props {
 
 export default function SchoolAdminLayout({ language, setLanguage, themePreference, resolvedTheme, setThemePreference }: Props) {
   const t = getDashboardTranslations(language)
+  const { user } = useAuth()
+
+  const navItems: DashboardNavItem[] = [
+    { kind: 'section', label: language === 'bg' ? '????? ?? ?????' : 'School admin' },
+    { kind: 'link', to: '/dashboard/schooladmin/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/school', label: language === 'bg' ? '?????' : 'School profile', icon: <School className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/people', label: t.layout.people, icon: <UsersRound className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/planner', label: t.layout.planner, icon: <CalendarClock className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/cars', label: t.layout.cars, icon: <CarFront className='h-4 w-4' /> },
+    { kind: 'link', to: '/dashboard/schooladmin/support', label: t.layout.help, icon: <LifeBuoy className='h-4 w-4' /> },
+  ]
+
+  if (user?.hasInstructorPrivileges) {
+    navItems.push(
+      { kind: 'section', label: language === 'bg' ? '??????????' : 'Instructor' },
+      { kind: 'link', to: '/dashboard/instructor/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
+      { kind: 'link', to: '/dashboard/instructor/schedule', label: t.layout.schedule, icon: <CalendarClock className='h-4 w-4' /> },
+      { kind: 'link', to: '/dashboard/instructor/students', label: t.layout.students, icon: <GraduationCap className='h-4 w-4' /> },
+    )
+  }
+
   return (
     <DashboardShell
       language={language}
@@ -20,14 +43,7 @@ export default function SchoolAdminLayout({ language, setLanguage, themePreferen
       themePreference={themePreference}
       resolvedTheme={resolvedTheme}
       setThemePreference={setThemePreference}
-      navItems={[
-        { to: '/dashboard/schooladmin/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
-        { to: '/dashboard/schooladmin/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
-        { to: '/dashboard/schooladmin/people', label: t.layout.people, icon: <UsersRound className='h-4 w-4' /> },
-        { to: '/dashboard/schooladmin/planner', label: t.layout.planner, icon: <CalendarClock className='h-4 w-4' /> },
-        { to: '/dashboard/schooladmin/cars', label: t.layout.cars, icon: <CarFront className='h-4 w-4' /> },
-        { to: '/dashboard/schooladmin/support', label: t.layout.help, icon: <LifeBuoy className='h-4 w-4' /> },
-      ]}
+      navItems={navItems}
     />
   )
 }

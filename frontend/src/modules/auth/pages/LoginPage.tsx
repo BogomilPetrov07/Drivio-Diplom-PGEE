@@ -1,11 +1,10 @@
-﻿import { type SyntheticEvent, useEffect, useState } from 'react'
+import { type SyntheticEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAuthTranslations } from '../../../i18n/auth'
 import type { Language } from '../../../i18n/language'
 import { getDomainAwareUrl } from '../../../utils/app-domain'
 import { useAuth } from '../hooks.js'
 import { getRoleDashboardPath } from '../types.js'
-import SessionLoadingScreen from '../components/SessionLoadingScreen'
 
 interface LoginPageProps {
   language: Language
@@ -16,47 +15,22 @@ export default function LoginPage({ language }: LoginPageProps) {
   const { login, loading, error, clearError, role, isAuthenticated } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [isLoginAttempt, setIsLoginAttempt] = useState(false)
-  const [loginAnimationDoneAt, setLoginAnimationDoneAt] = useState<number | null>(null)
   const text = getAuthTranslations(language).login
   const backHref = getDomainAwareUrl('/')
 
   useEffect(() => {
     if (!isAuthenticated || !role) return
-    if (!isLoginAttempt || !loginAnimationDoneAt) {
-      navigate(getRoleDashboardPath(role), { replace: true })
-      return
-    }
-
-    const waitMs = Math.max(0, loginAnimationDoneAt - Date.now())
-    if (waitMs === 0) {
-      navigate(getRoleDashboardPath(role), { replace: true })
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      navigate(getRoleDashboardPath(role), { replace: true })
-    }, waitMs)
-
-    return () => window.clearTimeout(timer)
-  }, [isAuthenticated, role, navigate, isLoginAttempt, loginAnimationDoneAt])
+    navigate(getRoleDashboardPath(role), { replace: true })
+  }, [isAuthenticated, role, navigate])
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     clearError()
-    setIsLoginAttempt(true)
-    setLoginAnimationDoneAt(Date.now() + 5000)
     try {
       await login({ username, password })
     } catch {
       // Error state is already handled in the auth store.
-      setIsLoginAttempt(false)
-      setLoginAnimationDoneAt(null)
     }
-  }
-
-  if (loading && isLoginAttempt) {
-    return <SessionLoadingScreen language={language} simulateProgress />
   }
 
   return (
@@ -116,5 +90,3 @@ export default function LoginPage({ language }: LoginPageProps) {
     </main>
   )
 }
-
-

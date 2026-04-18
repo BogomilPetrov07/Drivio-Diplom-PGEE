@@ -1,52 +1,56 @@
+import { roleEnum } from "../../../drizzle/schemas/enums.js";
+
+export type Role = typeof roleEnum.enumValues[number];
+
 export interface LoginDTO {
-    username: string;
-    password: string;
+  username: string;
+  password: string;
 }
 
 export interface AuthUserDTO {
-    id: string;
-    username: string;
-    email: string | null;
-    role: string;
+  id: string;
+  username: string;
+  email: string | null;
+  role: Role;
+  roles: Role[];
+  activeRole: Role;
+  hasInstructorPrivileges: boolean;
 }
 
 export interface RegisterDTO extends LoginDTO {
-    role: string;
-    email: string;
-    // firstName: string;
-    // lastName: string;
-    // age: number;
-    // gender: string;
-    // phone: string;
+  role: Role;
+  secondaryRole?: Role;
+  email: string;
 }
 
 export interface RotateDTO {
-    type: "refresh" | "session";
+  type: "refresh" | "session";
 }
 
 export interface SessionDTO {
-    id: string
-    revoked: boolean
-    userId: string
-    signature: string | null
+  id: string;
+  revoked: boolean;
+  userId: string;
+  signature: string | null;
 }
 
 export interface RefreshTokenDTO {
-    id: string
-    revoked: boolean
-    signature: string | null
-    tokenHash: string
+  id: string;
+  revoked: boolean;
+  signature: string | null;
+  tokenHash: string;
 }
 
 export interface RefreshTokenCollectionItem {
-    id: string;
+  id: string;
 }
 
-// This makes the DTO itself an Array type
 export type RefreshTokenCollectionDTO = RefreshTokenCollectionItem[];
 
 export interface AuthPayload {
-    userId: string;
-    role: string;
-    sessionId: string;
+  userId: string;
+  role: Role;
+  roles: Role[];
+  activeRole: Role;
+  sessionId: string;
 }

@@ -15,7 +15,7 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
         const checkup = await verifyAccessToken(token);
         if (!checkup) return res.sendStatus(401);
 
-        const {isValid, userId, role, sessionId} = checkup;
+        const {isValid, userId, role, roles, activeRole, sessionId} = checkup;
 
         if (!isValid) return res.sendStatus(401);
         if (!sessionId) return res.sendStatus(401);
@@ -27,7 +27,11 @@ export async function authenticateMiddleware(req: Request, res: Response, next: 
 
         // 2. Map the decoded payload to your User type structure
         req.user = {
-            id: userId!, role: role as typeof roleEnum.enumValues[number], sessionId: sessionId!
+            id: userId!,
+            role: role as typeof roleEnum.enumValues[number],
+            roles: (roles ?? [role]) as (typeof roleEnum.enumValues[number])[],
+            activeRole: (activeRole ?? role) as typeof roleEnum.enumValues[number],
+            sessionId: sessionId!
         };
 
         next();

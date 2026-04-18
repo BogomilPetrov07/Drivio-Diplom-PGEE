@@ -7,6 +7,7 @@ const router = Router();
 
 router.post("/request", OnboardingController.requestJoin);
 router.post("/complete", OnboardingController.complete);
+router.get("/setup-session", OnboardingController.getSetupSession);
 
 router.get("/pending", authenticateMiddleware, authorizeMiddleware(["SUPERADMIN"]), OnboardingController.listPending);
 router.post("/approve", authenticateMiddleware, authorizeMiddleware(["SUPERADMIN"]), OnboardingController.approve);

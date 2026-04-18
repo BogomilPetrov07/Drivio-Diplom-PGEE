@@ -4,6 +4,7 @@ import { WelcomeEmail } from '../emails/WelcomeEmail.js';
 import { PublicQuestionConfirmationEmail } from '../emails/PublicQuestionConfirmationEmail.js';
 import { PublicQuestionNotificationEmail } from '../emails/PublicQuestionNotificationEmail.js';
 import { PublicTicketStatusEmail } from '../emails/PublicTicketStatusEmail.js';
+import { SchoolApprovalSetupEmail } from '../emails/SchoolApprovalSetupEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
@@ -34,21 +35,12 @@ export const sendSchoolApprovalSetupEmail = async (
     setupUrl: string,
 ) => {
     const resend = getResendClient();
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#111827">
-        <h2 style="margin:0 0 12px">Your Drivio Join Request Was Approved</h2>
-        <p>Hello ${contactName},</p>
-        <p>Your request for <strong>${schoolName}</strong> was approved by Drivio superadmin.</p>
-        <p>Complete your administrator setup by opening the link below:</p>
-        <p><a href="${setupUrl}" style="color:#2563eb;font-weight:600">${setupUrl}</a></p>
-        <p>This link expires in 48 hours.</p>
-      </div>
-    `;
+    const html = await render(React.createElement(SchoolApprovalSetupEmail, { contactName, schoolName, setupUrl }));
 
     return await resend.emails.send({
         from: `Drivio <${env.TRANSACTIONAL_EMAIL}>`,
         to: [to],
-        subject: "Complete your Drivio school admin setup",
+        subject: "Your driving school is approved - complete registration",
         html,
     });
 };

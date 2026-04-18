@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import {and, desc, eq, gt, or} from "drizzle-orm";
 import {v4 as uuid4} from "uuid";
-import {refreshTokens, sessions, users} from "../../../drizzle/schemas/index.js"; // Modular schema exports
+import {instructorProfiles, refreshTokens, sessions, users} from "../../../drizzle/schemas/index.js"; // Modular schema exports
 import {db} from "../../config/drizzle.js"; // Your Drizzle Proxy client
 import {env} from "../../config/env.js";
 import {client} from "../../config/infisical.js";
@@ -9,7 +9,7 @@ import {REDIS_KEYS} from "../../config/redis-keys.js";
 import {redis} from "../../config/redis.js";
 import {sendWelcomeEmailReact} from "../../utils/email.js";
 import {compare, hash} from "../../utils/password.js";
-import {RefreshTokenCollectionDTO, RefreshTokenDTO, SessionDTO} from "./auth.types.js";
+import {RefreshTokenCollectionDTO, RefreshTokenDTO, Role, SessionDTO} from "./auth.types.js";
 
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -44,9 +44,12 @@ export class AuthService {
         if (!user) return null;
 
         const {id, role, email, username} = user;
-
         const ok = await compare(password, user.password);
-        return ok ? {id, username, role, email} : null;
+        if (!ok) return null;
+
+        const roles = await this.getUserRoles(id, role as Role);
+        const hasInstructorPrivileges = roles.includes("INSTRUCTOR");
+        return {id, username, role: role as Role, roles, activeRole: role as Role, email, hasInstructorPrivileges};
     }
 
     static async revokeActiveSessionsForIp(userId: string, ip: string | undefined) {
@@ -198,17 +201,25 @@ export class AuthService {
         return sessionId;
     }
 
-    static async register(username: string, password: string, role: string, email: string) {
+    static async register(username: string, password: string, role: Role, email: string, secondaryRole?: Role) {
         const hashedPassword = await hash(password);
-        // Drizzle needs .returning() to get the object back
-        const [newUser] = await db.insert(users).values({
-            username,
-            email,
-            password: hashedPassword,
-            role: role as any
-        }).returning();
+        return db.transaction(async (tx) => {
+            const [newUser] = await tx.insert(users).values({
+                username,
+                email,
+                password: hashedPassword,
+                role: role as any
+            }).returning();
 
-        return newUser;
+            const wantsInstructor = secondaryRole === "INSTRUCTOR" || role === "INSTRUCTOR";
+            if (wantsInstructor) {
+                await tx.insert(instructorProfiles).values({
+                    userId: newUser.id,
+                }).onConflictDoNothing();
+            }
+
+            return newUser;
+        });
     }
 
     static async logout(sessionId: string, userId: string) {
@@ -259,6 +270,21 @@ export class AuthService {
         await this.logout(record.session.id, record.session.user.id);
     }
 
+
+    static async getUserRoles(userId: string, primaryRole: Role): Promise<Role[]> {
+        const roles = [primaryRole];
+
+        const hasInstructorProfile = await db.query.instructorProfiles.findFirst({
+            where: eq(instructorProfiles.userId, userId),
+            columns: { id: true },
+        });
+
+        if (hasInstructorProfile && primaryRole !== "INSTRUCTOR") {
+            roles.push("INSTRUCTOR");
+        }
+
+        return Array.from(new Set(roles)).slice(0, 2) as Role[];
+    }
     static async sendEmail(email: string, username: string) {
         try {
             const { data, error } = await sendWelcomeEmailReact(email, username);
@@ -359,3 +385,6 @@ export class AuthService {
         return crypto.createHash('sha256').update(plainToken + salt).digest('hex');
     }
 }
+
+
+
