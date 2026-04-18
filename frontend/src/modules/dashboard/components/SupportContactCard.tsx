@@ -10,6 +10,7 @@ import {
 } from '../api'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
+import { getRealtimeSocket } from '../realtime'
 
 interface SupportContactCardProps {
   language: Language
@@ -17,6 +18,22 @@ interface SupportContactCardProps {
 
 function areEqual<T>(a: T, b: T) {
   return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function getErrorStatus(error: unknown) {
+  if (typeof error !== 'object' || error === null || !('response' in error)) return undefined
+  const response = (error as { response?: { status?: number } }).response
+  return response?.status
+}
+
+function isSupportStatusSystemMessage(body?: string | null) {
+  const normalized = (body ?? '').trim().toLowerCase()
+  return (
+    normalized === 'ticket reopened by support.' ||
+    normalized === 'ticket reopened by support' ||
+    normalized === 'ticket closed by support.' ||
+    normalized === 'ticket closed by support'
+  )
 }
 
 export default function SupportContactCard({ language }: SupportContactCardProps) {
@@ -42,7 +59,7 @@ export default function SupportContactCard({ language }: SupportContactCardProps
     return firstLine && firstLine.length > 2 ? firstLine : `Ticket #${thread.id.slice(0, 8)}`
   }
 
-  const loadThreads = async () => {
+  const loadThreads = async (_silent = false) => {
     try {
       const loaded = await fetchUserSupportThreads()
       loaded.forEach((thread) => {
@@ -73,11 +90,20 @@ export default function SupportContactCard({ language }: SupportContactCardProps
     }
   }
 
-  const loadMessages = async (threadId: string) => {
+  const loadMessages = async (threadId: string, _silent = false) => {
     try {
       const data = await fetchUserSupportThreadMessages(threadId)
-      setMessages((prev) => (areEqual(prev, data.messages) ? prev : data.messages))
-    } catch {
+      const visibleMessages = data.messages.filter((message) => message.senderType !== 'SYSTEM' && !isSupportStatusSystemMessage(message.body))
+      setMessages((prev) => (areEqual(prev, visibleMessages) ? prev : visibleMessages))
+      setError('')
+    } catch (error) {
+      const status = getErrorStatus(error)
+      if (status === 404) {
+        setMessages([])
+        setError('')
+        await loadThreads()
+        return
+      }
       setError(t.messagesError)
     }
   }
@@ -110,6 +136,29 @@ export default function SupportContactCard({ language }: SupportContactCardProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedThreadId])
 
+  useEffect(() => {
+    const socket = getRealtimeSocket()
+    const onSupportUpdate = (payload: { threadId?: string }) => {
+      void loadThreads()
+      if (selectedThreadId && (!payload?.threadId || payload.threadId === selectedThreadId)) {
+        void loadMessages(selectedThreadId)
+      }
+    }
+    const onSupportDeleted = (payload: { threadId?: string }) => {
+      void loadThreads()
+      if (selectedThreadId && payload?.threadId === selectedThreadId) {
+        setSelectedThreadId(null)
+      }
+    }
+    socket.on('support:thread-updated', onSupportUpdate)
+    socket.on('support:thread-deleted', onSupportDeleted)
+    return () => {
+      socket.off('support:thread-updated', onSupportUpdate)
+      socket.off('support:thread-deleted', onSupportDeleted)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedThreadId])
+
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError('')
@@ -132,14 +181,24 @@ export default function SupportContactCard({ language }: SupportContactCardProps
   const handleReply = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedThreadId || !replyBody.trim() || selectedThread?.status === 'CLOSED') return
+    const threadId = selectedThreadId
     setIsReplySending(true)
     setError('')
     try {
-      await replyToUserSupportThread(selectedThreadId, replyBody)
+      await replyToUserSupportThread(threadId, replyBody)
       setReplyBody('')
-      await loadMessages(selectedThreadId)
-      await loadThreads()
-    } catch {
+      // Refresh in background to avoid visible UI jumps while keeping state fresh.
+      void loadMessages(threadId, true)
+      void loadThreads(true)
+    } catch (error) {
+      const status = getErrorStatus(error)
+      if (status === 404) {
+        setReplyBody('')
+        setMessages([])
+        setError('')
+        await loadThreads()
+        return
+      }
       setError(t.error)
     } finally {
       setIsReplySending(false)
@@ -153,12 +212,12 @@ export default function SupportContactCard({ language }: SupportContactCardProps
     return 'badge-success'
   }
 
-  const shellCardClass = 'rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)]'
-  const panelClass = 'rounded-2xl border border-base-300/70 bg-base-100/80 p-3 backdrop-blur-sm'
-  const panelHeightClass = 'h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-13rem)] lg:h-[56vh] lg:min-h-[520px] lg:max-h-[680px]'
+  const shellCardClass = 'rounded-2xl border border-base-300/70 bg-base-100/55 shadow-[0_8px_20px_-20px_rgba(0,0,0,0.8)] backdrop-blur-sm'
+  const panelClass = 'rounded-2xl border border-base-300/70 bg-base-100/75 p-3 backdrop-blur-sm'
+  const panelHeightClass = 'h-full min-h-0'
 
   return (
-    <section className={`${shellCardClass} p-3 sm:p-5`}>
+    <section className={`${shellCardClass} flex h-full min-h-0 w-full flex-col p-3 sm:p-5`}>
       <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-base-content sm:text-3xl">{t.title}</h2>
@@ -200,44 +259,45 @@ export default function SupportContactCard({ language }: SupportContactCardProps
         </form>
       ) : null}
 
-      <div className="mt-3 rounded-2xl border border-base-300/70 bg-base-200/60 p-2.5 sm:mt-4 sm:p-3">
-        <div className="grid grid-cols-1 gap-2.5 sm:gap-3 lg:grid-cols-5">
-          <aside className={`lg:col-span-2 ${panelHeightClass} ${panelClass} ${mobileView === 'chat' ? 'hidden lg:block' : 'block'}`}>
+      <div className="mt-3 flex min-h-0 flex-1 sm:mt-4">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2.5 sm:gap-3 lg:grid-cols-5">
+          <aside className={`lg:col-span-2 ${panelHeightClass} ${panelClass} ${mobileView === 'chat' ? 'hidden lg:block' : 'block'} min-h-0`}>
             {threads.length === 0 ? (
-              <div className="mx-2 flex h-[320px] sm:h-[380px] lg:h-[520px] flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
+              <div className="flex h-full min-h-0 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
                 <div className="mb-3 rounded-full bg-base-300 p-3"><Ticket className="h-5 w-5 text-base-content/70" /></div>
                 <p className="text-sm font-medium text-base-content">{t.noThreads}</p>
                 <p className="mt-1 text-xs text-base-content/60">{t.emptyHint}</p>
               </div>
             ) : null}
-            <div className="h-full space-y-2 overflow-auto pr-1">
-              {threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedThreadId(thread.id)
-                    setMobileView('chat')
-                  }}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
-                    selectedThreadId === thread.id
-                      ? 'border-primary/80 bg-primary/12 shadow-[0_8px_22px_-20px_rgba(99,102,241,0.9)]'
-                      : 'border-base-300 bg-base-100 hover:-translate-y-[1px] hover:bg-base-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="line-clamp-1 text-xs font-semibold text-base-content">{getTicketTitle(thread)}</p>
-                    <span className={`badge badge-xs ${statusBadgeClass(thread.status)}`}>{statusLabel(thread.status)}</span>
-                  </div>
-                  <p className="mt-1 line-clamp-1 text-xs text-base-content/65">{thread.latestMessagePreview || t.noMessages}</p>
-                </button>
-              ))}
-            </div>
+            {threads.length > 0 ? (
+              <div className="h-full space-y-2 overflow-auto pr-1">
+                {threads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedThreadId(thread.id)
+                      setMobileView('chat')
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all ${
+                      selectedThreadId === thread.id
+                        ? 'border-primary/80 bg-primary/12 shadow-[0_8px_22px_-20px_rgba(99,102,241,0.9)]'
+                        : 'border-base-300 bg-base-100 hover:-translate-y-[1px] hover:bg-base-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="line-clamp-1 text-xs font-semibold text-base-content">{getTicketTitle(thread)}</p>
+                      <span className={`badge badge-xs ${statusBadgeClass(thread.status)}`}>{statusLabel(thread.status)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </aside>
 
-          <div className={`lg:col-span-3 ${panelHeightClass} ${panelClass} flex flex-col ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
+          <div className={`lg:col-span-3 ${panelHeightClass} ${panelClass} flex min-h-0 flex-col ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
             {!selectedThread ? (
-              <div className="flex h-[380px] sm:h-[460px] lg:h-[520px] flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
+              <div className="flex h-full min-h-0 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
                 <div className="mb-3 rounded-full bg-base-300 p-3"><LifeBuoy className="h-5 w-5 text-base-content/70" /></div>
                 <p className="text-sm font-semibold text-base-content">{t.conversation}</p>
                 <p className="mt-1 text-xs text-base-content/60">{t.selectHint}</p>

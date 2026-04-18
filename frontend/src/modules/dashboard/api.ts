@@ -48,6 +48,16 @@ export interface SupportMessage {
   createdAt: string
 }
 
+export interface DashboardNotification {
+  id: string
+  type: string
+  title: string | null
+  body: string | null
+  read: boolean
+  createdAt: string
+  metadata?: unknown
+}
+
 export async function submitDashboardSupportQuestion(question: string) {
   const { data } = await api.post<{ message: string; threadId: string }>('/support/user-question', { question })
   return data
@@ -90,5 +100,35 @@ export async function fetchUserSupportThreadMessages(threadId: string) {
 
 export async function replyToUserSupportThread(threadId: string, body: string) {
   const { data } = await api.post<{ message: string }>(`/support/user/threads/${threadId}/reply`, { body })
+  return data
+}
+
+export async function fetchMyNotifications(limit = 30) {
+  const { data } = await api.get<{ items: DashboardNotification[]; unreadCount: number }>(`/notifications/me?limit=${limit}`)
+  return data
+}
+
+export async function markAllNotificationsAsRead() {
+  const { data } = await api.post<{ message: string }>('/notifications/read-all')
+  return data
+}
+
+export async function deleteMyNotification(notificationId: string) {
+  const { data } = await api.delete<{ message: string }>(`/notifications/${notificationId}`)
+  return data
+}
+
+export async function fetchPushPublicKey() {
+  const { data } = await api.get<{ publicKey: string }>('/notifications/push/public-key')
+  return data.publicKey
+}
+
+export async function savePushSubscription(subscription: PushSubscriptionJSON) {
+  const { data } = await api.post<{ message: string }>('/notifications/push/subscribe', { subscription })
+  return data
+}
+
+export async function removePushSubscription(endpoint: string) {
+  const { data } = await api.post<{ message: string }>('/notifications/push/unsubscribe', { endpoint })
   return data
 }

@@ -90,7 +90,14 @@ export class AuthController {
             tokenValue: result.refreshToken.tokenValue
         });
 
-        res.json({message: "Access token refreshed"});
+        const authUser: AuthUserDTO = {
+            id: result.user.id,
+            username: result.user.username,
+            email: result.user.email ?? null,
+            role: result.user.role
+        };
+
+        res.json({ message: "Access token refreshed", user: authUser });
     }
 
     static rotatePepper = async (req: Request, res: Response) => {
@@ -133,12 +140,12 @@ export class AuthController {
         });
     }
 
-    private static getCookieOptions(maxAge: number) {
+    private static getCookieOptions(maxAge: number, path = "/") {
         const baseOptions = {
             httpOnly: true,
             secure: this.shouldUseSecureCookies(),
             sameSite: "lax" as const,
-            path: "/",
+            path,
             maxAge
         };
 
@@ -159,17 +166,24 @@ export class AuthController {
         refreshToken: { tokenId: string; tokenValue: string }
     ) {
         const accessToken = signAccessToken(payload);
-        res.cookie("accessToken", accessToken, this.getCookieOptions(ACCESS_COOKIE_TTL_MS));
+        res.cookie("accessToken", accessToken, this.getCookieOptions(ACCESS_COOKIE_TTL_MS, "/"));
+
+        // Refresh token is scoped only to auth endpoints to reduce cookie exposure surface.
+        const refreshCookieOptions = {
+            ...this.getCookieOptions(REFRESH_COOKIE_TTL_MS, "/api/auth"),
+            sameSite: "strict" as const,
+        };
+
         res.cookie(
             "refreshToken",
             `${refreshToken.tokenId}:${refreshToken.tokenValue}`,
-            this.getCookieOptions(REFRESH_COOKIE_TTL_MS)
+            refreshCookieOptions
         );
     }
 
-    private static getClearCookieOptions() {
+    private static getClearCookieOptions(path = "/") {
         const baseOptions = {
-            path: "/",
+            path,
             sameSite: "lax" as const,
             secure: this.shouldUseSecureCookies()
         };
@@ -185,8 +199,11 @@ export class AuthController {
     }
 
     private static clearAuthCookies(res: Response) {
-        res.clearCookie("accessToken", this.getClearCookieOptions());
-        res.clearCookie("refreshToken", this.getClearCookieOptions());
+        res.clearCookie("accessToken", this.getClearCookieOptions("/"));
+        res.clearCookie("refreshToken", {
+            ...this.getClearCookieOptions("/api/auth"),
+            sameSite: "strict" as const,
+        });
     }
 
     private static shouldAttachCookieDomain() {

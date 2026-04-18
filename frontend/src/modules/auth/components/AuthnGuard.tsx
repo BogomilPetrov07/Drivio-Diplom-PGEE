@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks.js'
+import SessionLoadingScreen from './SessionLoadingScreen'
+import { getInitialLanguagePreference } from '../../../utils/preferences'
 
 export default function AuthnGuard() {
   const { isAuthenticated, initialized, loading, initialize } = useAuth()
@@ -13,11 +15,7 @@ export default function AuthnGuard() {
   }, [initialized, initialize])
 
   if (!initialized || loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center bg-base-200">
-        <p className="text-base-content/70">Loading your session...</p>
-      </main>
-    )
+    return <SessionLoadingScreen language={getInitialLanguagePreference()} />
   }
 
   if (!isAuthenticated) {

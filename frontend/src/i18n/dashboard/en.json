@@ -7,6 +7,10 @@
     "signOut": "Sign out",
     "protectedHelloFailed": "Protected Hello test failed. Check session status.",
     "notifications": "Notifications",
+    "profile": "Profile",
+    "settings": "Settings",
+    "security": "Security",
+    "faqs": "FAQs",
     "profileMenu": "Profile menu",
     "avatarAlt": "User avatar"
   },
@@ -88,6 +92,8 @@
     "schedule": "Schedule",
     "students": "Students",
     "statistics": "Statistics",
+    "requests": "Requests",
+    "faqs": "FAQs",
     "instructors": "Instructors",
     "progress": "Progress"
   },
@@ -130,6 +136,12 @@
     "externalTicket": "External ticket (email)",
     "internalTicket": "Internal ticket (platform)",
     "writeBackEmail": "Write back (email)"
+    ,
+    "confirmDeleteTitle": "Confirm deletion",
+    "confirmDeleteDescription": "To delete this ticket, type",
+    "confirmDeletePlaceholder": "Type YES",
+    "confirmDeleteAction": "Delete ticket",
+    "cancel": "Cancel"
   },
   "supportUser": {
     "title": "Support",
@@ -159,6 +171,8 @@
     "waitingUser": "Waiting for you",
     "loadError": "Could not load tickets.",
     "messagesError": "Could not load messages.",
-    "closeError": "Could not close ticket."
+    "closeError": "Could not close ticket.",
+    "cancel": "Cancel",
+    "back": "Back"
   }
 }

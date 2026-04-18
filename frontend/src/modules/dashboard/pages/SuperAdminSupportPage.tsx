@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState, type SyntheticEvent } from 'react'
-import { ArrowLeft, MessageCircle, Send, Ticket, Trash2 } from 'lucide-react'
+import { ArrowLeft, CircleX, MessageCircle, RotateCcw, Send, Ticket, Trash2 } from 'lucide-react'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
 import {
@@ -11,8 +11,19 @@ import {
   type SupportMessage,
   type SupportThread,
 } from '../api'
+import { getRealtimeSocket } from '../realtime'
 
 interface Props { language: Language }
+
+function isSupportStatusSystemMessage(body?: string | null) {
+  const normalized = (body ?? '').trim().toLowerCase()
+  return (
+    normalized === 'ticket reopened by support.' ||
+    normalized === 'ticket reopened by support' ||
+    normalized === 'ticket closed by support.' ||
+    normalized === 'ticket closed by support'
+  )
+}
 
 export default function SuperAdminSupportPage({ language }: Props) {
   const support = getDashboardTranslations(language).support
@@ -27,6 +38,9 @@ export default function SuperAdminSupportPage({ language }: Props) {
   const [isReplySending, setIsReplySending] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
 
   const selectedThread = useMemo(() => threads.find((thread) => thread.id === selectedThreadId) ?? null, [threads, selectedThreadId])
 
@@ -53,7 +67,8 @@ export default function SuperAdminSupportPage({ language }: Props) {
     }
     try {
       const data = await fetchSupportThreadMessagesForAdmin(threadId)
-      setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(data.messages) ? prev : data.messages))
+      const visibleMessages = data.messages.filter((message) => message.senderType !== 'SYSTEM' && !isSupportStatusSystemMessage(message.body))
+      setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(visibleMessages) ? prev : visibleMessages))
     } catch {
       setSupportError(support.messagesError)
     } finally {
@@ -85,16 +100,42 @@ export default function SuperAdminSupportPage({ language }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedThreadId])
 
+  useEffect(() => {
+    const socket = getRealtimeSocket()
+    const onSupportUpdate = (payload: { threadId?: string }) => {
+      void loadThreads(true)
+      if (selectedThreadId && (!payload?.threadId || payload.threadId === selectedThreadId)) {
+        void loadMessages(selectedThreadId, true)
+      }
+    }
+    const onSupportDeleted = (payload: { threadId?: string }) => {
+      void loadThreads(true)
+      if (selectedThreadId && payload?.threadId === selectedThreadId) {
+        setSelectedThreadId(null)
+        setMessages([])
+      }
+    }
+    socket.on('support:thread-updated', onSupportUpdate)
+    socket.on('support:thread-deleted', onSupportDeleted)
+    return () => {
+      socket.off('support:thread-updated', onSupportUpdate)
+      socket.off('support:thread-deleted', onSupportDeleted)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedThreadId])
+
   const handleReply = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!selectedThreadId || !replyBody.trim()) return
+    const threadId = selectedThreadId
     setIsReplySending(true)
     setSupportError('')
     try {
-      await sendAdminSupportReply(selectedThreadId, replyBody.trim())
+      await sendAdminSupportReply(threadId, replyBody.trim())
       setReplyBody('')
-      await loadMessages(selectedThreadId)
-      await loadThreads()
+      // Keep both panels stable and refresh silently after sending.
+      void loadMessages(threadId, true)
+      void loadThreads(true)
     } catch {
       setSupportError(support.replyError)
     } finally {
@@ -105,21 +146,46 @@ export default function SuperAdminSupportPage({ language }: Props) {
   const handleClose = async (threadId?: string) => {
     const targetThreadId = threadId ?? selectedThreadId
     if (!targetThreadId) return
+    const targetThread = threads.find((thread) => thread.id === targetThreadId)
+    if (!targetThread) return
+    const nextStatus: SupportThread['status'] = targetThread.status === 'CLOSED' ? 'OPEN' : 'CLOSED'
     setIsClosing(true)
     setSupportError('')
     try {
+      // Optimistic local update prevents list/chat flicker while request is in-flight.
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === targetThreadId
+            ? {
+                ...thread,
+                status: nextStatus,
+              }
+            : thread,
+        ),
+      )
       await closeAdminSupportThread(targetThreadId)
-      await loadThreads()
-      if (selectedThreadId === targetThreadId) await loadMessages(targetThreadId)
+      await loadThreads(true)
+      if (selectedThreadId === targetThreadId) await loadMessages(targetThreadId, true)
     } catch {
+      // Revert optimistic update on failure.
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === targetThreadId
+            ? {
+                ...thread,
+                status: targetThread.status,
+              }
+            : thread,
+        ),
+      )
       setSupportError(support.closeError)
     } finally {
       setIsClosing(false)
     }
   }
 
-  const handleDelete = async (threadId?: string) => {
-    const targetThreadId = threadId ?? selectedThreadId
+  const handleDelete = async (threadId: string) => {
+    const targetThreadId = threadId
     const targetThread = threads.find((thread) => thread.id === targetThreadId)
     if (!targetThreadId || targetThread?.status !== 'CLOSED') return
     setIsDeleting(true)
@@ -138,6 +204,30 @@ export default function SuperAdminSupportPage({ language }: Props) {
     }
   }
 
+  const openDeleteModal = (threadId?: string) => {
+    const targetThreadId = threadId ?? selectedThreadId
+    const targetThread = threads.find((thread) => thread.id === targetThreadId)
+    if (!targetThreadId || targetThread?.status !== 'CLOSED') return
+    setDeleteThreadId(targetThreadId)
+    setDeleteConfirmInput('')
+    setDeleteModalOpen(true)
+  }
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false)
+    setDeleteConfirmInput('')
+    setDeleteThreadId(null)
+  }
+
+  const deleteKeyword = language === 'bg' ? 'ДА' : 'YES'
+  const isDeletePhraseValid = deleteConfirmInput.trim() === deleteKeyword
+
+  const confirmDelete = async () => {
+    if (!deleteThreadId || !isDeletePhraseValid || isDeleting) return
+    await handleDelete(deleteThreadId)
+    closeDeleteModal()
+  }
+
   const statusBadgeClass = (status: SupportThread['status']) => (status === 'CLOSED' ? 'badge-warning' : 'badge-success')
   const statusLabel = (status: SupportThread['status']) => (status === 'CLOSED' ? (language === 'bg' ? 'Затворен' : 'Closed') : (language === 'bg' ? 'Отворен' : 'Open'))
   const ticketTitle = (thread: SupportThread) => {
@@ -147,15 +237,15 @@ export default function SuperAdminSupportPage({ language }: Props) {
 
   const shellCardClass = 'rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)]'
   const panelClass = 'rounded-2xl border border-base-300/70 bg-base-100/80 p-3 backdrop-blur-sm'
-  const panelHeightClass = 'h-[calc(100dvh-12rem)] sm:h-[calc(100dvh-13rem)] lg:h-[56vh] lg:min-h-[520px] lg:max-h-[680px]'
+  const panelHeightClass = 'h-full min-h-0'
 
   return (
-    <section className={`${shellCardClass} p-3 sm:p-5`}>
+    <section className={`${shellCardClass} flex h-full min-h-0 flex-col p-3 sm:p-5`}>
       <h2 className="text-xl font-semibold tracking-tight text-base-content sm:text-2xl">{support.title}</h2>
       {supportError ? <p className="mb-3 mt-2 text-sm text-error">{supportError}</p> : null}
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-5">
-        <div className={`lg:col-span-2 ${panelHeightClass} ${panelClass} flex flex-col ${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'}`}>
+      <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-3 sm:mt-4 sm:gap-4 lg:grid-cols-5">
+        <div className={`lg:col-span-2 ${panelHeightClass} ${panelClass} flex min-h-0 flex-col ${mobileView === 'chat' ? 'hidden lg:flex' : 'flex'}`}>
           {isThreadsLoading ? (
             <div className="space-y-2 p-1">
               <div className="skeleton h-16 w-full rounded-xl" />
@@ -164,7 +254,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
             </div>
           ) : null}
           {!isThreadsLoading && threads.length === 0 ? (
-            <div className="flex h-full min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
+            <div className="flex h-full min-h-0 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
               <div className="mb-3 rounded-full bg-base-300 p-3"><Ticket className="h-5 w-5 text-base-content/70" /></div>
               <p className="text-sm font-medium text-base-content">{support.empty}</p>
               <p className="mt-1 text-xs text-base-content/60">{support.emptyHint}</p>
@@ -184,22 +274,22 @@ export default function SuperAdminSupportPage({ language }: Props) {
                   >
                     <p className="text-base font-semibold text-base-content sm:text-lg">{ticketTitle(thread)}</p>
                     <p className="text-sm text-base-content/65">{thread.requesterName}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-base-content/70">{thread.latestMessagePreview || support.noPreview}</p>
                     <div className="mt-2"><span className={`badge badge-xs ${statusBadgeClass(thread.status)}`}>{statusLabel(thread.status)}</span></div>
                   </button>
                   <div className="flex shrink-0 flex-col gap-2 pt-0.5">
                     <button
                       type="button"
-                      className={`btn btn-xs w-[96px] ${thread.status === 'CLOSED' ? 'btn-success' : 'btn-warning'}`}
+                      className={`btn btn-xs h-7 min-h-0 min-w-[110px] gap-1 whitespace-nowrap px-2 text-[11px] ${thread.status === 'CLOSED' ? 'btn-success' : 'btn-warning'}`}
                       onClick={() => void handleClose(thread.id)}
                       disabled={isClosing || (thread.status === 'CLOSED' && !thread.canReopen)}
                     >
-                      {thread.status === 'CLOSED' ? 'Open ticket' : 'Close ticket'}
+                      {thread.status === 'CLOSED' ? <RotateCcw className="h-3.5 w-3.5" /> : <CircleX className="h-3.5 w-3.5" />}
+                      {thread.status === 'CLOSED' ? (language === 'bg' ? 'Отвори' : 'Reopen') : (language === 'bg' ? 'Затвори' : 'Close')}
                     </button>
                     {thread.status === 'CLOSED' ? (
-                      <button type="button" className="btn btn-error btn-xs w-[96px] gap-1" onClick={() => void handleDelete(thread.id)} disabled={isDeleting}>
+                      <button type="button" className="btn btn-error btn-xs h-7 min-h-0 min-w-[110px] gap-1 whitespace-nowrap px-2 text-[11px]" onClick={() => openDeleteModal(thread.id)} disabled={isDeleting}>
                         <Trash2 className="h-3.5 w-3.5" />
-                        Delete
+                        {language === 'bg' ? 'Изтрий' : 'Delete'}
                       </button>
                     ) : null}
                   </div>
@@ -209,9 +299,9 @@ export default function SuperAdminSupportPage({ language }: Props) {
           </div>
         </div>
 
-        <div className={`lg:col-span-3 ${panelHeightClass} ${panelClass} flex flex-col ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
+        <div className={`lg:col-span-3 ${panelHeightClass} ${panelClass} flex min-h-0 flex-col ${mobileView === 'list' ? 'hidden lg:flex' : 'flex'}`}>
           {!selectedThread ? (
-            <div className="flex h-full min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
+            <div className="flex h-full min-h-0 flex-col items-center justify-center rounded-2xl border border-dashed border-base-300 bg-gradient-to-b from-base-200/60 to-base-100 px-4 text-center">
               <div className="mb-3 rounded-full bg-base-300 p-3"><MessageCircle className="h-5 w-5 text-base-content/70" /></div>
               <p className="text-sm font-semibold text-base-content">{support.selectThread}</p>
               <p className="mt-1 text-xs text-base-content/60">{support.selectHint}</p>
@@ -264,7 +354,32 @@ export default function SuperAdminSupportPage({ language }: Props) {
           ) : null}
         </div>
       </div>
+
+      {deleteModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-base-300 bg-base-100 p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-base-content">{support.confirmDeleteTitle}</h3>
+            <p className="mt-2 text-sm text-base-content/75">
+              {support.confirmDeleteDescription} <span className="font-semibold text-base-content">{deleteKeyword}</span>
+            </p>
+            <input
+              className="input input-bordered mt-3 w-full"
+              placeholder={support.confirmDeletePlaceholder}
+              value={deleteConfirmInput}
+              onChange={(event) => setDeleteConfirmInput(event.target.value)}
+              autoFocus
+            />
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={closeDeleteModal}>
+                {support.cancel}
+              </button>
+              <button type="button" className="btn btn-error btn-sm" onClick={() => void confirmDelete()} disabled={!isDeletePhraseValid || isDeleting}>
+                {support.confirmDeleteAction}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
-

@@ -6,6 +6,8 @@ import {
   sendPublicTicketStatusEmail,
   sendPublicQuestionToSupport,
 } from "../../utils/email.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
+import { emitToRole, emitToUser } from "../../realtime/socket.js";
 
 type Source = "PUBLIC" | "USER_DASHBOARD";
 
@@ -40,6 +42,29 @@ type CloseThreadResult =
   | { ok: false; reason: "NOT_FOUND" | "REOPEN_WINDOW_EXPIRED" };
 
 export class SupportService {
+  private static async resolveRequesterUserId(thread: {
+    requesterUserId?: string | null;
+    requesterEmail: string;
+    source?: string;
+  }) {
+    if (thread.requesterUserId) return thread.requesterUserId;
+    if (thread.source === "PUBLIC") return null;
+
+    const match = await db.query.users.findFirst({
+      where: eq(users.email, thread.requesterEmail.trim().toLowerCase()),
+      columns: { id: true },
+    });
+
+    return match?.id ?? null;
+  }
+
+  private static emitThreadChanged(threadId: string, userId?: string | null) {
+    emitToRole("SUPERADMIN", "support:thread-updated", { threadId });
+    if (userId) {
+      emitToUser(userId, "support:thread-updated", { threadId });
+    }
+  }
+
   static async createThread(input: CreateThreadInput) {
     const requesterName = input.requesterName.trim();
     const requesterEmail = input.requesterEmail.trim().toLowerCase();
@@ -77,8 +102,30 @@ export class SupportService {
 
     if (input.source === "PUBLIC") {
       await sendPublicQuestionToSupport(requesterName, requesterEmail, question, created.thread.id, input.source);
+      await sendPublicQuestionConfirmationEmail(requesterEmail, requesterName, created.thread.id);
     }
-    await sendPublicQuestionConfirmationEmail(requesterEmail, requesterName, created.thread.id);
+
+    await NotificationsService.createForRoles({
+      roles: ["SUPERADMIN"],
+      type: "SUPPORT_TICKET_CREATED",
+      title: "New support ticket",
+      body: `${requesterName} created a support ticket.`,
+      metadata: { threadId: created.thread.id, source: input.source },
+      push: true,
+    });
+
+    if (input.requesterUserId) {
+      await NotificationsService.createForUser({
+        userId: input.requesterUserId,
+        type: "SUPPORT_TICKET_CREATED",
+        title: "Ticket created",
+        body: "Your support ticket was created successfully.",
+        metadata: { threadId: created.thread.id },
+        push: true,
+      });
+    }
+
+    this.emitThreadChanged(created.thread.id, input.requesterUserId ?? null);
 
     return created.thread;
   }
@@ -178,6 +225,20 @@ export class SupportService {
       })
       .where(eq(supportThreads.id, thread.id));
 
+    const requesterUserId = await this.resolveRequesterUserId(thread);
+    if (requesterUserId) {
+      await NotificationsService.createForUser({
+        userId: requesterUserId,
+        type: "SUPPORT_REPLY",
+        title: "New support reply",
+        body: body.slice(0, 140),
+        metadata: { threadId: thread.id, messageId: message.id },
+        push: true,
+      });
+    }
+
+    this.emitThreadChanged(thread.id, requesterUserId);
+
     return message;
   }
 
@@ -260,6 +321,17 @@ export class SupportService {
       })
       .where(eq(supportThreads.id, thread.id));
 
+    await NotificationsService.createForRoles({
+      roles: ["SUPERADMIN"],
+      type: "SUPPORT_REPLY",
+      title: "New user reply",
+      body: `${currentUser.username} replied to a support ticket.`,
+      metadata: { threadId: thread.id, messageId: message.id },
+      push: true,
+    });
+
+    this.emitThreadChanged(thread.id, thread.requesterUserId);
+
     return message;
   }
 
@@ -274,6 +346,8 @@ export class SupportService {
       columns: { id: true, username: true, email: true },
     });
     if (!admin) return { ok: false, reason: "NOT_FOUND" };
+
+    const requesterUserId = await this.resolveRequesterUserId(thread);
 
     if (thread.status === "CLOSED") {
       const firstCloseEvent = await db.query.supportMessages.findFirst({
@@ -316,6 +390,18 @@ export class SupportService {
         await sendPublicTicketStatusEmail(thread.requesterEmail, thread.requesterName, thread.id, "OPEN");
       }
 
+      if (requesterUserId) {
+        await NotificationsService.createForUser({
+          userId: requesterUserId,
+          type: "SUPPORT_STATUS",
+          title: "Ticket reopened",
+          body: "Support reopened your ticket.",
+          metadata: { threadId: thread.id, status: "OPEN" },
+          push: true,
+        });
+      }
+      this.emitThreadChanged(thread.id, requesterUserId);
+
       return { ok: true, action: "reopened" };
     }
 
@@ -340,6 +426,18 @@ export class SupportService {
     if (thread.source === "PUBLIC") {
       await sendPublicTicketStatusEmail(thread.requesterEmail, thread.requesterName, thread.id, "CLOSED");
     }
+
+    if (requesterUserId) {
+      await NotificationsService.createForUser({
+        userId: requesterUserId,
+        type: "SUPPORT_STATUS",
+        title: "Ticket closed",
+        body: "Support closed your ticket.",
+        metadata: { threadId: thread.id, status: "CLOSED" },
+        push: true,
+      });
+    }
+    this.emitThreadChanged(thread.id, requesterUserId);
 
     return { ok: true, action: "closed" };
   }
@@ -383,19 +481,45 @@ export class SupportService {
       await sendPublicTicketStatusEmail(thread.requesterEmail, thread.requesterName, thread.id, "OPEN");
     }
 
+    await NotificationsService.createForRoles({
+      roles: ["SUPERADMIN"],
+      type: "SUPPORT_REPLY",
+      title: "New email reply",
+      body: `${thread.requesterName} replied by email.`,
+      metadata: { threadId: thread.id, messageId: message.id },
+      push: true,
+    });
+
+    this.emitThreadChanged(thread.id, thread.requesterUserId);
+
     return message;
   }
 
   static async deleteClosedThreadAsAdmin(threadId: string) {
     const thread = await db.query.supportThreads.findFirst({
       where: eq(supportThreads.id, threadId),
-      columns: { id: true, status: true },
+      columns: { id: true, status: true, requesterUserId: true, requesterEmail: true, source: true },
     });
     if (!thread) return { ok: false as const, reason: "NOT_FOUND" as const };
     if (thread.status !== "CLOSED") return { ok: false as const, reason: "NOT_CLOSED" as const };
 
     await db.delete(supportMessages).where(eq(supportMessages.threadId, thread.id));
     await db.delete(supportThreads).where(eq(supportThreads.id, thread.id));
+
+    const requesterUserId = await this.resolveRequesterUserId(thread);
+    if (requesterUserId) {
+      await NotificationsService.createForUser({
+        userId: requesterUserId,
+        type: "SUPPORT_TICKET_DELETED",
+        title: "Ticket deleted",
+        body: "Support deleted your ticket.",
+        metadata: { threadId: thread.id, status: "DELETED" },
+        push: true,
+      });
+      emitToUser(requesterUserId, "support:thread-deleted", { threadId: thread.id });
+    }
+
+    emitToRole("SUPERADMIN", "support:thread-deleted", { threadId: thread.id });
     return { ok: true as const };
   }
 }

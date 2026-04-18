@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import {and, desc, eq, or} from "drizzle-orm";
+import {and, desc, eq, gt, or} from "drizzle-orm";
 import {v4 as uuid4} from "uuid";
 import {refreshTokens, sessions, users} from "../../../drizzle/schemas/index.js"; // Modular schema exports
 import {db} from "../../config/drizzle.js"; // Your Drizzle Proxy client
@@ -15,6 +15,25 @@ const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class AuthService {
+    static async isSessionActive(sessionId: string, userId?: string) {
+        const now = new Date();
+        const activeSession = await db.query.sessions.findFirst({
+            where: and(
+                eq(sessions.id, sessionId),
+                eq(sessions.revoked, false),
+                gt(sessions.expiresAt, now),
+                ...(userId ? [eq(sessions.userId, userId)] : []),
+            ),
+            columns: { id: true, userId: true },
+        });
+
+        if (activeSession) return true;
+
+        // Cache revoke marker so access-token checks fail fast after first rejection.
+        await redis.set(REDIS_KEYS.SESSION_REVOKE(sessionId), "true", "EX", 960);
+        return false;
+    }
+
     static async login(identifier: string, password: string, ip: string | undefined) {
         // Relational query to include sessions
         const user = await db.query.users.findFirst({
@@ -93,7 +112,9 @@ export class AuthService {
                         user: {
                             columns: {
                                 id: true,
-                                role: true
+                                role: true,
+                                username: true,
+                                email: true,
                             }
                         }
                     }

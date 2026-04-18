@@ -104,3 +104,7 @@
   font-weight: 400;
   font-size: 14px;
 }
+
+html[data-theme="drivio-dark"] .dashboard-shell [class*="border-base-300"] {
+  border-color: oklch(34% 0.012 275) !important;
+}

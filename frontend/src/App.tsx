@@ -42,11 +42,14 @@ import LandingPage from './modules/public/pages/LandingPage'
 import LoginPage from './modules/auth/pages/LoginPage.js'
 import DrivingSchoolRegisterPage from './modules/auth/pages/DrivingSchoolRegisterPage'
 import DrivingSchoolCompleteSetupPage from './modules/auth/pages/DrivingSchoolCompleteSetupPage'
+import SessionLoadingScreen from './modules/auth/components/SessionLoadingScreen'
+import { useAuth } from './modules/auth/hooks'
 import PrivacyPage from './modules/public/pages/PrivacyPage'
 import SchoolsPage from './modules/public/pages/SchoolsPage'
 import StudentsPage from './modules/public/pages/StudentsPage'
 import TermsPage from './modules/public/pages/TermsPage'
-import { ensureCorrectDomainForPath } from './utils/app-domain'
+import { ensureCorrectDomainForPath, getBaseHostname, getDomainAwareUrl } from './utils/app-domain'
+import { getRoleDashboardPath } from './modules/auth/types'
 import {
   getInitialLanguagePreference,
   getLanguagePreferenceFromCookie,
@@ -85,6 +88,121 @@ function DomainGuard() {
   return null
 }
 
+function SessionBootstrap() {
+  const { initialized, initialize } = useAuth()
+
+  useEffect(() => {
+    if (!initialized) {
+      void initialize()
+    }
+  }, [initialized, initialize])
+
+  return null
+}
+
+interface PublicHomeEntryProps {
+  language: Language
+  theme: Theme
+}
+
+function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
+  const { initialized, loading, isAuthenticated, role } = useAuth()
+  const [alreadyChecked, setAlreadyChecked] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const checked = url.searchParams.get('__session_checked') === '1'
+    setAlreadyChecked(checked)
+
+    if (checked) {
+      // Remove marker after paint so future root loads can re-probe session.
+      const timer = window.setTimeout(() => {
+        const cleanUrl = new URL(window.location.href)
+        cleanUrl.searchParams.delete('__session_checked')
+        window.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`)
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!initialized || loading) return
+    if (typeof window === 'undefined') return
+    if (isAuthenticated) return
+    if (alreadyChecked) return
+
+    const sessionCheckUrl = new URL(getDomainAwareUrl('/session-check'))
+    sessionCheckUrl.searchParams.set('returnTo', `${window.location.pathname}${window.location.search}${window.location.hash}`)
+    window.location.replace(sessionCheckUrl.toString())
+  }, [initialized, loading, isAuthenticated, alreadyChecked])
+
+  if (!initialized || loading) {
+    return <SessionLoadingScreen language={language} />
+  }
+
+  if (isAuthenticated && role) {
+    return <SessionRedirectToDashboard rolePath={getRoleDashboardPath(role)} language={language} />
+  }
+
+  if (!alreadyChecked) {
+    return <SessionLoadingScreen language={language} />
+  }
+
+  return <LandingPage language={language} theme={theme} />
+}
+
+interface SessionRedirectToDashboardProps {
+  rolePath: string
+  language: Language
+}
+
+function SessionRedirectToDashboard({ rolePath, language }: SessionRedirectToDashboardProps) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      window.location.replace(getDomainAwareUrl(rolePath))
+    }, 5000)
+
+    return () => window.clearTimeout(timer)
+  }, [rolePath])
+
+  return <SessionLoadingScreen language={language} simulateProgress />
+}
+
+function SessionCheckEntry() {
+  const { initialized, loading, isAuthenticated, role } = useAuth()
+  const [redirectingWithDelay, setRedirectingWithDelay] = useState(false)
+
+  useEffect(() => {
+    if (!initialized || loading) return
+    if (typeof window === 'undefined') return
+
+    if (isAuthenticated && role) {
+      setRedirectingWithDelay(true)
+      const timer = window.setTimeout(() => {
+        window.location.replace(getDomainAwareUrl(getRoleDashboardPath(role)))
+      }, 5000)
+      return () => window.clearTimeout(timer)
+    }
+
+    setRedirectingWithDelay(false)
+    const timer = window.setTimeout(() => {
+      const url = new URL(window.location.href)
+      const returnTo = url.searchParams.get('returnTo')
+      const safeReturnPath =
+        returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/'
+      const baseOrigin = new URL(window.location.href)
+      baseOrigin.hostname = getBaseHostname(baseOrigin.hostname)
+      baseOrigin.pathname = safeReturnPath
+      baseOrigin.searchParams.set('__session_checked', '1')
+      window.location.replace(baseOrigin.toString())
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [initialized, loading, isAuthenticated, role])
+
+  return <SessionLoadingScreen simulateProgress={redirectingWithDelay} />
+}
+
 interface AppRoutesProps {
   themePreference: ThemePreference
   resolvedTheme: Theme
@@ -101,12 +219,17 @@ function AppRoutes({
   setLanguage,
 }: AppRoutesProps) {
   const location = useLocation()
+  const { initialized, loading, isAuthenticated } = useAuth()
+  const checkedOnBase = new URLSearchParams(location.search).get('__session_checked') === '1'
+  const isSessionTransitionRoute =
+    location.pathname === '/session-check' ||
+    (location.pathname === '/' && (!initialized || loading || (!isAuthenticated && !checkedOnBase)))
   const isPublicLayoutRoute = ['/', '/students', '/schools', '/privacy', '/terms'].includes(location.pathname)
   const isAuthLayoutRoute = ['/login', '/register', '/register/driving-school', '/register/driving-school/complete'].includes(location.pathname)
 
   return (
     <div className="min-h-screen bg-base-100">
-      {isPublicLayoutRoute ? (
+      {!isSessionTransitionRoute && isPublicLayoutRoute ? (
         <Header
           themePreference={themePreference}
           resolvedTheme={resolvedTheme}
@@ -125,7 +248,8 @@ function AppRoutes({
       ) : null}
 
       <Routes>
-        <Route path="/" element={<LandingPage language={language} theme={resolvedTheme} />} />
+        <Route path="/" element={<PublicHomeEntry language={language} theme={resolvedTheme} />} />
+        <Route path="/session-check" element={<SessionCheckEntry />} />
         <Route path="/students" element={<StudentsPage language={language} theme={resolvedTheme} />} />
         <Route path="/schools" element={<SchoolsPage language={language} theme={resolvedTheme} />} />
         <Route path="/login" element={<LoginPage language={language} />} />
@@ -346,6 +470,7 @@ export default function App() {
   return (
     <Router>
       <DomainGuard />
+      <SessionBootstrap />
       <ScrollToTop />
       <AppRoutes
         themePreference={themePreference}

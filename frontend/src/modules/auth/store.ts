@@ -42,16 +42,10 @@ export const useAuthStore = create<AuthState>()(
         if (initializePromise) return initializePromise
 
         initializePromise = (async () => {
-          const currentUser = get().user
-          if (!currentUser) {
-            set({ initialized: true, loading: false })
-            return
-          }
-
           set({ loading: true, error: null })
           try {
-            await refreshSession()
-            set({ loading: false, initialized: true })
+            const { user } = await refreshSession()
+            set({ user, loading: false, initialized: true })
           } catch {
             set({ user: null, loading: false, initialized: true })
           }

@@ -28,7 +28,6 @@ export const verifyAccessToken = async (token: string) => {
             sessionId: decoded.sessionId
         };
     } catch(err) {
-        console.log(err);
         return { isValid: false };
     }
 };

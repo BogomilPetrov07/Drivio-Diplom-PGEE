@@ -23,9 +23,9 @@ export default function SuperAdminLayout({ language, setLanguage, themePreferenc
       navItems={[
         { to: '/dashboard/superadmin/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
         { to: '/dashboard/superadmin/statistics', label: t.layout.statistics, icon: <BarChart3 className='h-4 w-4' /> },
-        { to: '/dashboard/superadmin/requests', label: 'Requests', icon: <ClipboardList className='h-4 w-4' /> },
+        { to: '/dashboard/superadmin/requests', label: t.layout.requests, icon: <ClipboardList className='h-4 w-4' /> },
         { to: '/dashboard/superadmin/support', label: t.layout.help, icon: <LifeBuoy className='h-4 w-4' /> },
-        { to: '/dashboard/superadmin/faqs', label: 'FAQs', icon: <CircleHelp className='h-4 w-4' /> },
+        { to: '/dashboard/superadmin/faqs', label: t.layout.faqs, icon: <CircleHelp className='h-4 w-4' /> },
       ]}
     />
   )

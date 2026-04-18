@@ -7,6 +7,10 @@
     "signOut": "Изход",
     "protectedHelloFailed": "Тестът за защитения Hello се провали. Проверете статуса на сесията.",
     "notifications": "Известия",
+    "profile": "Профил",
+    "settings": "Настройки",
+    "security": "Сигурност",
+    "faqs": "ЧЗВ",
     "profileMenu": "Профилно меню",
     "avatarAlt": "Потребителски аватар"
   },
@@ -88,6 +92,8 @@
     "schedule": "График",
     "students": "Курсисти",
     "statistics": "Статистика",
+    "requests": "Заявки",
+    "faqs": "ЧЗВ",
     "instructors": "Инструктори",
     "progress": "Прогрес"
   },
@@ -129,7 +135,12 @@
     "deleteError": "Неуспешно изтриване на тикет.",
     "externalTicket": "Външен тикет (имейл)",
     "internalTicket": "Вътрешен тикет (платформа)",
-    "writeBackEmail": "Пиши обратно (имейл)"
+    "writeBackEmail": "Пиши обратно (имейл)",
+    "confirmDeleteTitle": "Потвърждение за изтриване",
+    "confirmDeleteDescription": "За да изтриете този тикет, въведете",
+    "confirmDeletePlaceholder": "Въведете ДА",
+    "confirmDeleteAction": "Изтрий тикет",
+    "cancel": "Отказ"
   },
   "supportUser": {
     "title": "Поддръжка",
@@ -159,6 +170,7 @@
     "waitingUser": "Чака ваш отговор",
     "loadError": "Неуспешно зареждане на тикети.",
     "messagesError": "Неуспешно зареждане на съобщения.",
-    "closeError": "Неуспешно затваряне на тикет."
+    "closeError": "Неуспешно затваряне на тикет.",
+    "cancel": "Отказ"
   }
 }

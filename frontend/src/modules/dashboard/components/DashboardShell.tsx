@@ -1,12 +1,14 @@
 ﻿import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Bell, CircleUserRound, Globe, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, CircleHelp, BellRing } from 'lucide-react'
+import { Bell, CircleUserRound, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, CircleHelp, BellRing, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks.js'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
 import logoLight from '../../../assets/logo_light.svg'
 import logoDark from '../../../assets/logo_dark.svg'
+import { fetchMyNotifications, markAllNotificationsAsRead, savePushSubscription, fetchPushPublicKey, deleteMyNotification, type DashboardNotification } from '../api'
+import { getRealtimeSocket } from '../realtime'
 
 interface DashboardShellProps {
   language: Language
@@ -31,6 +33,18 @@ export default function DashboardShell({
   const [languageOpen, setLanguageOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([])
+  const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('drivio_dismissed_notifications')
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []
+    } catch {
+      return []
+    }
+  })
   const [unreadNotifications, setUnreadNotifications] = useState<number>(() => {
     const raw = localStorage.getItem('drivio_unread_notifications')
     return raw ? Number(raw) || 0 : 0
@@ -38,10 +52,81 @@ export default function DashboardShell({
   const profileRef = useRef<HTMLDivElement | null>(null)
   const languageRef = useRef<HTMLDivElement | null>(null)
   const themeRef = useRef<HTMLDivElement | null>(null)
+  const notificationsRef = useRef<HTMLDivElement | null>(null)
+  const notificationsSyncInFlight = useRef(false)
 
   const t = getDashboardTranslations(language)
   const shell = t.shell
   const common = t.common
+  const topBarHeightValue = 'clamp(3.5rem,9vmin,5rem)'
+  const topBarHeightClass = 'h-[clamp(3.5rem,9vmin,5rem)]'
+  const isBg = language === 'bg'
+
+  const notificationCopyByType = useMemo(
+    () => ({
+      SUPPORT_TICKET_CREATED: {
+        title: isBg ? 'Създаден тикет' : 'Ticket created',
+        body: isBg ? 'Тикетът е създаден успешно.' : 'Your ticket was created successfully.',
+      },
+      SUPPORT_STATUS: {
+        title: isBg ? 'Промяна в тикет' : 'Ticket status update',
+        body: isBg ? 'Има промяна по вашия тикет.' : 'There is a status update on your ticket.',
+      },
+      SUPPORT_TICKET_DELETED: {
+        title: isBg ? 'Изтрит тикет' : 'Ticket deleted',
+        body: isBg ? 'Тикетът е изтрит от поддръжката.' : 'Your ticket was deleted by support.',
+      },
+      SUPPORT_REPLY: {
+        title: isBg ? 'Нов отговор' : 'New reply',
+        body: isBg ? 'Имате нов отговор по тикет.' : 'You have a new ticket reply.',
+      },
+      GENERAL: {
+        title: isBg ? 'Известие' : 'Notification',
+        body: isBg ? 'Имате ново известие.' : 'You have a new notification.',
+      },
+    }),
+    [isBg],
+  )
+
+  const getNotificationContent = (item: DashboardNotification) => {
+    const fallback = notificationCopyByType.GENERAL
+    const fromType = notificationCopyByType[item.type as keyof typeof notificationCopyByType] ?? fallback
+    return {
+      title: item.title?.trim() ? item.title : fromType.title,
+      body: item.body?.trim() ? item.body : fromType.body,
+    }
+  }
+
+  const formatNotificationTime = (dateString: string) => {
+    const date = new Date(dateString)
+    const locale = isBg ? 'bg-BG' : 'en-US'
+    return new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+    }).format(date)
+  }
+
+  const visibleNotifications = useMemo(
+    () => notifications.filter((item) => !dismissedNotificationIds.includes(item.id)),
+    [notifications, dismissedNotificationIds],
+  )
+
+  const syncNotifications = async () => {
+    if (notificationsSyncInFlight.current) return
+    notificationsSyncInFlight.current = true
+    try {
+      const data = await fetchMyNotifications()
+      setNotifications(data.items)
+      setUnreadNotifications(data.unreadCount)
+      localStorage.setItem('drivio_unread_notifications', String(data.unreadCount))
+    } catch {
+      // no-op
+    } finally {
+      notificationsSyncInFlight.current = false
+    }
+  }
 
   const memoNavItems = useMemo(() => navItems, [navItems])
   const roleSegment = user?.role === 'SUPERADMIN'
@@ -53,11 +138,11 @@ export default function DashboardShell({
         : 'student'
 
   const profileMenuItems = [
-    { label: 'Profile', to: `/dashboard/${roleSegment}/profile`, icon: User },
-    { label: 'Settings', to: `/dashboard/${roleSegment}/settings`, icon: Settings },
-    { label: 'Notifications', to: `/dashboard/${roleSegment}/notifications`, icon: BellRing },
-    { label: 'Security', to: `/dashboard/${roleSegment}/security`, icon: Shield },
-    ...(user?.role === 'SUPERADMIN' ? [] : [{ label: 'FAQs', to: `/dashboard/${roleSegment}/faqs`, icon: CircleHelp }]),
+    { label: shell.profile, to: `/dashboard/${roleSegment}/profile`, icon: User },
+    { label: shell.settings, to: `/dashboard/${roleSegment}/settings`, icon: Settings },
+    { label: shell.notifications, to: `/dashboard/${roleSegment}/notifications`, icon: BellRing },
+    { label: shell.security, to: `/dashboard/${roleSegment}/security`, icon: Shield },
+    ...(user?.role === 'SUPERADMIN' ? [] : [{ label: shell.faqs, to: `/dashboard/${roleSegment}/faqs`, icon: CircleHelp }]),
   ] as const
 
   useEffect(() => {
@@ -67,6 +152,7 @@ export default function DashboardShell({
       if (profileRef.current && !profileRef.current.contains(target)) setProfileOpen(false)
       if (languageRef.current && !languageRef.current.contains(target)) setLanguageOpen(false)
       if (themeRef.current && !themeRef.current.contains(target)) setThemeOpen(false)
+      if (notificationsRef.current && !notificationsRef.current.contains(target)) setNotificationsOpen(false)
     }
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -75,6 +161,7 @@ export default function DashboardShell({
         setLanguageOpen(false)
         setThemeOpen(false)
         setMobileNavOpen(false)
+        setNotificationsOpen(false)
       }
     }
 
@@ -87,35 +174,107 @@ export default function DashboardShell({
   }, [])
 
   useEffect(() => {
-    const handler = (event: Event) => {
-      const customEvent = event as CustomEvent<{ title?: string; body?: string }>
-      const title = customEvent.detail?.title ?? 'New notification'
-      const body = customEvent.detail?.body ?? ''
+    const load = async () => {
+      await syncNotifications()
+    }
+    void load()
+  }, [])
 
+  useEffect(() => {
+    const socket = getRealtimeSocket()
+
+    const onNotification = (item: DashboardNotification) => {
+      setNotifications((prev) => [item, ...prev].slice(0, 30))
       setUnreadNotifications((prev) => {
         const next = prev + 1
         localStorage.setItem('drivio_unread_notifications', String(next))
         return next
       })
 
-      if ('serviceWorker' in navigator && 'Notification' in window) {
-        if (Notification.permission === 'granted') {
-          void navigator.serviceWorker.ready.then((registration) =>
-            registration.showNotification(title, {
-              body,
-              icon: '/pwa-dark-192x192.png',
-              badge: '/pwa-dark-192x192.png',
-            }),
-          )
-        } else if (Notification.permission !== 'denied') {
-          void Notification.requestPermission()
-        }
+      if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
+        const content = getNotificationContent(item)
+        void navigator.serviceWorker.ready.then((registration) =>
+          registration.showNotification(content.title, {
+            body: content.body,
+            icon: '/pwa-dark-192x192.png',
+            badge: '/pwa-dark-192x192.png',
+          }),
+        )
       }
     }
 
-    window.addEventListener('drivio:support-notification', handler as EventListener)
-    return () => window.removeEventListener('drivio:support-notification', handler as EventListener)
+    socket.on('notification:new', onNotification)
+    socket.on('support:thread-updated', syncNotifications)
+    socket.on('support:thread-deleted', syncNotifications)
+    return () => {
+      socket.off('notification:new', onNotification)
+      socket.off('support:thread-updated', syncNotifications)
+      socket.off('support:thread-deleted', syncNotifications)
+    }
+  }, [getNotificationContent])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void syncNotifications()
+    }, 6000)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void syncNotifications()
+      }
+    }
+
+    window.addEventListener('focus', onVisibility)
+    document.addEventListener('visibilitychange', onVisibility)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', onVisibility)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [])
+
+  useEffect(() => {
+    const registerPush = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return
+      try {
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') return
+        const registration = await navigator.serviceWorker.ready
+        let subscription = await registration.pushManager.getSubscription()
+        if (!subscription) {
+          const publicKey = await fetchPushPublicKey()
+          const converted = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
+          subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: converted })
+        }
+        const json = subscription.toJSON()
+        if (json.endpoint && json.keys?.auth && json.keys?.p256dh) {
+          await savePushSubscription(json)
+        }
+      } catch {
+        // no-op
+      }
+    }
+    void registerPush()
+  }, [])
+
+  const openNotifications = async () => {
+    setNotificationsOpen((prev) => !prev)
+    setProfileOpen(false)
+    setLanguageOpen(false)
+    setThemeOpen(false)
+
+    if (unreadNotifications > 0) {
+      setUnreadNotifications(0)
+      localStorage.setItem('drivio_unread_notifications', '0')
+      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })))
+      try {
+        await markAllNotificationsAsRead()
+      } catch {
+        // no-op
+      }
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -126,15 +285,30 @@ export default function DashboardShell({
     navigate('/login', { replace: true })
   }
 
+  const dismissNotification = async (id: string) => {
+    try {
+      await deleteMyNotification(id)
+      setNotifications((prev) => prev.filter((item) => item.id !== id))
+      setDismissedNotificationIds((prev) => {
+        const next = prev.filter((itemId) => itemId !== id)
+        localStorage.setItem('drivio_dismissed_notifications', JSON.stringify(next))
+        return next
+      })
+      setUnreadNotifications((prev) => Math.max(0, prev - 1))
+    } catch {
+      // no-op
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-base-100">
-      <section className="flex min-h-screen w-full overflow-x-hidden bg-base-100">
-        <aside className="hidden w-72 shrink-0 border-r border-base-300 bg-base-200/70 text-base-content lg:block">
-          <div className="flex h-20 items-center border-b border-base-300 px-6">
+    <main className="h-screen overflow-hidden bg-base-100">
+      <section className="dashboard-shell flex h-full w-full overflow-hidden bg-base-100">
+        <aside className="hidden min-h-0 w-72 shrink-0 border-r border-base-300 bg-base-200/70 text-base-content lg:flex lg:flex-col">
+          <div className={`flex ${topBarHeightClass} items-center border-b border-base-300 px-6`}>
             <img src={resolvedTheme === 'drivio-dark' ? logoDark : logoLight} alt="Drivio" className="h-8 w-auto" />
             <span className="ml-3 text-xl font-semibold">Drivio</span>
           </div>
-          <nav className="p-4 space-y-2">
+          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
             {memoNavItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -163,15 +337,15 @@ export default function DashboardShell({
         ) : null}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-72 transform border-r border-base-300 bg-base-200/95 text-base-content transition-transform duration-200 lg:hidden ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-base-300 bg-base-200/95 text-base-content transition-transform duration-200 lg:hidden ${
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="flex h-20 items-center border-b border-base-300 px-6">
+          <div className={`flex ${topBarHeightClass} items-center border-b border-base-300 px-6`}>
             <img src={resolvedTheme === 'drivio-dark' ? logoDark : logoLight} alt="Drivio" className="h-8 w-auto" />
             <span className="ml-3 text-xl font-semibold">Drivio</span>
           </div>
-          <nav className="p-4 space-y-2">
+          <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
             {memoNavItems.map((item) => (
               <NavLink
                 key={`mobile-${item.to}`}
@@ -191,8 +365,8 @@ export default function DashboardShell({
           </nav>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[clamp(3.5rem,9vmin,5rem)] items-center justify-between border-b border-base-300 bg-base-100 px-[clamp(0.5rem,2vmin,0.75rem)] sm:px-4 md:px-8">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className={`flex ${topBarHeightClass} items-center justify-between border-b border-base-300 bg-base-100 px-[clamp(0.5rem,2vmin,0.75rem)] sm:px-4 md:px-8`}>
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <button
                 type="button"
@@ -218,7 +392,9 @@ export default function DashboardShell({
 
               <div ref={languageRef} className={`dropdown dropdown-end ${languageOpen ? 'dropdown-open' : ''}`}>
                 <button type="button" className="btn btn-ghost btn-circle h-[clamp(2rem,5.2vmin,2.5rem)] min-h-0 w-[clamp(2rem,5.2vmin,2.5rem)]" aria-label={common.changeLanguage} onClick={() => { setLanguageOpen((prev) => !prev); setThemeOpen(false); setProfileOpen(false) }}>
-                  <Globe className="h-[clamp(1rem,2.3vmin,1.3rem)] w-[clamp(1rem,2.3vmin,1.3rem)]" />
+                  <span className="text-[clamp(0.68rem,1.7vmin,0.82rem)] font-semibold tracking-wide">
+                    {language === 'bg' ? 'BG' : 'EN'}
+                  </span>
                 </button>
                 <ul className="dropdown-content menu mt-2 w-32 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
                   <li><button onClick={() => { setLanguage('bg'); setLanguageOpen(false) }} className={language === 'bg' ? 'active' : ''}>BG</button></li>
@@ -226,18 +402,50 @@ export default function DashboardShell({
                 </ul>
               </div>
 
-              <button
-                type="button"
-                className="btn btn-ghost btn-circle relative h-[clamp(2rem,5.2vmin,2.5rem)] min-h-0 w-[clamp(2rem,5.2vmin,2.5rem)]"
-                aria-label={shell.notifications}
-                onClick={() => {
-                  setUnreadNotifications(0)
-                  localStorage.setItem('drivio_unread_notifications', '0')
-                }}
-              >
-                <Bell className="h-[clamp(1rem,2.3vmin,1.3rem)] w-[clamp(1rem,2.3vmin,1.3rem)]" />
-                {unreadNotifications > 0 ? <span className="badge badge-xs badge-primary absolute -right-0.5 -top-0.5">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span> : null}
-              </button>
+              <div ref={notificationsRef} className={`dropdown dropdown-end ${notificationsOpen ? 'dropdown-open' : ''}`}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-circle relative h-[clamp(2rem,5.2vmin,2.5rem)] min-h-0 w-[clamp(2rem,5.2vmin,2.5rem)]"
+                  aria-label={shell.notifications}
+                  onClick={() => void openNotifications()}
+                >
+                  <Bell className="h-[clamp(1rem,2.3vmin,1.3rem)] w-[clamp(1rem,2.3vmin,1.3rem)]" />
+                  {unreadNotifications > 0 ? <span className="badge badge-xs badge-primary absolute -right-0.5 -top-0.5">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span> : null}
+                </button>
+                <div className="dropdown-content mt-2 w-[min(92vw,24rem)] rounded-2xl border border-base-content/15 bg-base-100 p-2 shadow-2xl">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-base-content/70">{language === 'bg' ? 'Известия' : 'Notifications'}</div>
+                  <div className="max-h-80 overflow-y-auto px-1 py-1">
+                    {visibleNotifications.length === 0 ? (
+                      <p className="px-2 py-3 text-xs text-base-content/60">{language === 'bg' ? 'Няма известия.' : 'No notifications yet.'}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {visibleNotifications.map((item) => {
+                          const content = getNotificationContent(item)
+                          return (
+                            <article key={item.id} className={`rounded-xl border px-3 py-2.5 ${item.read ? 'border-base-300 bg-base-100' : 'border-primary/35 bg-primary/10'}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-base-content">{content.title}</p>
+                                  <p className="mt-0.5 text-xs text-base-content/70">{content.body}</p>
+                                  <p className="mt-1.5 text-[11px] text-base-content/50">{formatNotificationTime(item.createdAt)}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-xs btn-circle mt-0.5 shrink-0"
+                                  aria-label={language === 'bg' ? 'Скрий известие' : 'Dismiss notification'}
+                                  onClick={() => void dismissNotification(item.id)}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </article>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div ref={profileRef} className={`dropdown dropdown-end ${profileOpen ? 'dropdown-open' : ''}`}>
                 <button type="button" className="rounded-full p-0.5 transition-colors hover:bg-base-200/70" aria-label={shell.profileMenu} onClick={() => { setProfileOpen((prev) => !prev); setLanguageOpen(false); setThemeOpen(false) }}>
@@ -290,7 +498,10 @@ export default function DashboardShell({
             </div>
           </header>
 
-          <div className="px-3 py-5 sm:px-4 md:px-8">
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-5 sm:px-4 md:px-8 [&>*]:h-full [&>*]:min-h-0"
+            style={{ height: `calc(100vh - ${topBarHeightValue})` }}
+          >
             <Outlet />
           </div>
         </div>

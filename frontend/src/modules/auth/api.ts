@@ -7,7 +7,8 @@ export async function login(payload: LoginDTO) {
 }
 
 export async function refreshSession() {
-  await api.get('/auth/refresh')
+  const response = await api.get<AuthResponse>('/auth/refresh')
+  return response.data
 }
 
 export async function logout() {

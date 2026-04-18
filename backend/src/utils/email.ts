@@ -7,9 +7,16 @@ import { PublicTicketStatusEmail } from '../emails/PublicTicketStatusEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
-const resend = new Resend(env.RESEND_API_KEY);
+let resendClient: Resend | null = null;
+
+function getResendClient() {
+    if (resendClient) return resendClient;
+    resendClient = new Resend(env.RESEND_API_KEY);
+    return resendClient;
+}
 
 export const sendWelcomeEmailReact = async (to: string, username: string) => {
+    const resend = getResendClient();
     const emailHtml = await render(React.createElement(WelcomeEmail, { username }));
 
     return await resend.emails.send({
@@ -26,6 +33,7 @@ export const sendSchoolApprovalSetupEmail = async (
     schoolName: string,
     setupUrl: string,
 ) => {
+    const resend = getResendClient();
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#111827">
         <h2 style="margin:0 0 12px">Your Drivio Join Request Was Approved</h2>
@@ -52,6 +60,7 @@ export const sendPublicQuestionToSupport = async (
     threadId: string,
     source: "PUBLIC" | "USER_DASHBOARD",
 ) => {
+    const resend = getResendClient();
     const safeName = name.trim();
     const safeEmail = email.trim().toLowerCase();
     const safeQuestion = question.trim();
@@ -73,6 +82,7 @@ export const sendPublicQuestionToSupport = async (
 };
 
 export const sendPublicQuestionConfirmationEmail = async (to: string, name: string, threadId: string) => {
+    const resend = getResendClient();
     const safeName = name.trim();
     const safeTo = to.trim().toLowerCase();
     const emailHtml = await render(React.createElement(PublicQuestionConfirmationEmail, { name: safeName }));
@@ -91,6 +101,7 @@ export const sendPublicTicketStatusEmail = async (
     threadId: string,
     status: "OPEN" | "CLOSED",
 ) => {
+    const resend = getResendClient();
     const safeName = name.trim();
     const safeTo = to.trim().toLowerCase();
     const emailHtml = await render(React.createElement(PublicTicketStatusEmail, { name: safeName, status, threadId }));

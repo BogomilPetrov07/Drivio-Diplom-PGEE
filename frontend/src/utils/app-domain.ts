@@ -6,6 +6,7 @@ const PREF_THEME_PARAM = '__pref_theme'
 
 export function isAuthPath(pathname: string) {
   return (
+    pathname === '/session-check' ||
     pathname === '/login' ||
     pathname.startsWith('/register') ||
     pathname === '/unauthorized' ||
