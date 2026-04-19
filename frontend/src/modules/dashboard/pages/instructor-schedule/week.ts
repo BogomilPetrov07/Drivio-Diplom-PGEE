@@ -25,9 +25,16 @@ export function addDays(date: Date, amount: number) {
   return copy
 }
 
+function formatNumericDate(value: Date) {
+  const day = `${value.getDate()}`.padStart(2, '0')
+  const month = `${value.getMonth() + 1}`.padStart(2, '0')
+  const year = value.getFullYear()
+  return `${day}.${month}.${year}`
+}
+
 export function formatWeekRange(weekStart: Date) {
   const weekEnd = addDays(weekStart, 6)
-  return `${weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+  return `${formatNumericDate(weekStart)} - ${formatNumericDate(weekEnd)}`
 }
 
 export function getWeekKey(weekStart: Date) {

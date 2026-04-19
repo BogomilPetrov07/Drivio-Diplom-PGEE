@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import type { Language } from '../../../i18n/language'
+import { getDashboardTranslations } from '../../../i18n/dashboard'
 import { fetchSchoolDetails, updateSchoolDetails } from '../api'
 
 interface Props {
@@ -14,8 +16,7 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  const isBg = language === 'bg'
+  const t = getDashboardTranslations(language).pages.schoolProfile
 
   useEffect(() => {
     const load = async () => {
@@ -27,16 +28,16 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
         setAddress(school.address)
         setPhone(school.phone)
       } catch {
-        setError(isBg ? '????????? ????????? ?? ???????.' : 'Failed to load driving school details.')
+        setError(t.loadError)
       } finally {
         setLoading(false)
       }
     }
 
     void load()
-  }, [isBg])
+  }, [t.loadError])
 
-  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
     setError(null)
@@ -47,9 +48,9 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
       setName(updated.name)
       setAddress(updated.address)
       setPhone(updated.phone)
-      setSuccess(isBg ? '??????? ?? ???????? ???????.' : 'Driving school details were updated.')
+      setSuccess(t.updateSuccess)
     } catch {
-      setError(isBg ? '????????? ??????????.' : 'Failed to update school details.')
+      setError(t.updateError)
     } finally {
       setSaving(false)
     }
@@ -58,32 +59,30 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
   return (
     <section className="space-y-4 rounded-2xl border border-base-300/70 bg-base-100 p-4 sm:p-6">
       <div>
-        <h2 className="text-xl font-semibold text-base-content sm:text-2xl">{isBg ? '????? ?? ???????' : 'Driving school details'}</h2>
-        <p className="mt-1 text-sm text-base-content/70">
-          {isBg ? '???????????? ????????? ?????????? ?? ?????? ?????.' : 'Edit your driving school main information.'}
-        </p>
+        <h2 className="text-xl font-semibold text-base-content sm:text-2xl">{t.title}</h2>
+        <p className="mt-1 text-sm text-base-content/70">{t.description}</p>
       </div>
 
       {loading ? (
-        <p className="text-sm text-base-content/70">{isBg ? '?????????...' : 'Loading...'}</p>
+        <p className="text-sm text-base-content/70">{t.loading}</p>
       ) : (
         <form className="grid gap-3 rounded-xl border border-base-300 p-4" onSubmit={onSubmit}>
           <label className="form-control">
-            <span className="label-text">{isBg ? '??? ?? ?????' : 'School name'}</span>
+            <span className="label-text">{t.schoolName}</span>
             <input className="input input-bordered" value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label className="form-control">
-            <span className="label-text">{isBg ? '?????' : 'Address'}</span>
+            <span className="label-text">{t.address}</span>
             <input className="input input-bordered" value={address} onChange={(e) => setAddress(e.target.value)} required />
           </label>
           <label className="form-control">
-            <span className="label-text">{isBg ? '???????' : 'Phone'}</span>
+            <span className="label-text">{t.phone}</span>
             <input className="input input-bordered" value={phone} onChange={(e) => setPhone(e.target.value)} required />
           </label>
 
           <div>
             <button className="btn btn-primary" type="submit" disabled={saving}>
-              {saving ? (isBg ? '?????...' : 'Saving...') : isBg ? '??????' : 'Save'}
+              {saving ? t.saving : t.save}
             </button>
           </div>
         </form>

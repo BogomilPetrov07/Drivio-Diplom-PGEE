@@ -57,9 +57,8 @@ export class DashboardController {
     const result = await DashboardService.createSchoolPerson(req.user.id, req.body as SchoolPersonInput);
 
     if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
-    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Username, email, name and password are required" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Email and name are required" });
     if (result.status === "INVALID_ROLE") return res.status(400).json({ message: "Invalid role" });
-    if (result.status === "USERNAME_TAKEN") return res.status(409).json({ message: "Username already in use" });
     if (result.status === "EMAIL_TAKEN") return res.status(409).json({ message: "Email already in use" });
     if (result.status === "MISSING_INSTRUCTOR") return res.status(400).json({ message: "Instructor is required for students" });
     if (result.status === "INVALID_INSTRUCTOR") return res.status(400).json({ message: "Invalid instructor" });
@@ -74,9 +73,8 @@ export class DashboardController {
 
     if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
     if (result.status === "USER_NOT_FOUND") return res.status(404).json({ message: "Person not found" });
-    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Username, email and name are required" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Email and name are required" });
     if (result.status === "INVALID_ROLE") return res.status(400).json({ message: "Invalid role" });
-    if (result.status === "USERNAME_TAKEN") return res.status(409).json({ message: "Username already in use" });
     if (result.status === "EMAIL_TAKEN") return res.status(409).json({ message: "Email already in use" });
     if (result.status === "MISSING_INSTRUCTOR") return res.status(400).json({ message: "Instructor is required for students" });
     if (result.status === "INVALID_INSTRUCTOR") return res.status(400).json({ message: "Invalid instructor" });
@@ -97,4 +95,3 @@ export class DashboardController {
     return res.json({ message: "Person deleted" });
   };
 }
-

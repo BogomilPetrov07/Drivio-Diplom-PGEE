@@ -5,4 +5,6 @@ export const REDIS_KEYS = {
     NOTIFICATIONS_LIST: (userId: string, limit: number) => `notifications:list:${userId}:${limit}`,
     NOTIFICATIONS_UNREAD_COUNT: (userId: string) => `notifications:unread-count:${userId}`,
     ONBOARDING_SETUP_TOKEN_USES: (tokenHash: string) => `onboarding:setup:uses:${tokenHash}`,
+    USER_PROFILE_SETUP_TOKEN_META: (tokenHash: string) => `onboarding:user-profile:meta:${tokenHash}`,
+    USER_PROFILE_SETUP_TOKEN_USES: (tokenHash: string) => `onboarding:user-profile:uses:${tokenHash}`,
 };

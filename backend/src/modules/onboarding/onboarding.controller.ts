@@ -75,4 +75,49 @@ export class OnboardingController {
 
     return res.status(201).json({ message: "Driving school admin account created", schoolId: result.schoolId, adminUserId: result.adminUserId });
   };
+
+  static getUserProfileSetupSession = async (req: Request, res: Response) => {
+    const token = String(req.query.token ?? "");
+    if (!token) return res.status(400).json({ message: "token is required" });
+
+    const result = await OnboardingService.getUserProfileSetupSession(token);
+    if (result.status === "INVALID_OR_EXPIRED_TOKEN") {
+      return res.status(400).json({ message: "Invalid or expired setup token" });
+    }
+    if (result.status === "TOKEN_LIMIT_REACHED") {
+      return res.status(400).json({ message: "Setup token usage limit reached" });
+    }
+
+    return res.status(200).json(result);
+  };
+
+  static completeUserProfileSetup = async (req: Request, res: Response) => {
+    const { token, username, password, email, name } = req.body ?? {};
+    if (!token || !username || !password || !email || !name) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const result = await OnboardingService.completeUserProfileSetup({
+      token,
+      username,
+      password,
+      email,
+      name,
+    });
+
+    if (result.status === "INVALID_OR_EXPIRED_TOKEN") {
+      return res.status(400).json({ message: "Invalid or expired setup token" });
+    }
+    if (result.status === "TOKEN_LIMIT_REACHED") {
+      return res.status(400).json({ message: "Setup token usage limit reached" });
+    }
+    if (result.status === "USERNAME_TAKEN") {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+    if (result.status === "EMAIL_TAKEN") {
+      return res.status(409).json({ message: "Email is already taken" });
+    }
+
+    return res.status(200).json({ message: "Profile setup completed", userId: result.userId });
+  };
 }

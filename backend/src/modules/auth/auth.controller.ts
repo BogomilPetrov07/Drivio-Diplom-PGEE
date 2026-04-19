@@ -163,7 +163,7 @@ export class AuthController {
         const baseOptions = {
             httpOnly: true,
             secure: this.shouldUseSecureCookies(),
-            sameSite: "lax" as const,
+            sameSite: "strict" as const,
             path,
             maxAge
         };
@@ -191,7 +191,7 @@ export class AuthController {
         // Keep HttpOnly, but broaden path scope so refresh cookie is consistently present.
         const refreshCookieOptions = {
             ...this.getCookieOptions(REFRESH_COOKIE_TTL_MS, "/"),
-            sameSite: "lax" as const,
+            sameSite: "strict" as const,
         };
 
         res.cookie(
@@ -204,7 +204,7 @@ export class AuthController {
     private static getClearCookieOptions(path = "/") {
         const baseOptions = {
             path,
-            sameSite: "lax" as const,
+            sameSite: "strict" as const,
             secure: this.shouldUseSecureCookies()
         };
 
@@ -222,7 +222,7 @@ export class AuthController {
         res.clearCookie("accessToken", this.getClearCookieOptions("/"));
         res.clearCookie("refreshToken", {
             ...this.getClearCookieOptions("/"),
-            sameSite: "lax" as const,
+            sameSite: "strict" as const,
         });
     }
 
@@ -246,4 +246,3 @@ export class AuthController {
         return !hasLocalhostTarget;
     }
 }
-

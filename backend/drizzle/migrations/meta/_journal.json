@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1772134113516,
-      "tag": "0000_wakeful_photon",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1775280000000,
-      "tag": "0001_school_join_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1776084949992,
-      "tag": "0002_harsh_radioactive_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1776508747170,
-      "tag": "0003_overconfident_shape",
+      "when": 1776615436702,
+      "tag": "0000_silly_edwin_jarvis",
       "breakpoints": true
     }
   ]

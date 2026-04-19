@@ -1,6 +1,11 @@
 import { DAY_OPTIONS, EARLIEST_START, LATEST_END, LESSON_MINUTES, MIN_BREAK_MINUTES, SNAP_MINUTES } from './constants'
 import type { BreakPreset, DayItem, TimeSlot } from './types'
 
+export interface CustomBreakConfig {
+  breakMinutes: number
+  lessonSpan: number
+}
+
 export function toMinutes(value: string) {
   const [h, m] = value.split(':').map(Number)
   return h * 60 + m
@@ -25,6 +30,8 @@ export function clampTime(value: string) {
 function getFixedNoonBreakByPreset(preset: BreakPreset) {
   if (preset === 'shorter') return 15
   if (preset === 'longer') return 45
+  if (preset === 'custom') return MIN_BREAK_MINUTES
+  if (preset === 'none') return 0
   return 30
 }
 
@@ -54,10 +61,21 @@ export function distributeBreaks(
   totalBreakMinutes: number,
   slotCount: number,
   dayStartMinutes = 9 * 60,
-  preset: BreakPreset = 'normal'
+  preset: BreakPreset = 'normal',
+  custom?: CustomBreakConfig
 ) {
   const gaps = Math.max(slotCount - 1, 0)
   if (gaps === 0) return [] as number[]
+
+  if (preset === 'custom' && custom) {
+    const lessonSpan = Math.max(1, Math.floor(custom.lessonSpan))
+    const breakMinutes = Math.max(MIN_BREAK_MINUTES, Math.round(custom.breakMinutes / SNAP_MINUTES) * SNAP_MINUTES)
+    const breaks = Array.from({ length: gaps }, () => 0)
+    for (let gapIndex = lessonSpan - 1; gapIndex < gaps; gapIndex += lessonSpan) {
+      breaks[gapIndex] = breakMinutes
+    }
+    return breaks
+  }
 
   const roundedTotal = Math.round(totalBreakMinutes / SNAP_MINUTES) * SNAP_MINUTES
   const noonGapIndex = getNoonGapIndex(slotCount, dayStartMinutes)
@@ -161,12 +179,37 @@ export function generateSlots(startTime: string, endTime: string, desiredBreakMi
 }
 
 export function getBreakRatio(preset: BreakPreset) {
+  if (preset === 'none') return 0
   if (preset === 'shorter') return 0.1
   if (preset === 'longer') return 0.3
+  if (preset === 'custom') return 0
   return 0.2
 }
 
-export function computeBreakMinutesByPreset(startTime: string, endTime: string, preset: BreakPreset) {
+export function computeBreakMinutesByPreset(startTime: string, endTime: string, preset: BreakPreset, custom?: CustomBreakConfig) {
+  if (preset === 'none') return 0
+  if (preset === 'custom' && custom) {
+    const start = toMinutes(startTime)
+    const end = toMinutes(endTime)
+    const totalWindow = Math.max(0, end - start)
+    const lessonSpan = Math.max(1, Math.floor(custom.lessonSpan))
+    const breakMinutes = Math.max(MIN_BREAK_MINUTES, Math.round(custom.breakMinutes / SNAP_MINUTES) * SNAP_MINUTES)
+
+    let slotCount = Math.max(0, Math.floor(totalWindow / LESSON_MINUTES))
+    for (let i = 0; i < 6; i += 1) {
+      const gaps = Math.max(0, slotCount - 1)
+      const breakCount = Math.floor(gaps / lessonSpan)
+      const breakTotal = breakCount * breakMinutes
+      const nextSlotCount = Math.max(0, Math.floor((totalWindow - breakTotal) / LESSON_MINUTES))
+      if (nextSlotCount === slotCount) return breakTotal
+      slotCount = nextSlotCount
+    }
+
+    const gaps = Math.max(0, slotCount - 1)
+    const breakCount = Math.floor(gaps / lessonSpan)
+    return breakCount * breakMinutes
+  }
+
   const totalWindow = toMinutes(endTime) - toMinutes(startTime)
   const raw = totalWindow * getBreakRatio(preset)
   const rounded = Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES

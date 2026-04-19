@@ -54,7 +54,7 @@ api.interceptors.response.use(
 
             if (!isRefreshing) {
                 isRefreshing = true
-                refreshPromise = api.get('/auth/refresh')
+                refreshPromise = api.post('/auth/refresh')
                     .finally(() => {
                         isRefreshing = false
                         refreshPromise = null

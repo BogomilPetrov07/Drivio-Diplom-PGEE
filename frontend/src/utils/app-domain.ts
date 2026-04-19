@@ -19,14 +19,13 @@ function isLocalhostHost(hostname: string) {
 }
 
 export function getAppHostname(currentHostname: string) {
+  if (isLocalhostHost(currentHostname)) {
+    // In local development keep a single host to avoid host-only cookie fragmentation.
+    return currentHostname
+  }
+
   const labels = currentHostname.split('.')
   if (labels.includes(AUTH_LABEL)) return currentHostname
-
-  if (isLocalhostHost(currentHostname)) {
-    if (currentHostname === 'localhost') return `${AUTH_LABEL}.localhost`
-    labels.splice(labels.length - 1, 0, AUTH_LABEL)
-    return labels.join('.')
-  }
 
   // Insert auth label before the registrable domain (last 2 labels).
   labels.splice(Math.max(labels.length - 2, 0), 0, AUTH_LABEL)
@@ -34,6 +33,11 @@ export function getAppHostname(currentHostname: string) {
 }
 
 export function getBaseHostname(currentHostname: string) {
+  if (isLocalhostHost(currentHostname)) {
+    // Keep localhost hosts stable in dev.
+    return currentHostname
+  }
+
   const labels = currentHostname.split('.')
   const authIdx = labels.indexOf(AUTH_LABEL)
   if (authIdx !== -1) labels.splice(authIdx, 1)
@@ -76,6 +80,7 @@ export function ensureCorrectDomainForPath(pathname: string) {
 
 function attachCrossDomainPreferenceParams(targetUrl: URL, targetHostname: string) {
   if (typeof window === 'undefined') return
+  if (isLocalhostHost(window.location.hostname)) return
   if (window.location.hostname === targetHostname) return
 
   const language = getLanguagePreferenceFromCookie()

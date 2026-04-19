@@ -5,7 +5,7 @@ let reconnectInFlight: Promise<void> | null = null
 
 async function tryRefreshSession() {
   const response = await fetch('/api/auth/refresh', {
-    method: 'GET',
+    method: 'POST',
     credentials: 'include',
   })
   if (!response.ok) {

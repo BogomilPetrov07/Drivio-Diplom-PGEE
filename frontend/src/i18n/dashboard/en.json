@@ -12,7 +12,22 @@
     "security": "Security",
     "faqs": "FAQs",
     "profileMenu": "Profile menu",
-    "avatarAlt": "User avatar"
+    "avatarAlt": "User avatar",
+    "notificationsPanelTitle": "Notifications",
+    "notificationsEmpty": "No notifications yet.",
+    "dismissNotification": "Dismiss notification",
+    "notificationTypes": {
+      "ticketCreatedTitle": "Ticket created",
+      "ticketCreatedBody": "Your ticket was created successfully.",
+      "ticketStatusTitle": "Ticket status update",
+      "ticketStatusBody": "There is a status update on your ticket.",
+      "ticketDeletedTitle": "Ticket deleted",
+      "ticketDeletedBody": "Your ticket was deleted by support.",
+      "supportReplyTitle": "New reply",
+      "supportReplyBody": "You have a new ticket reply.",
+      "generalTitle": "Notification",
+      "generalBody": "You have a new notification."
+    }
   },
   "roles": {
     "superadmin": {
@@ -95,6 +110,9 @@
     "requests": "Requests",
     "faqs": "FAQs",
     "instructors": "Instructors",
+    "schoolAdminSection": "School admin",
+    "schoolProfile": "School profile",
+    "instructorSection": "Instructor",
     "progress": "Progress"
   },
   "onboarding": {
@@ -174,5 +192,107 @@
     "closeError": "Could not close ticket.",
     "cancel": "Cancel",
     "back": "Back"
+  },
+  "pages": {
+    "faqs": {
+      "title": "FAQs",
+      "infoTitle": "Information",
+      "infoBody": "This page shows help content maintained by system super admins.",
+      "adminTitle": "Admin control",
+      "adminBody": "FAQ content management will be available here for super admins only."
+    },
+    "profile": {
+      "title": "Profile",
+      "username": "Username",
+      "role": "Role",
+      "contact": "Contact",
+      "contactHint": "Detailed contact information will be added soon."
+    },
+    "settings": {
+      "title": "Settings",
+      "interfaceTitle": "Interface",
+      "interfaceHint": "Core UI preferences.",
+      "languageTitle": "Language",
+      "languageHint": "Switch dashboard language.",
+      "themeTitle": "Theme",
+      "themeHint": "Light, dark, or system mode."
+    },
+    "schoolPeople": {
+      "title": "Driving school people",
+      "description": "Create, edit, and delete people in your school.",
+      "username": "Username",
+      "name": "Name",
+      "role": "Role",
+      "instructor": "Instructor",
+      "email": "Email",
+      "password": "Password",
+      "newPasswordOptional": "New password (optional)",
+      "selectInstructor": "Select instructor",
+      "grantInstructorPrivileges": "Also grant instructor privileges",
+      "saving": "Saving...",
+      "save": "Save",
+      "createPerson": "Create person",
+      "updatePerson": "Update person",
+      "cancel": "Cancel",
+      "loading": "Loading...",
+      "actions": "Actions",
+      "alsoInstructor": "also instructor",
+      "edit": "Edit",
+      "delete": "Delete",
+      "loadError": "Failed to load people.",
+      "passwordRequired": "Password is required for new person.",
+      "operationFailed": "Operation failed.",
+      "deleteConfirm": "Delete {name}?",
+      "deleteFailed": "Delete failed.",
+      "roles": {
+        "schoolAdmin": "School admin",
+        "instructor": "Instructor",
+        "student": "Student"
+      }
+    },
+    "schoolProfile": {
+      "title": "Driving school details",
+      "description": "Edit your driving school main information.",
+      "schoolName": "School name",
+      "address": "Address",
+      "phone": "Phone",
+      "loading": "Loading...",
+      "save": "Save",
+      "saving": "Saving...",
+      "loadError": "Failed to load driving school details.",
+      "updateSuccess": "Driving school details were updated.",
+      "updateError": "Failed to update school details."
+    },
+    "instructorSchedule": {
+      "title": "Weekly Schedule Planner",
+      "unsavedChanges": "Unsaved changes",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling...",
+      "save": "Save",
+      "saving": "Saving...",
+      "edit": "Edit",
+      "createSchedule": "Create schedule",
+      "blackoutReplies": "Blackout replies",
+      "previousWeek": "Previous week",
+      "nextWeek": "Next week",
+      "copyPreviousWeek": "Copy previous week layout",
+      "generateActive": "Generate active schedule",
+      "sentToStudents": "Sent to students",
+      "sendToStudents": "Send to students",
+      "emptyScheduleTitle": "No schedule created yet",
+      "emptyBadge": "Empty",
+      "noAvailableSchedule": "No available schedule",
+      "errorSelectDay": "Select at least one day.",
+      "errorDayTimeOrder": "Each enabled day must have end time after start time.",
+      "errorNoSlots": "No valid 1-hour slots can be generated with these settings.",
+      "cancelReloadError": "Cancel failed to reload latest schedule. Please try again.",
+      "saveEnableDay": "Enable at least one day before save.",
+      "saveFailed": "Save failed. Try again.",
+      "confirmSendTitle": "Send schedule to students?",
+      "confirmSendDescription": "Students will be asked to send their blackout information for this week.",
+      "ok": "OK",
+      "expandDay": "Expand",
+      "collapseDay": "Collapse"
+    }
   }
 }

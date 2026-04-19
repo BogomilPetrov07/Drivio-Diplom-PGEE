@@ -5,6 +5,7 @@ import { PublicQuestionConfirmationEmail } from '../emails/PublicQuestionConfirm
 import { PublicQuestionNotificationEmail } from '../emails/PublicQuestionNotificationEmail.js';
 import { PublicTicketStatusEmail } from '../emails/PublicTicketStatusEmail.js';
 import { SchoolApprovalSetupEmail } from '../emails/SchoolApprovalSetupEmail.js';
+import { UserProfileSetupEmail } from '../emails/UserProfileSetupEmail.js';
 import { env } from '../config/env.js';
 import React from 'react';
 
@@ -41,6 +42,31 @@ export const sendSchoolApprovalSetupEmail = async (
         from: `Drivio <${env.TRANSACTIONAL_EMAIL}>`,
         to: [to],
         subject: "Your driving school is approved - complete registration",
+        html,
+    });
+};
+
+export const sendUserProfileSetupEmail = async (
+    to: string,
+    recipientName: string,
+    schoolName: string,
+    setupUrl: string,
+) => {
+    const resend = getResendClient();
+    const html = await render(
+        React.createElement(UserProfileSetupEmail, {
+            recipientName,
+            schoolName,
+            setupUrl,
+            expiresInDays: 3,
+            maxUses: 5,
+        }),
+    );
+
+    return await resend.emails.send({
+        from: `Drivio <${env.TRANSACTIONAL_EMAIL}>`,
+        to: [to],
+        subject: "Complete your Drivio profile",
         html,
     });
 };

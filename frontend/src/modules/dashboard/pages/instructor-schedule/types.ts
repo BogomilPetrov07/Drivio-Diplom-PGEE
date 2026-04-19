@@ -11,7 +11,7 @@ export interface DayItem {
   gapIndex?: number
 }
 
-export type BreakPreset = 'shorter' | 'normal' | 'longer'
+export type BreakPreset = 'shorter' | 'normal' | 'longer' | 'custom' | 'none'
 
 export type DayKey =
   | 'monday'

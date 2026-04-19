@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, CheckCircle2, Lock, SlidersHorizontal } from 'lucide-react'
 import type { Language } from '../../../../i18n/language'
 import { DAY_OPTIONS, LESSON_MINUTES } from './constants'
 import { buildDayItemsFromBreaks, clampTime, computeBreakMinutesByPreset, distributeBreaks, generateSlots, toMinutes } from './logic'
@@ -7,11 +8,15 @@ import type { BreakPreset, DayKey, WeekScheduleDays } from './types'
 interface Props {
   language: Language
   weekStartDate: Date
-  error: string
   breakPreset: BreakPreset
+  customBreakMinutes: number
+  customLessonSpan: number
   isEditMode: boolean
   days: WeekScheduleDays
+  lockedDays: Record<DayKey, boolean>
   onToggleDay: (day: DayKey) => void
+  onUnlockDayFromGlobal: (day: DayKey) => void
+  onRelockDayToGlobal: (day: DayKey) => void
   onDayStartTimeChange: (day: DayKey, value: string) => void
   onDayEndTimeChange: (day: DayKey, value: string) => void
   onToggleBlockedLesson: (day: DayKey, lessonKey: string) => void
@@ -20,28 +25,36 @@ interface Props {
 export function WeeklySlots({
   language,
   weekStartDate,
-  error,
   breakPreset,
+  customBreakMinutes,
+  customLessonSpan,
   isEditMode,
   days,
+  lockedDays,
   onToggleDay,
+  onUnlockDayFromGlobal,
+  onRelockDayToGlobal,
   onDayStartTimeChange,
   onDayEndTimeChange,
   onToggleBlockedLesson,
 }: Props) {
+  const isBg = language === 'bg'
+  const dateLocale = isBg ? 'bg-BG' : 'en-US'
   const fullDayNames: Record<DayKey, string> = {
-    monday: 'Monday',
-    tuesday: 'Tuesday',
-    wednesday: 'Wednesday',
-    thursday: 'Thursday',
-    friday: 'Friday',
-    saturday: 'Saturday',
-    sunday: 'Sunday',
+    monday: isBg ? 'Понеделник' : 'Monday',
+    tuesday: isBg ? 'Вторник' : 'Tuesday',
+    wednesday: isBg ? 'Сряда' : 'Wednesday',
+    thursday: isBg ? 'Четвъртък' : 'Thursday',
+    friday: isBg ? 'Петък' : 'Friday',
+    saturday: isBg ? 'Събота' : 'Saturday',
+    sunday: isBg ? 'Неделя' : 'Sunday',
   }
 
   const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({})
   const [isCompactViewport, setIsCompactViewport] = useState(false)
   const [editingDay, setEditingDay] = useState<DayKey | null>(null)
+  const [startDraft, setStartDraft] = useState('')
+  const [endDraft, setEndDraft] = useState('')
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1279px)')
@@ -68,11 +81,16 @@ export function WeeklySlots({
         const dayKey = day.key as DayKey
         const dayState = days[dayKey]
         const checked = dayState.enabled
-        const dateLabel = dayDates[day.key]?.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
+        const dateLabel = dayDates[day.key]?.toLocaleDateString(dateLocale, { day: '2-digit', month: 'short' })
         const isCollapsed = isCompactViewport ? (collapsedDays[day.key] ?? false) : false
 
         const computedBreak = checked
-          ? computeBreakMinutesByPreset(dayState.startTime, dayState.endTime, breakPreset)
+          ? computeBreakMinutesByPreset(
+            dayState.startTime,
+            dayState.endTime,
+            breakPreset,
+            { breakMinutes: customBreakMinutes, lessonSpan: customLessonSpan },
+          )
           : 0
         const generatedSlots = checked
           ? generateSlots(dayState.startTime, dayState.endTime, computedBreak, breakPreset)
@@ -81,7 +99,13 @@ export function WeeklySlots({
         const totalWindow = checked ? toMinutes(dayState.endTime) - toMinutes(dayState.startTime) : 0
         const effectiveBreak = Math.max(0, totalWindow - lessonCount * LESSON_MINUTES)
         const breaks = checked
-          ? distributeBreaks(effectiveBreak, lessonCount, toMinutes(dayState.startTime), breakPreset)
+          ? distributeBreaks(
+            effectiveBreak,
+            lessonCount,
+            toMinutes(dayState.startTime),
+            breakPreset,
+            { breakMinutes: customBreakMinutes, lessonSpan: customLessonSpan },
+          )
           : []
         const dayItems = checked ? buildDayItemsFromBreaks(lessonCount, breaks, toMinutes(dayState.startTime)) : []
 
@@ -95,7 +119,7 @@ export function WeeklySlots({
           dayItems,
         }
       }),
-    [days, dayDates, isCompactViewport, collapsedDays, breakPreset]
+    [days, dayDates, isCompactViewport, collapsedDays, breakPreset, customBreakMinutes, customLessonSpan, dateLocale]
   )
 
   const defaultExpandedDayKey = useMemo(() => {
@@ -136,15 +160,39 @@ export function WeeklySlots({
     setCollapsedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }))
   }
 
+  const editingDayHasValidTime = editingDay
+    ? toMinutes(days[editingDay].endTime) > toMinutes(days[editingDay].startTime)
+    : true
+
+  useEffect(() => {
+    if (!editingDay) return
+    setStartDraft('')
+    setEndDraft('')
+  }, [editingDay, days])
+
+  const toCanonicalTime = (value: string, fallback: string) => {
+    const trimmed = value.trim()
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed)) return clampTime(trimmed)
+
+    const digits = trimmed.replace(/\D/g, '')
+    if (digits.length === 3 || digits.length === 4) {
+      const hourPart = digits.length === 3 ? digits.slice(0, 1) : digits.slice(0, 2)
+      const minutePart = digits.slice(-2)
+      const hour = Number(hourPart)
+      const minute = Number(minutePart)
+      if (Number.isInteger(hour) && Number.isInteger(minute) && hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+        return clampTime(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`)
+      }
+    }
+    return fallback
+  }
+
   return (
     <div className="mt-2 rounded-xl border border-base-300/70 bg-base-100/80 p-4">
-      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/70">Week</h3>
-      {error ? (
-        <p className="text-sm text-error">{error}</p>
-      ) : (
-        <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-7">
-          {dayModels.map(({ day, dayKey, dayState, checked, dateLabel, dayItems, isCollapsed }) => (
-            <div key={day.key} className={`min-w-0 rounded-xl border p-2 flex flex-col xl:h-full ${checked ? 'border-base-300 bg-base-100' : 'border-base-300/60 bg-base-200/40'}`}>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/70">{isBg ? 'Седмица' : 'Week'}</h3>
+      <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-7">
+        {dayModels.map(({ day, dayKey, dayState, checked, dateLabel, dayItems, isCollapsed }) => (
+          <div key={day.key} className={`min-w-0 rounded-xl border p-2 flex flex-col xl:h-full ${checked ? 'border-base-300 bg-base-100' : 'border-base-300/60 bg-base-200/40'}`}>
               <div className="relative flex items-center justify-center min-h-10 px-7">
                 <div className="text-center font-semibold leading-tight text-base-content">
                   <div className="text-xs">
@@ -164,7 +212,7 @@ export function WeeklySlots({
                     }`}
                     style={{ width: '5%', height: '5%', minWidth: '1.15rem', minHeight: '1.15rem', maxWidth: '1.5rem', maxHeight: '1.5rem' }}
                     onClick={() => onToggleDay(dayKey)}
-                    aria-label={checked ? `Disable ${fullDayNames[dayKey]}` : `Enable ${fullDayNames[dayKey]}`}
+                    aria-label={checked ? `${isBg ? 'Изключи' : 'Disable'} ${fullDayNames[dayKey]}` : `${isBg ? 'Включи' : 'Enable'} ${fullDayNames[dayKey]}`}
                   >
                     <span className={`h-[55%] w-[55%] rounded-full ${checked ? 'bg-success' : 'bg-base-300'}`} />
                   </button>
@@ -172,19 +220,29 @@ export function WeeklySlots({
 
                 <div className={`absolute top-1/2 -translate-y-1/2 flex items-center ${isEditMode ? 'right-0 gap-0.5' : 'right-0'}`}>
                   {isEditMode ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center text-base-content/70 transition-colors hover:text-base-content"
-                      style={{ width: '1.25rem', height: '1.25rem' }}
-                      onClick={() => setEditingDay(dayKey)}
-                      aria-label={`Adjust ${fullDayNames[dayKey]} worktime`}
-                      title="Adjust worktime"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
-                        <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
-                        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.03.03a2 2 0 1 1-2.83 2.83l-.03-.03a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.05a1.7 1.7 0 0 0-1.04-1.56 1.7 1.7 0 0 0-1.87.34l-.03.03a2 2 0 1 1-2.83-2.83l.03-.03A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.05A1.7 1.7 0 0 0 4.6 8.96a1.7 1.7 0 0 0-.34-1.87l-.03-.03a2 2 0 1 1 2.83-2.83l.03.03a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.05A1.7 1.7 0 0 0 15.04 4.6h.04a1.7 1.7 0 0 0 1.87-.34l.03-.03a2 2 0 1 1 2.83 2.83l-.03.03a1.7 1.7 0 0 0-.34 1.87v.04A1.7 1.7 0 0 0 21 10.04H21a2 2 0 1 1 0 4h-.05A1.7 1.7 0 0 0 19.4 15Z" />
-                      </svg>
-                    </button>
+                    lockedDays[dayKey] ? (
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center text-base-content/70 transition-colors hover:text-base-content"
+                        style={{ width: '1.35rem', height: '1.35rem' }}
+                        onClick={() => onUnlockDayFromGlobal(dayKey)}
+                        aria-label={`${isBg ? 'Отключи' : 'Unlock'} ${fullDayNames[dayKey]} ${isBg ? 'от глобалните контроли за време' : 'from global time controls'}`}
+                        title={isBg ? 'Отключи от глобалните контроли за време' : 'Unlock from global time controls'}
+                      >
+                        <Lock className="h-4 w-4" strokeWidth={1.75} absoluteStrokeWidth />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center text-base-content/70 transition-colors hover:text-base-content"
+                        style={{ width: '1.35rem', height: '1.35rem' }}
+                        onClick={() => setEditingDay(dayKey)}
+                        aria-label={`${isBg ? 'Настрой работното време за' : 'Adjust'} ${fullDayNames[dayKey]}`}
+                        title={isBg ? 'Настрой работно време' : 'Adjust worktime'}
+                      >
+                        <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} absoluteStrokeWidth />
+                      </button>
+                    )
                   ) : null}
 
                   <button
@@ -192,7 +250,7 @@ export function WeeklySlots({
                     className="btn btn-ghost btn-xs xl:hidden"
                     onClick={() => toggleCollapsed(day.key)}
                     aria-expanded={!isCollapsed}
-                    aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${language === 'bg' ? day.labelBg : day.labelEn}`}
+                    aria-label={`${isCollapsed ? (isBg ? 'Разгъни' : 'Expand') : (isBg ? 'Свий' : 'Collapse')} ${language === 'bg' ? day.labelBg : day.labelEn}`}
                   >
                     {isCollapsed ? (
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -209,7 +267,7 @@ export function WeeklySlots({
 
               {!isEditMode ? (
                 <div className="mt-1 text-center text-[10px] text-base-content/60">
-                  {checked ? `${dayState.startTime} - ${dayState.endTime}` : 'No plan'}
+                  {checked ? `${dayState.startTime} - ${dayState.endTime}` : (isBg ? 'Няма план' : 'No plan')}
                 </div>
               ) : null}
 
@@ -263,55 +321,98 @@ export function WeeklySlots({
                             <path d="M4 12h16" />
                           </svg>
                         </div>
-                        <p className="text-lg font-semibold text-base-content/80">Day Off</p>
-                        <p className="mt-1 text-sm text-base-content/50">Enable this day in Edit.</p>
+                        <p className="text-base font-semibold text-base-content/80">{isBg ? 'Почивен ден' : 'Day Off'}</p>
+                        <p className="mt-1 text-xs text-base-content/55">{isBg ? 'Включете деня от Редакция.' : 'Enable this day in Edit.'}</p>
                       </div>
                     </div>
                   )}
                 </div>
               ) : null}
-            </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {isEditMode && editingDay ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-sm rounded-xl border border-base-300 bg-base-100 p-4 shadow-2xl">
             <h4 className="text-base font-semibold text-base-content">
-              {fullDayNames[editingDay]} Time
+              {fullDayNames[editingDay]} {isBg ? 'часове' : 'Time'}
             </h4>
-            <p className="mt-1 text-xs text-base-content/60">Set this day window.</p>
+            <p className="mt-1 text-xs text-base-content/60">{isBg ? 'Задайте часовия диапазон за деня.' : 'Set this day window.'}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="form-control">
-                <span className="label-text text-xs">Start</span>
+                <span className="label-text text-xs">{isBg ? 'Начало' : 'Start'}</span>
                 <input
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  placeholder={days[editingDay].startTime || '09:00'}
                   className="input input-sm input-bordered w-full"
-                  min="07:00"
-                  max="21:00"
-                  value={days[editingDay].startTime}
-                  onChange={(e) => onDayStartTimeChange(editingDay, clampTime(e.target.value))}
+                  value={startDraft}
+                  onChange={(e) => setStartDraft(e.target.value)}
+                  onBlur={() => {
+                    if (!startDraft.trim()) {
+                      setStartDraft('')
+                      return
+                    }
+                    const next = toCanonicalTime(startDraft, days[editingDay].startTime)
+                    setStartDraft(next)
+                    onDayStartTimeChange(editingDay, next)
+                  }}
                 />
               </label>
               <label className="form-control">
-                <span className="label-text text-xs">End</span>
+                <span className="label-text text-xs">{isBg ? 'Край' : 'End'}</span>
                 <input
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  placeholder={days[editingDay].endTime || '17:00'}
                   className="input input-sm input-bordered w-full"
-                  min="07:00"
-                  max="21:00"
-                  value={days[editingDay].endTime}
-                  onChange={(e) => onDayEndTimeChange(editingDay, clampTime(e.target.value))}
+                  value={endDraft}
+                  onChange={(e) => setEndDraft(e.target.value)}
+                  onBlur={() => {
+                    if (!endDraft.trim()) {
+                      setEndDraft('')
+                      return
+                    }
+                    const next = toCanonicalTime(endDraft, days[editingDay].endTime)
+                    setEndDraft(next)
+                    onDayEndTimeChange(editingDay, next)
+                  }}
                 />
               </label>
             </div>
+            <span className={`mt-2 inline-flex items-center gap-1 text-xs ${editingDayHasValidTime ? 'text-success' : 'text-error'}`}>
+              {editingDayHasValidTime ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+              {editingDayHasValidTime ? (isBg ? 'Часовият диапазон е валиден' : 'Time range looks good') : (isBg ? 'Крайният час трябва да е след началния' : 'End time must be after start time')}
+            </span>
             <div className="mt-4 flex justify-end gap-2">
+              {!lockedDays[editingDay] ? (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline"
+                  onClick={() => {
+                    onRelockDayToGlobal(editingDay)
+                    setEditingDay(null)
+                  }}
+                >
+                  {isBg ? 'Назад към глобалните настройки' : 'Back to global'}
+                </button>
+              ) : null}
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditingDay(null)}>
-                Cancel
+                {isBg ? 'Отказ' : 'Cancel'}
               </button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => setEditingDay(null)}>
-                Save
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  if (!editingDayHasValidTime) return
+                  setEditingDay(null)
+                }}
+                disabled={!editingDayHasValidTime}
+              >
+                {isBg ? 'Запази' : 'Save'}
               </button>
             </div>
           </div>

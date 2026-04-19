@@ -13,6 +13,7 @@ import { getRealtimeSocket } from '../realtime'
 export type DashboardNavItem =
   | { kind: 'link'; label: string; icon?: ReactNode; to: string }
   | { kind: 'section'; label: string }
+  | { kind: 'divider' }
 
 interface DashboardShellProps {
   language: Language
@@ -72,27 +73,27 @@ export default function DashboardShell({
   const notificationCopyByType = useMemo(
     () => ({
       SUPPORT_TICKET_CREATED: {
-        title: isBg ? '???????? ?????' : 'Ticket created',
-        body: isBg ? '??????? ? ???????? ???????.' : 'Your ticket was created successfully.',
+        title: shell.notificationTypes.ticketCreatedTitle,
+        body: shell.notificationTypes.ticketCreatedBody,
       },
       SUPPORT_STATUS: {
-        title: isBg ? '??????? ? ?????' : 'Ticket status update',
-        body: isBg ? '??? ??????? ?? ????? ?????.' : 'There is a status update on your ticket.',
+        title: shell.notificationTypes.ticketStatusTitle,
+        body: shell.notificationTypes.ticketStatusBody,
       },
       SUPPORT_TICKET_DELETED: {
-        title: isBg ? '?????? ?????' : 'Ticket deleted',
-        body: isBg ? '??????? ? ?????? ?? ???????????.' : 'Your ticket was deleted by support.',
+        title: shell.notificationTypes.ticketDeletedTitle,
+        body: shell.notificationTypes.ticketDeletedBody,
       },
       SUPPORT_REPLY: {
-        title: isBg ? '??? ???????' : 'New reply',
-        body: isBg ? '????? ??? ??????? ?? ?????.' : 'You have a new ticket reply.',
+        title: shell.notificationTypes.supportReplyTitle,
+        body: shell.notificationTypes.supportReplyBody,
       },
       GENERAL: {
-        title: isBg ? '????????' : 'Notification',
-        body: isBg ? '????? ???? ????????.' : 'You have a new notification.',
+        title: shell.notificationTypes.generalTitle,
+        body: shell.notificationTypes.generalBody,
       },
     }),
-    [isBg],
+    [shell.notificationTypes],
   )
 
   const getNotificationContent = (item: DashboardNotification) => {
@@ -321,6 +322,8 @@ export default function DashboardShell({
                 <p key={`section-${index}-${item.label}`} className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
                   {item.label}
                 </p>
+              ) : item.kind === 'divider' ? (
+                <hr key={`divider-${index}`} className="mx-2 my-2 border-0 border-t border-base-content/15" />
               ) : (
                 <NavLink
                   key={item.to}
@@ -364,6 +367,8 @@ export default function DashboardShell({
                 <p key={`mobile-section-${index}-${item.label}`} className="px-2 pt-3 text-[11px] font-semibold uppercase tracking-wide text-base-content/55">
                   {item.label}
                 </p>
+              ) : item.kind === 'divider' ? (
+                <hr key={`mobile-divider-${index}`} className="mx-2 my-2 border-0 border-t border-base-content/15" />
               ) : (
                 <NavLink
                   key={`mobile-${item.to}`}
@@ -432,10 +437,10 @@ export default function DashboardShell({
                   {unreadNotifications > 0 ? <span className="badge badge-xs badge-primary absolute -right-0.5 -top-0.5">{unreadNotifications > 9 ? '9+' : unreadNotifications}</span> : null}
                 </button>
                 <div className="dropdown-content mt-2 w-[min(92vw,24rem)] rounded-2xl border border-base-content/15 bg-base-100 p-2 shadow-2xl">
-                  <div className="px-2 py-1.5 text-xs font-semibold text-base-content/70">{language === 'bg' ? '????????' : 'Notifications'}</div>
+                  <div className="px-2 py-1.5 text-xs font-semibold text-base-content/70">{shell.notificationsPanelTitle}</div>
                   <div className="max-h-80 overflow-y-auto px-1 py-1">
                     {visibleNotifications.length === 0 ? (
-                      <p className="px-2 py-3 text-xs text-base-content/60">{language === 'bg' ? '???? ????????.' : 'No notifications yet.'}</p>
+                      <p className="px-2 py-3 text-xs text-base-content/60">{shell.notificationsEmpty}</p>
                     ) : (
                       <div className="space-y-2">
                         {visibleNotifications.map((item) => {
@@ -451,7 +456,7 @@ export default function DashboardShell({
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs btn-circle mt-0.5 shrink-0"
-                                  aria-label={language === 'bg' ? '????? ????????' : 'Dismiss notification'}
+                                  aria-label={shell.dismissNotification}
                                   onClick={() => void dismissNotification(item.id)}
                                 >
                                   <X className="h-3.5 w-3.5" />

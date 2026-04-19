@@ -79,6 +79,8 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
     sessionError: isBg ? 'Неуспешно зареждане на сесията за регистрация.' : 'Could not load registration session.',
     submitError: isBg ? 'Регистрацията не можа да бъде завършена.' : 'Could not complete registration.',
     reviewTitle: isBg ? 'Проверете въведената информация:' : 'Please review the entered information:',
+    yes: isBg ? 'Да' : 'Yes',
+    no: isBg ? 'Не' : 'No',
   }
 
   const handleChange = (key: keyof typeof formData, value: string | boolean) => {
@@ -143,6 +145,12 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
     event.preventDefault()
     setError('')
     setSuccess('')
+
+    // Do not allow accidental submit (e.g. pressing Enter) before final review step.
+    if (step !== 3) {
+      return
+    }
+
     if (!token) {
       setError(labels.invalidToken)
       return
@@ -194,7 +202,15 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
           <span className={`rounded-full px-3 py-1 ${step === 3 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/70'}`}>{labels.step3}</span>
         </div>
 
-        <form className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={(event) => void handleSubmit(event)}>
+        <form
+          className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2"
+          onSubmit={(event) => void handleSubmit(event)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && step < 3) {
+              event.preventDefault()
+            }
+          }}
+        >
           {step === 1 ? (
             <>
               <label className="form-control md:col-span-2">
@@ -256,7 +272,7 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
               <p><span className="font-semibold">{labels.email}:</span> {formData.email}</p>
               <p><span className="font-semibold">{labels.phone}:</span> {formData.phone || '-'}</p>
               <p><span className="font-semibold">{labels.username}:</span> {formData.username}</p>
-              <p><span className="font-semibold">{labels.instructor}:</span> {formData.wantsInstructorPrivileges ? 'Yes' : 'No'}</p>
+              <p><span className="font-semibold">{labels.instructor}:</span> {formData.wantsInstructorPrivileges ? labels.yes : labels.no}</p>
             </div>
           ) : null}
 

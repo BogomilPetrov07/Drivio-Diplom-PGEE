@@ -1,9 +1,7 @@
 export type SchoolRole = "SCHOOLADMIN" | "INSTRUCTOR" | "STUDENT";
 
 export interface SchoolPersonInput {
-  username: string;
   email: string;
-  password?: string;
   name: string;
   role: SchoolRole;
   instructorUserId?: string | null;

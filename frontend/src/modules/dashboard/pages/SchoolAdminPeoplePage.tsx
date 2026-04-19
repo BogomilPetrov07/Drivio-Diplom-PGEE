@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { ChevronDown, PencilLine, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
+import { getDashboardTranslations } from '../../../i18n/dashboard'
 import {
   createSchoolPerson,
   deleteSchoolPerson,
@@ -15,10 +18,84 @@ interface Props {
   language: Language
 }
 
+interface SelectOption<T extends string> {
+  value: T
+  label: string
+}
+
+interface DownwardSelectProps<T extends string> {
+  value: T
+  onChange: (value: T) => void
+  options: Array<SelectOption<T>>
+  className?: string
+}
+
+function DownwardSelect<T extends string>({ value, onChange, options, className }: DownwardSelectProps<T>) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const selected = options.find((option) => option.value === value) ?? options[0]
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (!rootRef.current?.contains(target)) {
+        setOpen(false)
+      }
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
+
+  return (
+    <div ref={rootRef} className={`relative ${className ?? ''}`}>
+      <button
+        type="button"
+        className="input input-bordered h-11 w-full justify-between rounded-xl border-base-300 bg-base-100/90 px-3 text-left transition-colors hover:border-base-content/35 focus:border-primary focus:outline-none"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="truncate">{selected?.label ?? ''}</span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-base-content/70 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open ? (
+        <ul className="absolute left-0 right-0 top-full z-30 mt-2 max-h-64 overflow-auto rounded-xl border border-base-300 bg-base-100 p-1 shadow-xl" role="listbox">
+          {options.map((option) => (
+            <li key={option.value}>
+              <button
+                type="button"
+                className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  option.value === value ? 'bg-primary text-primary-content' : 'text-base-content hover:bg-base-200'
+                }`}
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                }}
+              >
+                {option.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
+}
+
 interface PersonFormState {
-  username: string
   email: string
-  password: string
   name: string
   role: SchoolPersonRole
   instructorUserId: string
@@ -26,9 +103,7 @@ interface PersonFormState {
 }
 
 const defaultFormState: PersonFormState = {
-  username: '',
   email: '',
-  password: '',
   name: '',
   role: 'INSTRUCTOR',
   instructorUserId: '',
@@ -43,8 +118,7 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [form, setForm] = useState<PersonFormState>(defaultFormState)
-
-  const isBg = language === 'bg'
+  const t = getDashboardTranslations(language).pages.schoolPeople
 
   const instructorOptions = useMemo(
     () => people.filter((person) => person.role === 'INSTRUCTOR').map((person) => ({ id: person.id, label: person.name || person.username })),
@@ -52,10 +126,15 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
   )
 
   const roleLabel: Record<SchoolPersonRole, string> = {
-    SCHOOLADMIN: isBg ? '?????????????' : 'School admin',
-    INSTRUCTOR: isBg ? '??????????' : 'Instructor',
-    STUDENT: isBg ? '???????' : 'Student',
+    SCHOOLADMIN: t.roles.schoolAdmin,
+    INSTRUCTOR: t.roles.instructor,
+    STUDENT: t.roles.student,
   }
+  const roleOptions: Array<SelectOption<SchoolPersonRole>> = [
+    { value: 'SCHOOLADMIN', label: roleLabel.SCHOOLADMIN },
+    { value: 'INSTRUCTOR', label: roleLabel.INSTRUCTOR },
+    { value: 'STUDENT', label: roleLabel.STUDENT },
+  ]
 
   const loadPeople = async () => {
     setLoading(true)
@@ -64,7 +143,7 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
       const response = await fetchSchoolPeople()
       setPeople(response)
     } catch {
-      setError(isBg ? '????????? ????????? ?? ??????.' : 'Failed to load people.')
+      setError(t.loadError)
     } finally {
       setLoading(false)
     }
@@ -82,9 +161,7 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
   const beginEdit = (person: SchoolPerson) => {
     setEditingUserId(person.id)
     setForm({
-      username: person.username,
       email: person.email ?? '',
-      password: '',
       name: person.name ?? '',
       role: person.role,
       instructorUserId: person.studentInstructorUserId ?? '',
@@ -92,30 +169,23 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
     })
   }
 
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsSubmitting(true)
     setError(null)
 
     const payload: SchoolPersonPayload = {
-      username: form.username,
       email: form.email,
       name: form.name,
       role: form.role,
       hasInstructorPrivileges: form.role === 'SCHOOLADMIN' ? form.hasInstructorPrivileges : undefined,
       instructorUserId: form.role === 'STUDENT' ? form.instructorUserId || null : undefined,
-      ...(form.password.trim() ? { password: form.password } : {}),
     }
 
     try {
       if (editingUserId) {
         await updateSchoolPerson(editingUserId, payload)
       } else {
-        if (!form.password.trim()) {
-          setError(isBg ? '???????? ? ???????????? ?? ??? ?????.' : 'Password is required for new person.')
-          setIsSubmitting(false)
-          return
-        }
         await createSchoolPerson(payload)
       }
       await loadPeople()
@@ -125,158 +195,156 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
         submitError && typeof submitError === 'object' && 'response' in submitError
           ? (submitError as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined
-      setError(message ?? (isBg ? '?????????? ?? ?? ???????.' : 'Operation failed.'))
+      setError(message ?? t.operationFailed)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const removePerson = async (person: SchoolPerson) => {
-    const confirmation = window.confirm(
-      isBg ? `????????? ?? ${person.name || person.username}?` : `Delete ${person.name || person.username}?`,
-    )
+    const confirmation = window.confirm(t.deleteConfirm.replace('{name}', person.name || person.username))
     if (!confirmation) return
 
     try {
       await deleteSchoolPerson(person.id)
       await loadPeople()
     } catch {
-      setError(isBg ? '??????????? ? ?????????.' : 'Delete failed.')
+      setError(t.deleteFailed)
     }
   }
 
+  const inputClassName = 'input input-bordered h-11 w-full rounded-xl border-base-300 bg-base-100/90 transition-colors focus:border-primary focus:outline-none'
+
   return (
-    <section className="space-y-4 rounded-2xl border border-base-300/70 bg-base-100 p-4 sm:p-6">
-      <div>
-        <h2 className="text-xl font-semibold text-base-content sm:text-2xl">{isBg ? '???? ? ???????' : 'Driving school people'}</h2>
-        <p className="mt-1 text-sm text-base-content/70">
-          {isBg ? '??????????, ???????????? ? ?????????? ?????? ??? ?????? ?????.' : 'Create, edit, and delete people in your school.'}
-        </p>
+    <section className="space-y-4 rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 p-4 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)] sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-base-content sm:text-2xl">{t.title}</h2>
+          <p className="mt-1 text-sm text-base-content/70">{t.description}</p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-base-300 bg-base-100/90 px-3 py-1.5 text-sm font-semibold text-base-content shadow-sm">
+          <Users className="h-4 w-4 text-primary" />
+          <span>{people.length}</span>
+        </div>
       </div>
 
-      <form className="grid gap-3 rounded-xl border border-base-300 p-4" onSubmit={submit}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="form-control">
-            <span className="label-text">{isBg ? '????????????? ???' : 'Username'}</span>
-            <input className="input input-bordered" value={form.username} onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))} required />
+      <form className="rounded-2xl border border-base-300/80 bg-base-100/85 p-4 shadow-sm sm:p-5" onSubmit={submit}>
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-base-content/80">
+          {editingUserId ? <PencilLine className="h-4 w-4 text-primary" /> : <UserPlus className="h-4 w-4 text-primary" />}
+          <span>{editingUserId ? t.updatePerson : t.createPerson}</span>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="form-control gap-1.5">
+            <span className="label-text text-sm font-semibold text-base-content/80">{t.email}</span>
+            <input type="email" className={inputClassName} value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} required />
           </label>
-          <label className="form-control">
-            <span className="label-text">Email</span>
-            <input type="email" className="input input-bordered" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} required />
+          <label className="form-control gap-1.5">
+            <span className="label-text text-sm font-semibold text-base-content/80">{t.name}</span>
+            <input className={inputClassName} value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
           </label>
-          <label className="form-control">
-            <span className="label-text">{isBg ? '???' : 'Name'}</span>
-            <input className="input input-bordered" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required />
-          </label>
-          <label className="form-control">
-            <span className="label-text">{isBg ? '????' : 'Role'}</span>
-            <select className="select select-bordered" value={form.role} onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value as SchoolPersonRole }))}>
-              <option value="SCHOOLADMIN">{roleLabel.SCHOOLADMIN}</option>
-              <option value="INSTRUCTOR">{roleLabel.INSTRUCTOR}</option>
-              <option value="STUDENT">{roleLabel.STUDENT}</option>
-            </select>
-          </label>
-          <label className="form-control md:col-span-2">
-            <span className="label-text">
-              {editingUserId
-                ? isBg
-                  ? '???? ?????? (?? ?????)'
-                  : 'New password (optional)'
-                : isBg
-                  ? '??????'
-                  : 'Password'}
-            </span>
-            <input
-              type="password"
-              className="input input-bordered"
-              value={form.password}
-              onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-              required={!editingUserId}
+          <label className="form-control gap-1.5 md:col-span-2">
+            <span className="label-text text-sm font-semibold text-base-content/80">{t.role}</span>
+            <DownwardSelect
+              value={form.role}
+              onChange={(value) => setForm((prev) => ({ ...prev, role: value }))}
+              options={roleOptions}
             />
           </label>
         </div>
 
         {form.role === 'STUDENT' ? (
-          <label className="form-control">
-            <span className="label-text">{isBg ? '??????????' : 'Instructor'}</span>
-            <select
-              className="select select-bordered"
+          <label className="form-control mt-4 gap-1.5 md:max-w-md">
+            <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{t.instructor}</span>
+            <DownwardSelect
               value={form.instructorUserId}
-              onChange={(e) => setForm((prev) => ({ ...prev, instructorUserId: e.target.value }))}
-              required
-            >
-              <option value="">{isBg ? '???????? ??????????' : 'Select instructor'}</option>
-              {instructorOptions.map((option) => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
+              onChange={(value) => setForm((prev) => ({ ...prev, instructorUserId: value }))}
+              options={[
+                { value: '', label: t.selectInstructor },
+                ...instructorOptions.map((option) => ({ value: option.id, label: option.label })),
+              ]}
+            />
           </label>
         ) : null}
 
         {form.role === 'SCHOOLADMIN' ? (
-          <label className="label cursor-pointer justify-start gap-3">
+          <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-xl border border-base-300/80 bg-base-100/70 px-3 py-2">
             <input
               type="checkbox"
-              className="checkbox"
+              className="checkbox checkbox-primary checkbox-sm"
               checked={form.hasInstructorPrivileges}
               onChange={(e) => setForm((prev) => ({ ...prev, hasInstructorPrivileges: e.target.checked }))}
             />
-            <span className="label-text">{isBg ? '?????? ? ????????????? ?????' : 'Also grant instructor privileges'}</span>
+            <span className="text-sm text-base-content/80">{t.grantInstructorPrivileges}</span>
           </label>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
-            {isSubmitting
-              ? isBg
-                ? '?????...'
-                : 'Saving...'
-              : editingUserId
-                ? isBg
-                  ? '?????? ?????'
-                  : 'Update person'
-                : isBg
-                  ? '?????? ?????'
-                  : 'Create person'}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button className="btn btn-primary rounded-xl px-5" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? t.saving : editingUserId ? t.updatePerson : t.createPerson}
           </button>
           {editingUserId ? (
-            <button className="btn btn-ghost" type="button" onClick={resetForm}>
-              {isBg ? '?????' : 'Cancel'}
+            <button className="btn btn-ghost rounded-xl" type="button" onClick={resetForm}>
+              {t.cancel}
             </button>
           ) : null}
         </div>
       </form>
 
-      {error ? <div className="alert alert-error"><span>{error}</span></div> : null}
+      {error ? (
+        <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
+          <span>{error}</span>
+        </div>
+      ) : null}
 
       {loading ? (
-        <p className="text-sm text-base-content/70">{isBg ? '?????????...' : 'Loading...'}</p>
+        <div className="space-y-2 rounded-2xl border border-base-300 bg-base-100/85 p-4">
+          <div className="skeleton h-6 w-40 rounded-lg" />
+          <div className="skeleton h-12 w-full rounded-lg" />
+          <div className="skeleton h-12 w-full rounded-lg" />
+          <div className="skeleton h-12 w-full rounded-lg" />
+          <p className="pt-1 text-xs text-base-content/60">{t.loading}</p>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-base-300">
-          <table className="table">
-            <thead>
+        <div className="overflow-x-auto rounded-2xl border border-base-300 bg-base-100/90 shadow-sm">
+          <table className="table table-zebra">
+            <thead className="bg-base-200/70 text-xs uppercase tracking-wide text-base-content/70">
               <tr>
-                <th>{isBg ? '???' : 'Name'}</th>
-                <th>{isBg ? '??????????' : 'Username'}</th>
-                <th>Email</th>
-                <th>{isBg ? '????' : 'Role'}</th>
-                <th>{isBg ? '????????' : 'Actions'}</th>
+                <th>{t.name}</th>
+                <th>{t.username}</th>
+                <th>{t.email}</th>
+                <th>{t.role}</th>
+                <th>{t.actions}</th>
               </tr>
             </thead>
             <tbody>
               {people.map((person) => (
                 <tr key={person.id}>
-                  <td>{person.name || '-'}</td>
-                  <td>{person.username}</td>
-                  <td>{person.email || '-'}</td>
-                  <td>{roleLabel[person.role]}{person.role === 'SCHOOLADMIN' && person.hasInstructorProfile ? ` (${isBg ? '? ??????????' : 'also instructor'})` : ''}</td>
-                  <td className="space-x-2">
-                    <button className="btn btn-xs" type="button" onClick={() => beginEdit(person)}>
-                      {isBg ? '????????' : 'Edit'}
-                    </button>
-                    <button className="btn btn-xs btn-error" type="button" disabled={person.id === user?.id} onClick={() => void removePerson(person)}>
-                      {isBg ? '??????' : 'Delete'}
-                    </button>
+                  <td className="font-medium">{person.name || '-'}</td>
+                  <td className="text-base-content/85">{person.username}</td>
+                  <td className="text-base-content/75">{person.email || '-'}</td>
+                  <td>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="badge badge-outline border-base-300 bg-base-100 px-2 py-2 text-[11px] font-medium">{roleLabel[person.role]}</span>
+                      {person.role === 'SCHOOLADMIN' && person.hasInstructorProfile ? (
+                        <span className="badge badge-primary badge-outline gap-1 px-2 py-2 text-[11px]">
+                          <ShieldCheck className="h-3 w-3" />
+                          {t.alsoInstructor}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button className="btn btn-xs btn-outline rounded-lg" type="button" onClick={() => beginEdit(person)}>
+                        <PencilLine className="h-3 w-3" />
+                        {t.edit}
+                      </button>
+                      <button className="btn btn-xs btn-error rounded-lg" type="button" disabled={person.id === user?.id} onClick={() => void removePerson(person)}>
+                        <Trash2 className="h-3 w-3" />
+                        {t.delete}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

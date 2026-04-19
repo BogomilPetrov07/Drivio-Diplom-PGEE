@@ -1,8 +1,13 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
+import crypto from "crypto";
 import { db } from "../../config/drizzle.js";
 import { instructorProfiles, roleEnum, schools, studentProfiles, users, workSchedules } from "../../../drizzle/schemas/index.js";
+import { OnboardingService } from "../onboarding/onboarding.service.js";
+import { sendUserProfileSetupEmail } from "../../utils/email.js";
+import { getPreferredFrontendUrl } from "../../utils/frontend-url.js";
 import { hash } from "../../utils/password.js";
 import type {
+  InstructorScheduleDayKey,
   InstructorScheduleDays,
   InstructorSchedulePayload,
   SchoolPersonInput,
@@ -10,46 +15,51 @@ import type {
   SchoolRole,
 } from "./dashboard.types.js";
 
-const DAY_TO_ENUM = {
-  monday: "MONDAY",
-  tuesday: "TUESDAY",
-  wednesday: "WEDNESDAY",
-  thursday: "THURSDAY",
-  friday: "FRIDAY",
-  saturday: "SATURDAY",
-  sunday: "SUNDAY",
-} as const;
-
-const ENUM_TO_DAY = {
-  MONDAY: "monday",
-  TUESDAY: "tuesday",
-  WEDNESDAY: "wednesday",
-  THURSDAY: "thursday",
-  FRIDAY: "friday",
-  SATURDAY: "saturday",
-  SUNDAY: "sunday",
-} as const;
-
-const ANCHOR_DAY = {
-  MONDAY: 5,
-  TUESDAY: 6,
-  WEDNESDAY: 7,
-  THURSDAY: 8,
-  FRIDAY: 9,
-  SATURDAY: 10,
-  SUNDAY: 11,
-} as const;
+const DAY_KEYS: InstructorScheduleDayKey[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
 
 export class DashboardService {
-  private static toClockUtc(value: Date) {
-    const hh = `${value.getUTCHours()}`.padStart(2, "0");
-    const mm = `${value.getUTCMinutes()}`.padStart(2, "0");
-    return `${hh}:${mm}`;
+  private static sanitizeUsernameBase(value: string) {
+    const base = value
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-._]+|[-._]+$/g, "");
+
+    return base || "user";
   }
 
-  private static toUtcAnchorDate(dayName: keyof typeof ANCHOR_DAY, time: string) {
-    const [h, m] = time.split(":").map((part) => Number(part));
-    return new Date(Date.UTC(1970, 0, ANCHOR_DAY[dayName], h, m, 0, 0));
+  private static async generateUniqueUsername(email: string) {
+    const emailBase = email.includes("@") ? email.slice(0, email.indexOf("@")) : email;
+    const normalizedBase = this.sanitizeUsernameBase(emailBase);
+    let candidate = normalizedBase;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const existing = await db.query.users.findFirst({
+        where: eq(users.username, candidate),
+        columns: { id: true },
+      });
+
+      if (!existing) {
+        return candidate;
+      }
+
+      const suffix = crypto.randomBytes(2).toString("hex");
+      candidate = `${normalizedBase}-${suffix}`;
+    }
+
+    return `${normalizedBase}-${Date.now().toString(36)}`;
+  }
+
+  private static generateTemporaryPassword() {
+    return crypto.randomBytes(24).toString("base64url");
   }
 
   private static getDefaultInstructorScheduleDays(): InstructorScheduleDays {
@@ -62,6 +72,40 @@ export class DashboardService {
       saturday: { enabled: false, startTime: "09:00", endTime: "17:00", blockedLessonKeys: [] },
       sunday: { enabled: false, startTime: "09:00", endTime: "17:00", blockedLessonKeys: [] },
     };
+  }
+
+  private static isClock(value: string) {
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  }
+
+  private static normalizeInstructorScheduleDays(input: unknown): InstructorScheduleDays {
+    const normalized = this.getDefaultInstructorScheduleDays();
+    if (!input || typeof input !== "object") return normalized;
+
+    const inputRecord = input as Record<string, unknown>;
+
+    for (const dayKey of DAY_KEYS) {
+      const dayValue = inputRecord[dayKey];
+      if (!dayValue || typeof dayValue !== "object") {
+        continue;
+      }
+
+      const dayRecord = dayValue as Record<string, unknown>;
+      normalized[dayKey] = {
+        enabled: Boolean(dayRecord.enabled),
+        startTime: typeof dayRecord.startTime === "string" && this.isClock(dayRecord.startTime)
+          ? dayRecord.startTime
+          : "09:00",
+        endTime: typeof dayRecord.endTime === "string" && this.isClock(dayRecord.endTime)
+          ? dayRecord.endTime
+          : "17:00",
+        blockedLessonKeys: Array.isArray(dayRecord.blockedLessonKeys)
+          ? dayRecord.blockedLessonKeys.filter((item): item is string => typeof item === "string")
+          : [],
+      };
+    }
+
+    return normalized;
   }
 
   private static async getInstructorProfileContext(userId: string) {
@@ -210,12 +254,10 @@ export class DashboardService {
     const context = await this.getSchoolAdminContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
 
-    const username = input.username.trim();
     const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
-    const password = input.password?.trim() ?? "";
 
-    if (!username || !name || !email || !password) {
+    if (!name || !email) {
       return { status: "VALIDATION_ERROR" as const };
     }
 
@@ -223,13 +265,11 @@ export class DashboardService {
       return { status: "INVALID_ROLE" as const };
     }
 
-    const existingByUsername = await db.query.users.findFirst({ where: eq(users.username, username), columns: { id: true } });
-    if (existingByUsername) return { status: "USERNAME_TAKEN" as const };
-
     const existingByEmail = await db.query.users.findFirst({ where: eq(users.email, email), columns: { id: true } });
     if (existingByEmail) return { status: "EMAIL_TAKEN" as const };
 
-    const passwordHash = await hash(password);
+    const username = await this.generateUniqueUsername(email);
+    const passwordHash = await hash(this.generateTemporaryPassword());
 
     const created = await db.transaction(async (tx) => {
       let studentInstructorProfileId: string | null = null;
@@ -300,6 +340,23 @@ export class DashboardService {
       return { status: "INVALID_INSTRUCTOR" as const };
     }
 
+    const setupToken = await OnboardingService.createUserProfileSetupToken({
+      userId: created.id,
+      email,
+    });
+    const setupUrl = `${getPreferredFrontendUrl()}/register/user/complete?token=${setupToken.rawToken}`;
+    const school = await db.query.schools.findFirst({
+      where: eq(schools.id, context.schoolId),
+      columns: { name: true },
+    });
+
+    await sendUserProfileSetupEmail(
+      email,
+      name,
+      school?.name ?? "your driving school",
+      setupUrl,
+    );
+
     return { status: "SUCCESS" as const, userId: created.id };
   }
 
@@ -314,19 +371,12 @@ export class DashboardService {
 
     if (!target) return { status: "USER_NOT_FOUND" as const };
 
-    const username = input.username.trim();
     const name = input.name.trim();
     const email = input.email.trim().toLowerCase();
 
-    if (!username || !name || !email) {
+    if (!name || !email) {
       return { status: "VALIDATION_ERROR" as const };
     }
-
-    const existingByUsername = await db.query.users.findFirst({
-      where: and(eq(users.username, username), ne(users.id, targetUserId)),
-      columns: { id: true },
-    });
-    if (existingByUsername) return { status: "USERNAME_TAKEN" as const };
 
     const existingByEmail = await db.query.users.findFirst({
       where: and(eq(users.email, email), ne(users.id, targetUserId)),
@@ -344,11 +394,6 @@ export class DashboardService {
     }
 
     const updated = await db.transaction(async (tx) => {
-      let nextPassword = undefined as string | undefined;
-      if (input.password?.trim()) {
-        nextPassword = await hash(input.password.trim());
-      }
-
       if (nextRole === "STUDENT") {
         if (!input.instructorUserId) {
           throw new Error("MISSING_INSTRUCTOR");
@@ -407,11 +452,9 @@ export class DashboardService {
 
       const [saved] = await tx.update(users)
         .set({
-          username,
           email,
           name,
           role: nextRole,
-          ...(nextPassword ? { password: nextPassword } : {}),
           updatedAt: new Date(),
         })
         .where(eq(users.id, targetUserId))
@@ -467,24 +510,15 @@ export class DashboardService {
     const context = await this.getInstructorProfileContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
 
-    const rows = await db.query.workSchedules.findMany({
+    const row = await db.query.workSchedules.findFirst({
       where: eq(workSchedules.instructorId, context.instructorProfileId),
-      columns: { dayName: true, startTime: true, endTime: true },
+      columns: { schedule: true },
     });
 
-    if (rows.length === 0) return { status: "EMPTY" as const };
+    if (!row) return { status: "EMPTY" as const };
 
-    const days = this.getDefaultInstructorScheduleDays();
-    for (const row of rows) {
-      const key = ENUM_TO_DAY[row.dayName];
-      days[key] = {
-        enabled: true,
-        startTime: this.toClockUtc(row.startTime),
-        endTime: this.toClockUtc(row.endTime),
-        blockedLessonKeys: [],
-      };
-    }
-
+    const payload = row.schedule as Record<string, unknown> | null;
+    const days = this.normalizeInstructorScheduleDays(payload?.days);
     return { status: "SUCCESS" as const, schedule: { days } };
   }
 
@@ -493,31 +527,29 @@ export class DashboardService {
     if (!context) return { status: "NOT_FOUND" as const };
     if (!input?.days) return { status: "VALIDATION_ERROR" as const };
 
-    const entries = Object.entries(input.days) as Array<[keyof typeof DAY_TO_ENUM, InstructorScheduleDays[keyof InstructorScheduleDays]]>;
+    const days = this.normalizeInstructorScheduleDays(input.days);
+    const entries = Object.entries(days) as Array<[InstructorScheduleDayKey, InstructorScheduleDays[keyof InstructorScheduleDays]]>;
     const enabled = entries.filter(([, value]) => value.enabled);
     if (enabled.length === 0) return { status: "VALIDATION_ERROR" as const };
 
     for (const [, value] of enabled) {
-      if (!value.startTime || !value.endTime || value.endTime <= value.startTime) {
+      if (!this.isClock(value.startTime) || !this.isClock(value.endTime) || value.endTime <= value.startTime) {
         return { status: "VALIDATION_ERROR" as const };
       }
     }
 
-    await db.transaction(async (tx) => {
-      await tx.delete(workSchedules).where(eq(workSchedules.instructorId, context.instructorProfileId));
-
-      await tx.insert(workSchedules).values(
-        enabled.map(([dayKey, value]) => {
-          const enumDay = DAY_TO_ENUM[dayKey];
-          return {
-            dayName: enumDay,
-            startTime: this.toUtcAnchorDate(enumDay, value.startTime),
-            endTime: this.toUtcAnchorDate(enumDay, value.endTime),
-            instructorId: context.instructorProfileId,
-          };
-        }),
-      );
-    });
+    await db
+      .insert(workSchedules)
+      .values({
+        instructorId: context.instructorProfileId,
+        schedule: { days },
+      })
+      .onConflictDoUpdate({
+        target: workSchedules.instructorId,
+        set: {
+          schedule: { days },
+        },
+      });
 
     const refreshed = await this.fetchInstructorSchedule(actorUserId);
     if (refreshed.status !== "SUCCESS") return { status: "SUCCESS" as const, schedule: { days: this.getDefaultInstructorScheduleDays() } };

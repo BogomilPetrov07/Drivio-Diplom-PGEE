@@ -100,9 +100,7 @@ export interface InstructorSchedule {
 }
 
 export interface SchoolPersonPayload {
-  username: string
   email: string
-  password?: string
   name: string
   role: SchoolPersonRole
   instructorUserId?: string | null

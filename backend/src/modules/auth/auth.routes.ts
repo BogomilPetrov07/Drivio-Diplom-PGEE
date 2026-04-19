@@ -2,6 +2,7 @@ import {Router} from "express";
 import {authenticateMiddleware} from "../../middlewares/authn.middleware.js";
 import {authorizeMiddleware} from "../../middlewares/authz.middleware.js";
 import {errorMiddleware} from "../../middlewares/error.middleware.js";
+import {requireTrustedOrigin} from "../../middlewares/origin-guard.middleware.js";
 import {AuthController} from "./auth.controller.js";
 
 
@@ -11,8 +12,8 @@ router.use(errorMiddleware);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
 router.get("/has-session-cookie", AuthController.hasSessionCookie);
-router.get("/refresh", AuthController.refreshAccessToken);
-router.get("/logout", AuthController.logout);
+router.post("/refresh", requireTrustedOrigin, AuthController.refreshAccessToken);
+router.post("/logout", requireTrustedOrigin, AuthController.logout);
 router.use(authenticateMiddleware);
 router.get("/hello", AuthController.hello);
 router.post("/sendEmail", AuthController.sendEmail);

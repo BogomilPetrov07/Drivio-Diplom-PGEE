@@ -12,7 +12,22 @@
     "security": "Сигурност",
     "faqs": "ЧЗВ",
     "profileMenu": "Профилно меню",
-    "avatarAlt": "Потребителски аватар"
+    "avatarAlt": "Потребителски аватар",
+    "notificationsPanelTitle": "Известия",
+    "notificationsEmpty": "Все още няма известия.",
+    "dismissNotification": "Скрий известието",
+    "notificationTypes": {
+      "ticketCreatedTitle": "Тикетът е създаден",
+      "ticketCreatedBody": "Вашият тикет беше създаден успешно.",
+      "ticketStatusTitle": "Промяна в статуса на тикет",
+      "ticketStatusBody": "Има промяна в статуса на вашия тикет.",
+      "ticketDeletedTitle": "Тикетът е изтрит",
+      "ticketDeletedBody": "Вашият тикет беше изтрит от поддръжката.",
+      "supportReplyTitle": "Нов отговор",
+      "supportReplyBody": "Имате нов отговор по тикет.",
+      "generalTitle": "Известие",
+      "generalBody": "Имате ново известие."
+    }
   },
   "roles": {
     "superadmin": {
@@ -95,6 +110,9 @@
     "requests": "Заявки",
     "faqs": "ЧЗВ",
     "instructors": "Инструктори",
+    "schoolAdminSection": "Администратор на школа",
+    "schoolProfile": "Профил на школа",
+    "instructorSection": "Инструктор",
     "progress": "Прогрес"
   },
   "onboarding": {
@@ -172,5 +190,107 @@
     "messagesError": "Неуспешно зареждане на съобщения.",
     "closeError": "Неуспешно затваряне на тикет.",
     "cancel": "Отказ"
+  },
+  "pages": {
+    "faqs": {
+      "title": "Често задавани въпроси",
+      "infoTitle": "Информация",
+      "infoBody": "Тази страница показва помощна информация, поддържана от системните суперадминистратори.",
+      "adminTitle": "Администраторски контрол",
+      "adminBody": "Управлението на FAQ съдържанието ще бъде достъпно само за суперадминистратори."
+    },
+    "profile": {
+      "title": "Профил",
+      "username": "Потребителско име",
+      "role": "Роля",
+      "contact": "Контакт",
+      "contactHint": "Подробните данни за контакт ще бъдат добавени скоро."
+    },
+    "settings": {
+      "title": "Настройки",
+      "interfaceTitle": "Интерфейс",
+      "interfaceHint": "Основни визуални предпочитания.",
+      "languageTitle": "Език",
+      "languageHint": "Смяна на езика за таблото.",
+      "themeTitle": "Тема",
+      "themeHint": "Светла, тъмна или системна."
+    },
+    "schoolPeople": {
+      "title": "Хора в автошколата",
+      "description": "Създавайте, редактирайте и изтривайте хора в школата.",
+      "username": "Потребителско име",
+      "name": "Име",
+      "role": "Роля",
+      "instructor": "Инструктор",
+      "email": "Имейл",
+      "password": "Парола",
+      "newPasswordOptional": "Нова парола (по избор)",
+      "selectInstructor": "Изберете инструктор",
+      "grantInstructorPrivileges": "Дай и права на инструктор",
+      "saving": "Запазване...",
+      "save": "Запази",
+      "createPerson": "Създай човек",
+      "updatePerson": "Обнови човек",
+      "cancel": "Отказ",
+      "loading": "Зареждане...",
+      "actions": "Действия",
+      "alsoInstructor": "също инструктор",
+      "edit": "Редакция",
+      "delete": "Изтрий",
+      "loadError": "Неуспешно зареждане на хората.",
+      "passwordRequired": "Паролата е задължителна за нов човек.",
+      "operationFailed": "Операцията е неуспешна.",
+      "deleteConfirm": "Да изтрия ли {name}?",
+      "deleteFailed": "Изтриването е неуспешно.",
+      "roles": {
+        "schoolAdmin": "Администратор на школа",
+        "instructor": "Инструктор",
+        "student": "Курсист"
+      }
+    },
+    "schoolProfile": {
+      "title": "Данни за автошколата",
+      "description": "Редактирайте основната информация за вашата школа.",
+      "schoolName": "Име на автошкола",
+      "address": "Адрес",
+      "phone": "Телефон",
+      "loading": "Зареждане...",
+      "save": "Запази",
+      "saving": "Запазване...",
+      "loadError": "Неуспешно зареждане на данните за автошколата.",
+      "updateSuccess": "Данните за автошколата бяха обновени.",
+      "updateError": "Неуспешно обновяване на данните."
+    },
+    "instructorSchedule": {
+      "title": "Седмичен планер на графика",
+      "unsavedChanges": "Незапазени промени",
+      "cancel": "Отказ",
+      "cancelling": "Отказване...",
+      "save": "Запази",
+      "saving": "Запазване...",
+      "edit": "Редакция",
+      "createSchedule": "Създай график",
+      "blackoutReplies": "Отговори за недостъпност",
+      "previousWeek": "Предишна седмица",
+      "nextWeek": "Следваща седмица",
+      "copyPreviousWeek": "Копирай графика от предишната седмица",
+      "generateActive": "Генерирай активен график",
+      "sentToStudents": "Изпратено към курсистите",
+      "sendToStudents": "Изпрати към курсистите",
+      "emptyScheduleTitle": "Все още няма създаден график",
+      "emptyBadge": "Празно",
+      "noAvailableSchedule": "Няма наличен график",
+      "errorSelectDay": "Изберете поне един ден.",
+      "errorDayTimeOrder": "Всеки активен ден трябва да е с краен час след началния.",
+      "errorNoSlots": "При тези настройки не могат да се генерират валидни 1-часови слотове.",
+      "cancelReloadError": "Отказът не успя да презареди последния график. Опитайте отново.",
+      "saveEnableDay": "Активирайте поне един ден преди запазване.",
+      "saveFailed": "Запазването е неуспешно. Опитайте отново.",
+      "confirmSendTitle": "Да изпратя графика към курсистите?",
+      "confirmSendDescription": "Курсистите ще бъдат помолени да изпратят blackout информация за тази седмица.",
+      "ok": "ОК",
+      "expandDay": "Разгъни",
+      "collapseDay": "Свий"
+    }
   }
 }

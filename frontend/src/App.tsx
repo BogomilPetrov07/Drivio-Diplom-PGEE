@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import type { Language } from './i18n/public'
 import Header from './modules/public/components/Header'
 import AuthHeader from './modules/public/components/AuthHeader'
@@ -20,7 +20,6 @@ import InstructorStudentsPage from './modules/dashboard/pages/InstructorStudents
 import SchoolAdminDashboardPage from './modules/dashboard/pages/SchoolAdminDashboardPage'
 import SchoolAdminInboxPage from './modules/dashboard/pages/SchoolAdminInboxPage'
 import SchoolAdminPeoplePage from './modules/dashboard/pages/SchoolAdminPeoplePage'
-import SchoolAdminPlannerPage from './modules/dashboard/pages/SchoolAdminPlannerPage'
 import SchoolAdminCarsPage from './modules/dashboard/pages/SchoolAdminCarsPage'
 import SchoolAdminSupportPage from './modules/dashboard/pages/SchoolAdminSupportPage'
 import SchoolAdminSchoolPage from './modules/dashboard/pages/SchoolAdminSchoolPage'
@@ -43,6 +42,7 @@ import LandingPage from './modules/public/pages/LandingPage'
 import LoginPage from './modules/auth/pages/LoginPage.js'
 import DrivingSchoolRegisterPage from './modules/auth/pages/DrivingSchoolRegisterPage'
 import DrivingSchoolCompleteSetupPage from './modules/auth/pages/DrivingSchoolCompleteSetupPage'
+import UserCompleteProfilePage from './modules/auth/pages/UserCompleteProfilePage'
 import { useAuth } from './modules/auth/hooks'
 import { hasSessionCookie } from './modules/auth/api'
 import PrivacyPage from './modules/public/pages/PrivacyPage'
@@ -97,7 +97,9 @@ function SessionBootstrap() {
     if (typeof window === 'undefined') return
     if (location.pathname === '/session-check') return
     const onAuthHostname = window.location.hostname === getAppHostname(window.location.hostname)
-    const shouldInitializeHere = onAuthHostname || isAuthPath(location.pathname)
+    const isLocalDevHost =
+      window.location.hostname === 'localhost' || window.location.hostname.endsWith('.localhost')
+    const shouldInitializeHere = onAuthHostname || isAuthPath(location.pathname) || isLocalDevHost
     if (!shouldInitializeHere) return
     if (!initialized) {
       void initialize()
@@ -113,11 +115,19 @@ interface PublicHomeEntryProps {
 }
 
 function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
-  const { isAuthenticated, role } = useAuth()
+  const location = useLocation()
+  const { isAuthenticated, role, initialized, loading } = useAuth()
   const [hasAuthCookie, setHasAuthCookie] = useState<boolean | 'unknown' | null>(null)
+  const onAuthHostname =
+    typeof window !== 'undefined' && window.location.hostname === getAppHostname(window.location.hostname)
+  const isLocalDevHost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname.endsWith('.localhost'))
+  const shouldInitializeHere = onAuthHostname || isAuthPath(location.pathname) || isLocalDevHost
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (shouldInitializeHere) return
     if (isAuthenticated) return
     if (hasAuthCookie !== null) return
     void hasSessionCookie()
@@ -129,21 +139,22 @@ function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
         // Treat as unknown and continue with session-check flow.
         setHasAuthCookie('unknown')
       })
-  }, [isAuthenticated, hasAuthCookie])
+  }, [isAuthenticated, hasAuthCookie, shouldInitializeHere])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (shouldInitializeHere) return
     if (isAuthenticated) return
     if (hasAuthCookie !== true && hasAuthCookie !== 'unknown') return
     window.location.replace(getDomainAwareUrl('/session-check'))
-  }, [isAuthenticated, hasAuthCookie])
+  }, [isAuthenticated, hasAuthCookie, shouldInitializeHere])
+
+  if (shouldInitializeHere && (!initialized || loading)) {
+    return <div className="min-h-screen bg-base-100" />
+  }
 
   if (isAuthenticated && role) {
     return <SessionRedirectToDashboard rolePath={getRoleDashboardPath(role)} />
-  }
-
-  if (!isAuthenticated && hasAuthCookie === null) {
-    return <div className="min-h-screen bg-base-100" />
   }
 
   return <LandingPage language={language} theme={theme} />
@@ -188,6 +199,16 @@ function SessionCheckEntry() {
   return <div className="min-h-screen bg-base-100" />
 }
 
+function SchoolAdminInstructorPrivilegesGuard() {
+  const { user } = useAuth()
+
+  if (!user?.hasInstructorPrivileges) {
+    return <Navigate to="/dashboard/schooladmin/home" replace />
+  }
+
+  return <Outlet />
+}
+
 interface AppRoutesProps {
   themePreference: ThemePreference
   resolvedTheme: Theme
@@ -204,9 +225,24 @@ function AppRoutes({
   setLanguage,
 }: AppRoutesProps) {
   const location = useLocation()
+  const { initialized, loading } = useAuth()
+  const shouldHoldRootUntilAuthReady = (() => {
+    if (typeof window === 'undefined') return false
+    if (location.pathname !== '/') return false
+
+    const hostname = window.location.hostname
+    const onAuthHostname = hostname === getAppHostname(hostname)
+    const isLocalDevHost = hostname === 'localhost' || hostname.endsWith('.localhost')
+    return onAuthHostname || isLocalDevHost
+  })()
+
+  if (shouldHoldRootUntilAuthReady && (!initialized || loading)) {
+    return <div className="min-h-screen bg-base-100" />
+  }
+
   const isSessionTransitionRoute = location.pathname === '/session-check'
   const isPublicLayoutRoute = ['/', '/students', '/schools', '/privacy', '/terms'].includes(location.pathname)
-  const isAuthLayoutRoute = ['/login', '/register', '/register/driving-school', '/register/driving-school/complete'].includes(location.pathname)
+  const isAuthLayoutRoute = ['/login', '/register', '/register/driving-school', '/register/driving-school/complete', '/register/user/complete'].includes(location.pathname)
 
   return (
     <div className="min-h-screen bg-base-100">
@@ -237,6 +273,7 @@ function AppRoutes({
         <Route path="/register" element={<DrivingSchoolRegisterPage language={language} />} />
         <Route path="/register/driving-school" element={<DrivingSchoolRegisterPage language={language} />} />
         <Route path="/register/driving-school/complete" element={<DrivingSchoolCompleteSetupPage language={language} />} />
+        <Route path="/register/user/complete" element={<UserCompleteProfilePage language={language} />} />
         <Route path="/privacy" element={<PrivacyPage language={language} theme={resolvedTheme} />} />
         <Route path="/terms" element={<TermsPage language={language} theme={resolvedTheme} />} />
         <Route path="/unauthorized" element={<UnauthorizedPage language={language} />} />
@@ -288,9 +325,15 @@ function AppRoutes({
               <Route path="school" element={<SchoolAdminSchoolPage language={language} />} />
               <Route path="inbox" element={<SchoolAdminInboxPage language={language} />} />
               <Route path="people" element={<SchoolAdminPeoplePage language={language} />} />
-              <Route path="planner" element={<SchoolAdminPlannerPage language={language} />} />
               <Route path="cars" element={<SchoolAdminCarsPage language={language} />} />
               <Route path="support" element={<SchoolAdminSupportPage language={language} />} />
+              <Route element={<SchoolAdminInstructorPrivilegesGuard />}>
+                <Route path="instructor/home" element={<InstructorDashboardPage language={language} />} />
+                <Route path="instructor/inbox" element={<InstructorInboxPage language={language} />} />
+                <Route path="instructor/schedule" element={<InstructorSchedulePage language={language} />} />
+                <Route path="instructor/students" element={<InstructorStudentsPage language={language} />} />
+                <Route path="instructor/support" element={<InstructorSupportPage language={language} />} />
+              </Route>
               <Route path="profile" element={<DashboardProfilePage language={language} />} />
               <Route path="settings" element={<DashboardSettingsPage language={language} />} />
               <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
