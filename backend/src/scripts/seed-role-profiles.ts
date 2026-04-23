@@ -6,7 +6,7 @@ type SeedUser = {
   username: string;
   email: string;
   password: string;
-  role: "SUPERADMIN" | "SCHOOLADMIN" | "INSTRUCTOR" | "STUDENT";
+  role: "SUPERADMIN";
 };
 
 const seedUsers: SeedUser[] = [
@@ -15,24 +15,6 @@ const seedUsers: SeedUser[] = [
     email: "bogopetrov07@gmail.com",
     password: "SAdmin",
     role: "SUPERADMIN",
-  },
-  {
-    username: "schooladmin_bogo",
-    email: "bogomilpetrov21a@gmail.com",
-    password: "SchAdmin",
-    role: "SCHOOLADMIN",
-  },
-  {
-    username: "instructor_bogo",
-    email: "bds.petrov@gmail.com",
-    password: "Inst",
-    role: "INSTRUCTOR",
-  },
-  {
-    username: "student_bogo",
-    email: "drivio.platform@gmail.com",
-    password: "Bogo123",
-    role: "STUDENT",
   },
 ];
 

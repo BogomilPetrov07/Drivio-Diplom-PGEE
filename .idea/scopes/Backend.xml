@@ -1,3 +1,3 @@
 <component name="DependencyValidationManager">
-  <scope name="Backend" pattern="file[Drivio]:backend//*||file:.gitignore||file:LICENSE||file:README.md" />
+  <scope name="Backend" pattern="file[Drivio]:backend//*" />
 </component>

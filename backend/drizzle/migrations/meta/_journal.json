@@ -8,6 +8,13 @@
       "when": 1776615436702,
       "tag": "0000_silly_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776889185078,
+      "tag": "0001_woozy_mongoose",
+      "breakpoints": true
     }
   ]
 }

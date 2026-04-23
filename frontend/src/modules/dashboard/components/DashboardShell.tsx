@@ -88,6 +88,10 @@ export default function DashboardShell({
         title: shell.notificationTypes.supportReplyTitle,
         body: shell.notificationTypes.supportReplyBody,
       },
+      LESSON_START_REQUESTED: {
+        title: shell.notificationTypes.lessonStartRequestedTitle,
+        body: shell.notificationTypes.lessonStartRequestedBody,
+      },
       GENERAL: {
         title: shell.notificationTypes.generalTitle,
         body: shell.notificationTypes.generalBody,
@@ -144,6 +148,28 @@ export default function DashboardShell({
       : user?.role === 'INSTRUCTOR'
         ? 'instructor'
         : 'student'
+  const openLessonLabel = isBg ? '\u041e\u0442\u0432\u043e\u0440\u0438 \u0443\u0440\u043e\u043a\u0430' : 'Open lesson'
+
+  const getLessonStartNotificationSlotId = (item: DashboardNotification) => {
+    if (roleSegment !== 'student') return null
+    if (item.type !== 'LESSON_START_REQUESTED') return null
+    if (!item.metadata || typeof item.metadata !== 'object') return null
+    const metadata = item.metadata as Record<string, unknown>
+    const slotId = metadata.timeSlotId
+    return typeof slotId === 'string' && slotId.trim() ? slotId : null
+  }
+
+  const handleOpenNotificationTarget = (item: DashboardNotification) => {
+    const slotId = getLessonStartNotificationSlotId(item)
+    if (!slotId) return
+    sessionStorage.setItem('drivio_pending_start_lesson_id', slotId)
+    navigate(`/dashboard/student/schedule?startLessonId=${encodeURIComponent(slotId)}`)
+    setNotificationsOpen(false)
+    setProfileOpen(false)
+    setLanguageOpen(false)
+    setThemeOpen(false)
+    setMobileNavOpen(false)
+  }
 
   const profileMenuItems = [
     { label: shell.profile, to: `/dashboard/${roleSegment}/profile`, icon: User },
@@ -445,19 +471,39 @@ export default function DashboardShell({
                       <div className="space-y-2">
                         {visibleNotifications.map((item) => {
                           const content = getNotificationContent(item)
+                          const lessonStartSlotId = getLessonStartNotificationSlotId(item)
                           return (
-                            <article key={item.id} className={`rounded-xl border px-3 py-2.5 ${item.read ? 'border-base-300 bg-base-100' : 'border-primary/35 bg-primary/10'}`}>
+                            <article
+                              key={item.id}
+                              className={`rounded-xl border px-3 py-2.5 ${item.read ? 'border-base-300 bg-base-100' : 'border-primary/35 bg-primary/10'} ${lessonStartSlotId ? 'cursor-pointer hover:border-primary/55' : ''}`}
+                              onClick={lessonStartSlotId ? () => handleOpenNotificationTarget(item) : undefined}
+                            >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <p className="text-xs font-semibold text-base-content">{content.title}</p>
                                   <p className="mt-0.5 text-xs text-base-content/70">{content.body}</p>
                                   <p className="mt-1.5 text-[11px] text-base-content/50">{formatNotificationTime(item.createdAt)}</p>
+                                  {lessonStartSlotId ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-primary mt-2"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        handleOpenNotificationTarget(item)
+                                      }}
+                                    >
+                                      {openLessonLabel}
+                                    </button>
+                                  ) : null}
                                 </div>
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs btn-circle mt-0.5 shrink-0"
                                   aria-label={shell.dismissNotification}
-                                  onClick={() => void dismissNotification(item.id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    void dismissNotification(item.id)
+                                  }}
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>

@@ -25,6 +25,8 @@
       "ticketDeletedBody": "Вашият тикет беше изтрит от поддръжката.",
       "supportReplyTitle": "Нов отговор",
       "supportReplyBody": "Имате нов отговор по тикет.",
+      "lessonStartRequestedTitle": "Часът може да започне",
+      "lessonStartRequestedBody": "Инструкторът изиска начало на час. Отворете графика и въведете кода.",
       "generalTitle": "Известие",
       "generalBody": "Имате ново известие."
     }

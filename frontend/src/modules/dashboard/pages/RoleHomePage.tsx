@@ -12,8 +12,8 @@ export default function RoleHomePage({ language, role }: Props) {
   const shellCardClass = 'rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)]'
   const schedulePlannerPath =
     location.pathname.startsWith('/dashboard/schooladmin/instructor/')
-      ? '/dashboard/schooladmin/instructor/schedule'
-      : '/dashboard/instructor/schedule'
+      ? '/dashboard/schooladmin/instructor/planner'
+      : '/dashboard/instructor/planner'
 
   return (
     <section className={`${shellCardClass} p-5`}>

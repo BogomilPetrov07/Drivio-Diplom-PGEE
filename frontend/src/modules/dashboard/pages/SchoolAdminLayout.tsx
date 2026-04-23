@@ -1,4 +1,4 @@
-import { CalendarDays, CarFront, GraduationCap, LayoutDashboard, LifeBuoy, Mail, School, UsersRound } from 'lucide-react'
+import { Calendar, CalendarDays, CarFront, GraduationCap, LayoutDashboard, LifeBuoy, Mail, School, UsersRound } from 'lucide-react'
 import DashboardShell, { type DashboardNavItem } from '../components/DashboardShell.js'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
@@ -29,6 +29,7 @@ export default function SchoolAdminLayout({ language, setLanguage, themePreferen
     navItems.push(
       { kind: 'divider' },
       { kind: 'section', label: t.layout.instructorSection },
+      { kind: 'link', to: '/dashboard/schooladmin/instructor/planner', label: t.layout.planner, icon: <Calendar className='h-4 w-4' /> },
       { kind: 'link', to: '/dashboard/schooladmin/instructor/schedule', label: t.layout.schedule, icon: <CalendarDays className='h-4 w-4' /> },
       { kind: 'link', to: '/dashboard/schooladmin/instructor/students', label: t.layout.students, icon: <GraduationCap className='h-4 w-4' /> },
       { kind: 'divider' },

@@ -25,6 +25,8 @@
       "ticketDeletedBody": "Your ticket was deleted by support.",
       "supportReplyTitle": "New reply",
       "supportReplyBody": "You have a new ticket reply.",
+      "lessonStartRequestedTitle": "Lesson can start now",
+      "lessonStartRequestedBody": "Your instructor requested lesson start. Open schedule and enter the code.",
       "generalTitle": "Notification",
       "generalBody": "You have a new notification."
     }

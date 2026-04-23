@@ -9,8 +9,22 @@ const router = Router();
 router.use(errorMiddleware);
 router.use(authenticateMiddleware);
 
-router.get("/instructor/schedule", authorizeMiddleware(["INSTRUCTOR"]), DashboardController.getInstructorSchedule);
-router.put("/instructor/schedule", authorizeMiddleware(["INSTRUCTOR"]), DashboardController.saveInstructorSchedule);
+router.get("/instructor/students", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.getInstructorStudents);
+router.get("/instructor/schedule", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.getInstructorSchedule);
+router.put("/instructor/schedule", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.saveInstructorSchedule);
+router.get("/instructor/schedule/workflow", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.getInstructorScheduleWorkflow);
+router.post("/instructor/schedule/send", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.sendInstructorScheduleToStudents);
+router.post("/instructor/schedule/allocate", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.allocateInstructorSchedule);
+router.get("/instructor/lessons", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.listInstructorLessons);
+router.get("/instructor/lessons/:timeSlotId/candidates", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.getInstructorLessonCandidates);
+router.post("/instructor/lessons/:timeSlotId/start-code", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.issueInstructorLessonStartCode);
+router.post("/instructor/lessons/:timeSlotId/request-end", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.requestInstructorLessonEnd);
+
+router.get("/student/schedule", authorizeMiddleware(["STUDENT"]), DashboardController.getStudentScheduleCycle);
+router.post("/student/schedule/availability", authorizeMiddleware(["STUDENT"]), DashboardController.submitStudentScheduleAvailability);
+router.get("/student/lessons", authorizeMiddleware(["STUDENT"]), DashboardController.listStudentLessons);
+router.post("/student/lessons/:timeSlotId/verify-start-code", authorizeMiddleware(["STUDENT"]), DashboardController.verifyStudentLessonStartCode);
+router.post("/student/lessons/:timeSlotId/confirm-end", authorizeMiddleware(["STUDENT"]), DashboardController.confirmStudentLessonEnd);
 
 router.use(authorizeMiddleware(["SCHOOLADMIN"]));
 

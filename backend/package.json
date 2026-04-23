@@ -19,9 +19,9 @@
     "db:refresh": "npm run db:nuke && npm run db:generate && npm run db:migrate"
   },
   "dependencies": {
-    "@infisical/sdk": "^5.0.0",
+    "@infisical/sdk": "^5.0.1",
     "@react-email/components": "^1.0.12",
-    "@react-email/render": "^2.0.6",
+    "@react-email/render": "^2.0.7",
     "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -36,9 +36,9 @@
     "pg": "^8.20.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "resend": "^6.10.0",
+    "resend": "^6.1.3",
     "socket.io": "^4.8.3",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
@@ -54,7 +54,7 @@
     "@types/web-push": "^3.6.4",
     "nodemon": "^3.1.9",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "overrides": {
     "fast-xml-parser": "^5.3.6",

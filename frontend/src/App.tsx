@@ -330,7 +330,8 @@ function AppRoutes({
               <Route element={<SchoolAdminInstructorPrivilegesGuard />}>
                 <Route path="instructor/home" element={<InstructorDashboardPage language={language} />} />
                 <Route path="instructor/inbox" element={<InstructorInboxPage language={language} />} />
-                <Route path="instructor/schedule" element={<InstructorSchedulePage language={language} />} />
+                <Route path="instructor/planner" element={<InstructorSchedulePage language={language} mode="planner" />} />
+                <Route path="instructor/schedule" element={<InstructorSchedulePage language={language} mode="active" />} />
                 <Route path="instructor/students" element={<InstructorStudentsPage language={language} />} />
                 <Route path="instructor/support" element={<InstructorSupportPage language={language} />} />
               </Route>
@@ -358,7 +359,8 @@ function AppRoutes({
               <Route index element={<Navigate to="/dashboard/instructor/home" replace />} />
               <Route path="home" element={<InstructorDashboardPage language={language} />} />
               <Route path="inbox" element={<InstructorInboxPage language={language} />} />
-              <Route path="schedule" element={<InstructorSchedulePage language={language} />} />
+              <Route path="planner" element={<InstructorSchedulePage language={language} mode="planner" />} />
+              <Route path="schedule" element={<InstructorSchedulePage language={language} mode="active" />} />
               <Route path="students" element={<InstructorStudentsPage language={language} />} />
               <Route path="support" element={<InstructorSupportPage language={language} />} />
               <Route path="profile" element={<DashboardProfilePage language={language} />} />

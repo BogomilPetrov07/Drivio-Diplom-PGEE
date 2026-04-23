@@ -1,8 +1,22 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "../../config/drizzle.js";
-import { instructorProfiles, roleEnum, schools, studentProfiles, users, workSchedules } from "../../../drizzle/schemas/index.js";
+import {
+  instructorProfiles,
+  lessonSessions,
+  roleEnum,
+  scheduleCycles,
+  schools,
+  studentLessons,
+  studentProfiles,
+  studentScheduleReplies,
+  timeSlots,
+  users,
+  workSchedules,
+} from "../../../drizzle/schemas/index.js";
 import { OnboardingService } from "../onboarding/onboarding.service.js";
+import { NotificationsService } from "../notifications/notifications.service.js";
+import { emitToUser } from "../../realtime/socket.js";
 import { sendUserProfileSetupEmail } from "../../utils/email.js";
 import { getPreferredFrontendUrl } from "../../utils/frontend-url.js";
 import { hash } from "../../utils/password.js";
@@ -10,9 +24,16 @@ import type {
   InstructorScheduleDayKey,
   InstructorScheduleDays,
   InstructorSchedulePayload,
+  InstructorStudentListItem,
+  LessonSessionState,
+  ScheduleBlueprintSlot,
+  ScheduleCycleStatus,
+  ScheduleSlotBlueprint,
   SchoolPersonInput,
   SchoolPersonListItem,
   SchoolRole,
+  SendInstructorSchedulePayload,
+  StudentAvailabilityPayload,
 } from "./dashboard.types.js";
 
 const DAY_KEYS: InstructorScheduleDayKey[] = [
@@ -24,6 +45,10 @@ const DAY_KEYS: InstructorScheduleDayKey[] = [
   "saturday",
   "sunday",
 ];
+const MAX_INSTRUCTOR_STUDENTS = 12;
+const REQUIRED_HOURS = 31;
+const LESSON_START_CODE_TTL_MINUTES = 10;
+const LESSON_SESSION_ACTIVE_STATES: LessonSessionState[] = ["ACTIVE", "END_REQUESTED", "COMPLETED"];
 
 export class DashboardService {
   private static sanitizeUsernameBase(value: string) {
@@ -108,12 +133,227 @@ export class DashboardService {
     return normalized;
   }
 
+  private static getWeekStartDate(input?: string | Date) {
+    const date = input instanceof Date ? new Date(input) : input ? new Date(input) : new Date();
+    if (Number.isNaN(date.getTime())) return null;
+
+    date.setHours(0, 0, 0, 0);
+    const day = date.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diffToMonday);
+    return date;
+  }
+
+  private static getWeekEndDate(weekStartDate: Date) {
+    const end = new Date(weekStartDate);
+    end.setDate(end.getDate() + 7);
+    return end;
+  }
+
+  private static getDayIndex(dayKey: InstructorScheduleDayKey) {
+    return DAY_KEYS.indexOf(dayKey);
+  }
+
+  private static parseClockToMinutes(value: string) {
+    if (!this.isClock(value)) return null;
+    const [hoursRaw, minutesRaw] = value.split(":");
+    const hours = Number(hoursRaw);
+    const minutes = Number(minutesRaw);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+  }
+
+  private static parseClockParts(value: string) {
+    if (!this.isClock(value)) return null;
+    const [hoursRaw, minutesRaw] = value.split(":");
+    const hours = Number(hoursRaw);
+    const minutes = Number(minutesRaw);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return { hours, minutes };
+  }
+
+  private static toSlotDateTime(weekStartDate: Date, dayKey: InstructorScheduleDayKey, clock: string) {
+    const parts = this.parseClockParts(clock);
+    if (!parts) return null;
+    const date = new Date(weekStartDate);
+    date.setDate(date.getDate() + this.getDayIndex(dayKey));
+    date.setHours(parts.hours, parts.minutes, 0, 0);
+    return date;
+  }
+
+  private static toSlotKey(startTime: string, endTime: string) {
+    return `${startTime}-${endTime}`;
+  }
+
+  private static normalizeBlueprintSlot(input: unknown): ScheduleBlueprintSlot | null {
+    if (!input || typeof input !== "object") return null;
+    const row = input as Record<string, unknown>;
+    const startTime = typeof row.startTime === "string" ? row.startTime : "";
+    const endTime = typeof row.endTime === "string" ? row.endTime : "";
+    const key = typeof row.key === "string" ? row.key : this.toSlotKey(startTime, endTime);
+    if (!this.isClock(startTime) || !this.isClock(endTime) || endTime <= startTime) return null;
+    if (key !== this.toSlotKey(startTime, endTime)) return null;
+    return { key, startTime, endTime };
+  }
+
+  private static buildFallbackSlotBlueprint(days: InstructorScheduleDays): ScheduleSlotBlueprint {
+    const blueprint = DAY_KEYS.reduce((acc, dayKey) => {
+      acc[dayKey] = [];
+      return acc;
+    }, {} as ScheduleSlotBlueprint);
+
+    for (const dayKey of DAY_KEYS) {
+      const day = days[dayKey];
+      if (!day.enabled) continue;
+      const start = this.parseClockToMinutes(day.startTime);
+      const end = this.parseClockToMinutes(day.endTime);
+      if (start === null || end === null || end <= start) continue;
+      const blocked = new Set(day.blockedLessonKeys);
+
+      let cursor = start;
+      while (cursor + 60 <= end) {
+        const slotStartHours = Math.floor(cursor / 60).toString().padStart(2, "0");
+        const slotStartMinutes = (cursor % 60).toString().padStart(2, "0");
+        const slotEndTotal = cursor + 60;
+        const slotEndHours = Math.floor(slotEndTotal / 60).toString().padStart(2, "0");
+        const slotEndMinutes = (slotEndTotal % 60).toString().padStart(2, "0");
+        const slotStart = `${slotStartHours}:${slotStartMinutes}`;
+        const slotEnd = `${slotEndHours}:${slotEndMinutes}`;
+        const slotKey = this.toSlotKey(slotStart, slotEnd);
+        if (!blocked.has(slotKey)) {
+          blueprint[dayKey].push({ key: slotKey, startTime: slotStart, endTime: slotEnd });
+        }
+        cursor += 60;
+      }
+    }
+
+    return blueprint;
+  }
+
+  private static normalizeScheduleSlotBlueprint(input: unknown, days: InstructorScheduleDays): ScheduleSlotBlueprint {
+    const fallback = this.buildFallbackSlotBlueprint(days);
+    if (!input || typeof input !== "object") return fallback;
+
+    const record = input as Record<string, unknown>;
+    const normalized = DAY_KEYS.reduce((acc, dayKey) => {
+      const day = days[dayKey];
+      if (!day.enabled) {
+        acc[dayKey] = [];
+        return acc;
+      }
+
+      const slotsRaw = Array.isArray(record[dayKey]) ? record[dayKey] : null;
+      if (!slotsRaw) {
+        acc[dayKey] = fallback[dayKey];
+        return acc;
+      }
+
+      const rows = slotsRaw
+        .map((slot) => this.normalizeBlueprintSlot(slot))
+        .filter((slot): slot is ScheduleBlueprintSlot => Boolean(slot));
+
+      if (rows.length === 0) {
+        acc[dayKey] = fallback[dayKey];
+        return acc;
+      }
+
+      const dedup = new Map<string, ScheduleBlueprintSlot>();
+      for (const row of rows) {
+        dedup.set(row.key, row);
+      }
+
+      acc[dayKey] = Array.from(dedup.values()).sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return acc;
+    }, {} as ScheduleSlotBlueprint);
+
+    return normalized;
+  }
+
+  private static parseCycleSnapshot(input: unknown) {
+    const payload = input as Record<string, unknown> | null;
+    const days = this.normalizeInstructorScheduleDays(payload?.days);
+    const slotBlueprint = this.normalizeScheduleSlotBlueprint(payload?.slotBlueprint, days);
+    return { days, slotBlueprint };
+  }
+
+  private static normalizeUnavailableSlotKeys(input: unknown) {
+    const empty = DAY_KEYS.reduce((acc, dayKey) => {
+      acc[dayKey] = [];
+      return acc;
+    }, {} as Record<InstructorScheduleDayKey, string[]>);
+    if (!input || typeof input !== "object") return empty;
+
+    const record = input as Record<string, unknown>;
+    for (const dayKey of DAY_KEYS) {
+      const daySlots = record[dayKey];
+      if (!Array.isArray(daySlots)) continue;
+      empty[dayKey] = Array.from(new Set(daySlots.filter((item): item is string => typeof item === "string")));
+    }
+    return empty;
+  }
+
+  private static hashLessonCode(code: string) {
+    return crypto.createHash("sha256").update(code).digest("hex");
+  }
+
+  private static async getStudentProfileContext(userId: string) {
+    const profile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, userId),
+      columns: { id: true, instructorId: true, completedHours: true },
+    });
+
+    if (!profile) return null;
+    return {
+      studentProfileId: profile.id,
+      instructorProfileId: profile.instructorId,
+      completedHours: profile.completedHours,
+    };
+  }
+
+  private static async listInstructorStudentProfiles(instructorProfileId: string) {
+    const rows = await db.query.studentProfiles.findMany({
+      where: eq(studentProfiles.instructorId, instructorProfileId),
+      columns: { id: true, userId: true, completedHours: true },
+      orderBy: [asc(studentProfiles.id)],
+    });
+
+    return rows.slice(0, MAX_INSTRUCTOR_STUDENTS);
+  }
+
   private static async getInstructorProfileContext(userId: string) {
     const profile = await db.query.instructorProfiles.findFirst({
       where: eq(instructorProfiles.userId, userId),
-      columns: { id: true },
+      columns: { id: true, userId: true },
     });
-    return profile ? { instructorProfileId: profile.id } : null;
+    return profile ? { instructorProfileId: profile.id, instructorUserId: profile.userId } : null;
+  }
+
+  private static async emitScheduleChanged(
+    instructorProfileId: string,
+    payload: {
+      kind:
+      | "WORK_SCHEDULE_UPDATED"
+      | "SCHEDULE_CYCLE_UPDATED"
+      | "STUDENT_AVAILABILITY_UPDATED"
+      | "LESSON_STATE_UPDATED";
+      weekStartDate?: string;
+      cycleId?: string;
+      timeSlotId?: string;
+    },
+  ) {
+    const instructor = await db.query.instructorProfiles.findFirst({
+      where: eq(instructorProfiles.id, instructorProfileId),
+      columns: { userId: true },
+    });
+
+    if (instructor?.userId) {
+      emitToUser(instructor.userId, "schedule:changed", payload);
+    }
+
+    const students = await this.listInstructorStudentProfiles(instructorProfileId);
+    for (const student of students) {
+      emitToUser(student.userId, "schedule:changed", payload);
+    }
   }
 
   private static async getSchoolAdminContext(userId: string) {
@@ -506,6 +746,68 @@ export class DashboardService {
     return Boolean(row);
   }
 
+  static async listInstructorStudents(actorUserId: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return null;
+
+    const studentRows = await db.query.studentProfiles.findMany({
+      where: eq(studentProfiles.instructorId, context.instructorProfileId),
+      columns: {
+        userId: true,
+        completedHours: true,
+      },
+      orderBy: [asc(studentProfiles.id)],
+    });
+
+    if (studentRows.length === 0) {
+      return {
+        students: [] as InstructorStudentListItem[],
+        totalStudents: 0,
+        maxStudents: MAX_INSTRUCTOR_STUDENTS,
+      };
+    }
+
+    const studentUserIds = studentRows.map((row) => row.userId);
+    const studentUsers = await db.query.users.findMany({
+      where: inArray(users.id, studentUserIds),
+      columns: {
+        id: true,
+        username: true,
+        email: true,
+        name: true,
+        createdAt: true,
+      },
+    });
+
+    const studentUserById = new Map(studentUsers.map((row) => [row.id, row] as const));
+
+    const mappedStudents: InstructorStudentListItem[] = studentRows
+      .map((row) => {
+        const user = studentUserById.get(row.userId);
+        if (!user) return null;
+        return {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          name: user.name,
+          createdAt: user.createdAt.toISOString(),
+          completedHours: row.completedHours,
+        };
+      })
+      .filter((row): row is InstructorStudentListItem => Boolean(row))
+      .sort((a, b) => {
+        const aLabel = (a.name?.trim() || a.username).toLowerCase();
+        const bLabel = (b.name?.trim() || b.username).toLowerCase();
+        return aLabel.localeCompare(bLabel);
+      });
+
+    return {
+      students: mappedStudents.slice(0, MAX_INSTRUCTOR_STUDENTS),
+      totalStudents: mappedStudents.length,
+      maxStudents: MAX_INSTRUCTOR_STUDENTS,
+    };
+  }
+
   static async fetchInstructorSchedule(actorUserId: string) {
     const context = await this.getInstructorProfileContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
@@ -551,8 +853,1221 @@ export class DashboardService {
         },
       });
 
+    await this.emitScheduleChanged(context.instructorProfileId, {
+      kind: "WORK_SCHEDULE_UPDATED",
+    });
+
     const refreshed = await this.fetchInstructorSchedule(actorUserId);
     if (refreshed.status !== "SUCCESS") return { status: "SUCCESS" as const, schedule: { days: this.getDefaultInstructorScheduleDays() } };
     return { status: "SUCCESS" as const, schedule: refreshed.schedule };
+  }
+
+  static async getInstructorScheduleWorkflow(actorUserId: string, weekStartInput?: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const weekStartDate = this.getWeekStartDate(weekStartInput);
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const expectedStudents = await this.listInstructorStudentProfiles(context.instructorProfileId);
+
+    const cycle = await db.query.scheduleCycles.findFirst({
+      where: and(
+        eq(scheduleCycles.instructorId, context.instructorProfileId),
+        gte(scheduleCycles.weekStartDate, weekStartDate),
+        lt(scheduleCycles.weekStartDate, weekEndDate),
+      ),
+      orderBy: [desc(scheduleCycles.weekStartDate)],
+      columns: {
+        id: true,
+        status: true,
+        weekStartDate: true,
+        scheduleSnapshot: true,
+        sentAt: true,
+        allocationStartedAt: true,
+        allocationCompletedAt: true,
+        publishedAt: true,
+      },
+    });
+
+    if (!cycle) {
+      return {
+        status: "SUCCESS" as const,
+        workflow: {
+          cycle: null,
+          expectedReplies: expectedStudents.length,
+          repliesReceived: 0,
+          allocatedSlots: 0,
+          weekStartDate: weekStartDate.toISOString(),
+        },
+      };
+    }
+
+    const [replies, slots] = await Promise.all([
+      db.query.studentScheduleReplies.findMany({
+        where: eq(studentScheduleReplies.cycleId, cycle.id),
+        columns: { id: true },
+      }),
+      db.query.timeSlots.findMany({
+        where: eq(timeSlots.scheduleCycleId, cycle.id),
+        columns: { id: true },
+      }),
+    ]);
+
+    const parsed = this.parseCycleSnapshot(cycle.scheduleSnapshot);
+
+    return {
+      status: "SUCCESS" as const,
+      workflow: {
+        cycle: {
+          id: cycle.id,
+          status: cycle.status as ScheduleCycleStatus,
+          weekStartDate: cycle.weekStartDate.toISOString(),
+          days: parsed.days,
+          slotBlueprint: parsed.slotBlueprint,
+          sentAt: cycle.sentAt?.toISOString() ?? null,
+          allocationStartedAt: cycle.allocationStartedAt?.toISOString() ?? null,
+          allocationCompletedAt: cycle.allocationCompletedAt?.toISOString() ?? null,
+          publishedAt: cycle.publishedAt?.toISOString() ?? null,
+        },
+        expectedReplies: expectedStudents.length,
+        repliesReceived: replies.length,
+        allocatedSlots: slots.length,
+        weekStartDate: weekStartDate.toISOString(),
+      },
+    };
+  }
+
+  static async sendInstructorScheduleToStudents(actorUserId: string, input: SendInstructorSchedulePayload) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+    if (!input?.days) return { status: "VALIDATION_ERROR" as const };
+
+    const weekStartDate = this.getWeekStartDate(input.weekStartDate);
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const days = this.normalizeInstructorScheduleDays(input.days);
+    const enabledCount = DAY_KEYS.filter((dayKey) => days[dayKey].enabled).length;
+    if (enabledCount === 0) return { status: "VALIDATION_ERROR" as const };
+
+    const slotBlueprint = this.normalizeScheduleSlotBlueprint(input.slotBlueprint, days);
+    const now = new Date();
+
+    await db
+      .insert(scheduleCycles)
+      .values({
+        instructorId: context.instructorProfileId,
+        weekStartDate,
+        status: "SENT_TO_STUDENTS",
+        scheduleSnapshot: { days, slotBlueprint },
+        sentAt: now,
+        allocationStartedAt: null,
+        allocationCompletedAt: null,
+        publishedAt: null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [scheduleCycles.instructorId, scheduleCycles.weekStartDate],
+        set: {
+          status: "SENT_TO_STUDENTS",
+          scheduleSnapshot: { days, slotBlueprint },
+          sentAt: now,
+          allocationStartedAt: null,
+          allocationCompletedAt: null,
+          publishedAt: null,
+          updatedAt: now,
+        },
+      });
+
+    const cycle = await db.query.scheduleCycles.findFirst({
+      where: and(
+        eq(scheduleCycles.instructorId, context.instructorProfileId),
+        gte(scheduleCycles.weekStartDate, weekStartDate),
+        lt(scheduleCycles.weekStartDate, weekEndDate),
+      ),
+      orderBy: [desc(scheduleCycles.weekStartDate)],
+      columns: { id: true },
+    });
+
+    if (!cycle) return { status: "VALIDATION_ERROR" as const };
+
+    const existingSlots = await db.query.timeSlots.findMany({
+      where: eq(timeSlots.scheduleCycleId, cycle.id),
+      columns: { id: true },
+    });
+
+    if (existingSlots.length > 0) {
+      await db.delete(lessonSessions).where(inArray(lessonSessions.timeSlotId, existingSlots.map((slot) => slot.id)));
+      await db.delete(timeSlots).where(eq(timeSlots.scheduleCycleId, cycle.id));
+    }
+
+    await db.delete(studentScheduleReplies).where(eq(studentScheduleReplies.cycleId, cycle.id));
+
+    await this.emitScheduleChanged(context.instructorProfileId, {
+      kind: "SCHEDULE_CYCLE_UPDATED",
+      cycleId: cycle.id,
+      weekStartDate: weekStartDate.toISOString(),
+    });
+
+    const workflow = await this.getInstructorScheduleWorkflow(actorUserId, weekStartDate.toISOString());
+    if (workflow.status !== "SUCCESS") {
+      return { status: "SUCCESS" as const, workflow: null };
+    }
+
+    return { status: "SUCCESS" as const, workflow: workflow.workflow };
+  }
+
+  static async fetchStudentScheduleCycle(actorUserId: string, weekStartInput?: string) {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const weekStartDate = this.getWeekStartDate(weekStartInput);
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const cycle = await db.query.scheduleCycles.findFirst({
+      where: and(
+        eq(scheduleCycles.instructorId, studentContext.instructorProfileId),
+        gte(scheduleCycles.weekStartDate, weekStartDate),
+        lt(scheduleCycles.weekStartDate, weekEndDate),
+        ne(scheduleCycles.status, "DRAFT"),
+      ),
+      orderBy: [desc(scheduleCycles.weekStartDate)],
+      columns: {
+        id: true,
+        status: true,
+        weekStartDate: true,
+        scheduleSnapshot: true,
+        sentAt: true,
+      },
+    });
+
+    if (!cycle) return { status: "EMPTY" as const };
+
+    const [reply, assignedSlots] = await Promise.all([
+      db.query.studentScheduleReplies.findFirst({
+        where: and(
+          eq(studentScheduleReplies.cycleId, cycle.id),
+          eq(studentScheduleReplies.studentProfileId, studentContext.studentProfileId),
+        ),
+        columns: { unavailableSlotKeys: true, submittedAt: true },
+      }),
+      db.query.timeSlots.findMany({
+        where: and(
+          eq(timeSlots.scheduleCycleId, cycle.id),
+          eq(timeSlots.studentId, studentContext.studentProfileId),
+        ),
+        orderBy: [asc(timeSlots.startTime)],
+        columns: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          isDone: true,
+          dayKey: true,
+          slotKey: true,
+        },
+      }),
+    ]);
+
+    const sessionMap = new Map<string, LessonSessionState>();
+    if (assignedSlots.length > 0) {
+      const sessions = await db.query.lessonSessions.findMany({
+        where: inArray(lessonSessions.timeSlotId, assignedSlots.map((slot) => slot.id)),
+        columns: { timeSlotId: true, state: true },
+      });
+
+      for (const session of sessions) {
+        sessionMap.set(session.timeSlotId, session.state as LessonSessionState);
+      }
+    }
+
+    const parsed = this.parseCycleSnapshot(cycle.scheduleSnapshot);
+
+    return {
+      status: "SUCCESS" as const,
+      schedule: {
+        cycle: {
+          id: cycle.id,
+          status: cycle.status as ScheduleCycleStatus,
+          weekStartDate: cycle.weekStartDate.toISOString(),
+          sentAt: cycle.sentAt?.toISOString() ?? null,
+        },
+        days: parsed.days,
+        slotBlueprint: parsed.slotBlueprint,
+        reply: {
+          unavailableSlotKeys: this.normalizeUnavailableSlotKeys(reply?.unavailableSlotKeys),
+          submittedAt: reply?.submittedAt?.toISOString() ?? null,
+        },
+        assignedSlots: assignedSlots.map((slot) => ({
+          id: slot.id,
+          startTime: slot.startTime.toISOString(),
+          endTime: slot.endTime.toISOString(),
+          dayKey: slot.dayKey,
+          slotKey: slot.slotKey,
+          isDone: slot.isDone,
+          state: sessionMap.get(slot.id) ?? (slot.isDone ? "COMPLETED" : "PLANNED"),
+        })),
+      },
+    };
+  }
+
+  static async submitStudentScheduleAvailability(actorUserId: string, input: StudentAvailabilityPayload) {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+    if (!input?.cycleId) return { status: "VALIDATION_ERROR" as const };
+
+    const cycle = await db.query.scheduleCycles.findFirst({
+      where: eq(scheduleCycles.id, input.cycleId),
+      columns: { id: true, instructorId: true, status: true, weekStartDate: true },
+    });
+
+    if (!cycle) return { status: "CYCLE_NOT_FOUND" as const };
+    if (cycle.instructorId !== studentContext.instructorProfileId) return { status: "FORBIDDEN" as const };
+    if (cycle.status === "DRAFT") return { status: "INVALID_STATE" as const };
+
+    const expectedStudents = await this.listInstructorStudentProfiles(cycle.instructorId);
+    const expectedStudentIds = new Set(expectedStudents.map((student) => student.id));
+    if (!expectedStudentIds.has(studentContext.studentProfileId)) return { status: "FORBIDDEN" as const };
+
+    const unavailableSlotKeys = this.normalizeUnavailableSlotKeys(input.unavailableSlotKeys);
+    const now = new Date();
+
+    await db
+      .insert(studentScheduleReplies)
+      .values({
+        cycleId: cycle.id,
+        studentProfileId: studentContext.studentProfileId,
+        unavailableSlotKeys,
+        submittedAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [studentScheduleReplies.cycleId, studentScheduleReplies.studentProfileId],
+        set: {
+          unavailableSlotKeys,
+          submittedAt: now,
+          updatedAt: now,
+        },
+      });
+
+    const replies = await db.query.studentScheduleReplies.findMany({
+      where: eq(studentScheduleReplies.cycleId, cycle.id),
+      columns: { studentProfileId: true },
+    });
+
+    const replyCount = replies.filter((reply) => expectedStudentIds.has(reply.studentProfileId)).length;
+    const expectedCount = expectedStudents.length;
+
+    const nextStatus: ScheduleCycleStatus =
+      expectedCount > 0 && replyCount >= expectedCount
+        ? "READY_TO_ALLOCATE"
+        : "COLLECTING_RESPONSES";
+
+    await db
+      .update(scheduleCycles)
+      .set({
+        status: nextStatus,
+        updatedAt: now,
+      })
+      .where(eq(scheduleCycles.id, cycle.id));
+
+    await this.emitScheduleChanged(cycle.instructorId, {
+      kind: "STUDENT_AVAILABILITY_UPDATED",
+      cycleId: cycle.id,
+      weekStartDate: cycle.weekStartDate.toISOString(),
+    });
+
+    return {
+      status: "SUCCESS" as const,
+      summary: {
+        cycleId: cycle.id,
+        status: nextStatus,
+        repliesReceived: replyCount,
+        expectedReplies: expectedCount,
+      },
+    };
+  }
+
+  static async allocateInstructorSchedule(actorUserId: string, cycleId?: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const weekStartDate = this.getWeekStartDate();
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const cycle = cycleId
+      ? await db.query.scheduleCycles.findFirst({
+        where: and(eq(scheduleCycles.id, cycleId), eq(scheduleCycles.instructorId, context.instructorProfileId)),
+        columns: {
+          id: true,
+          status: true,
+          weekStartDate: true,
+          scheduleSnapshot: true,
+        },
+      })
+      : await db.query.scheduleCycles.findFirst({
+        where: and(
+          eq(scheduleCycles.instructorId, context.instructorProfileId),
+          gte(scheduleCycles.weekStartDate, weekStartDate),
+          lt(scheduleCycles.weekStartDate, weekEndDate),
+        ),
+        orderBy: [desc(scheduleCycles.weekStartDate)],
+        columns: {
+          id: true,
+          status: true,
+          weekStartDate: true,
+          scheduleSnapshot: true,
+        },
+      });
+
+    if (!cycle) return { status: "CYCLE_NOT_FOUND" as const };
+
+    const expectedStudents = await this.listInstructorStudentProfiles(context.instructorProfileId);
+    const activeStudents = expectedStudents.filter((student) => student.completedHours < REQUIRED_HOURS);
+    if (activeStudents.length === 0) return { status: "NO_ACTIVE_STUDENTS" as const };
+
+    const replies = await db.query.studentScheduleReplies.findMany({
+      where: eq(studentScheduleReplies.cycleId, cycle.id),
+      columns: { studentProfileId: true, unavailableSlotKeys: true },
+    });
+
+    const replyMap = new Map<string, Record<InstructorScheduleDayKey, string[]>>();
+    for (const reply of replies) {
+      replyMap.set(reply.studentProfileId, this.normalizeUnavailableSlotKeys(reply.unavailableSlotKeys));
+    }
+
+    const parsed = this.parseCycleSnapshot(cycle.scheduleSnapshot);
+
+    const flatSlots = DAY_KEYS.flatMap((dayKey) =>
+      (parsed.slotBlueprint[dayKey] ?? []).map((slot) => ({ dayKey, slot })),
+    ).sort((a, b) => {
+      const dayCompare = this.getDayIndex(a.dayKey) - this.getDayIndex(b.dayKey);
+      if (dayCompare !== 0) return dayCompare;
+      return a.slot.startTime.localeCompare(b.slot.startTime);
+    });
+
+    const slotRows = flatSlots
+      .map((item, index) => {
+        const startDate = this.toSlotDateTime(cycle.weekStartDate, item.dayKey, item.slot.startTime);
+        const endDate = this.toSlotDateTime(cycle.weekStartDate, item.dayKey, item.slot.endTime);
+        if (!startDate || !endDate) return null;
+        return {
+          index,
+          dayKey: item.dayKey,
+          slotKey: item.slot.key,
+          startTime: startDate,
+          endTime: endDate,
+        };
+      })
+      .filter((row): row is {
+        index: number;
+        dayKey: InstructorScheduleDayKey;
+        slotKey: string;
+        startTime: Date;
+        endTime: Date;
+      } => Boolean(row));
+
+    const MAX_DAILY_HOURS_PER_STUDENT = 2;
+    const completedHoursByStudent = new Map(activeStudents.map((student) => [student.id, student.completedHours]));
+    const requiredHoursByStudent = new Map(
+      activeStudents.map((student) => [student.id, Math.max(1, REQUIRED_HOURS - student.completedHours)]),
+    );
+
+    const baseCandidateIdsBySlot = slotRows.map((slotRow) =>
+      activeStudents
+        .filter((student) => {
+          const unavailable = replyMap.get(student.id)?.[slotRow.dayKey] ?? [];
+          return !unavailable.includes(slotRow.slotKey);
+        })
+        .map((student) => student.id),
+    );
+    const baseCandidateSetBySlot = baseCandidateIdsBySlot.map((rows) => new Set(rows));
+
+    const slotAssignments: Array<string | null> = Array.from({ length: slotRows.length }, () => null);
+
+    const assignedCountByStudent = new Map<string, number>();
+    const assignedCountByStudentDay = new Map<string, Record<InstructorScheduleDayKey, number>>();
+    const assignedSlotIndexesByStudent = new Map<string, Set<number>>();
+
+    for (const student of activeStudents) {
+      assignedCountByStudent.set(student.id, 0);
+      assignedSlotIndexesByStudent.set(student.id, new Set<number>());
+      assignedCountByStudentDay.set(
+        student.id,
+        DAY_KEYS.reduce((acc, dayKey) => {
+          acc[dayKey] = 0;
+          return acc;
+        }, {} as Record<InstructorScheduleDayKey, number>),
+      );
+    }
+
+    const getDayCount = (studentId: string, dayKey: InstructorScheduleDayKey) =>
+      assignedCountByStudentDay.get(studentId)?.[dayKey] ?? 0;
+
+    const getRemainingRequiredHours = (studentId: string) => {
+      const required = requiredHoursByStudent.get(studentId) ?? 0;
+      const assigned = assignedCountByStudent.get(studentId) ?? 0;
+      return Math.max(0, required - assigned);
+    };
+
+    const canAssignDirect = (studentId: string, slotIndex: number) => {
+      if (!baseCandidateSetBySlot[slotIndex]?.has(studentId)) return false;
+      if (getRemainingRequiredHours(studentId) <= 0) return false;
+      const dayKey = slotRows[slotIndex]?.dayKey;
+      if (!dayKey) return false;
+      return getDayCount(studentId, dayKey) < MAX_DAILY_HOURS_PER_STUDENT;
+    };
+
+    const assignSlot = (studentId: string, slotIndex: number) => {
+      if (slotAssignments[slotIndex]) return false;
+      const slot = slotRows[slotIndex];
+      if (!slot) return false;
+
+      slotAssignments[slotIndex] = studentId;
+      assignedCountByStudent.set(studentId, (assignedCountByStudent.get(studentId) ?? 0) + 1);
+
+      const byDay = assignedCountByStudentDay.get(studentId);
+      if (byDay) {
+        byDay[slot.dayKey] = (byDay[slot.dayKey] ?? 0) + 1;
+      }
+
+      assignedSlotIndexesByStudent.get(studentId)?.add(slotIndex);
+      return true;
+    };
+
+    const unassignSlot = (slotIndex: number) => {
+      const current = slotAssignments[slotIndex];
+      if (!current) return null;
+      const slot = slotRows[slotIndex];
+      if (!slot) return null;
+
+      slotAssignments[slotIndex] = null;
+      assignedCountByStudent.set(current, Math.max(0, (assignedCountByStudent.get(current) ?? 0) - 1));
+
+      const byDay = assignedCountByStudentDay.get(current);
+      if (byDay) {
+        byDay[slot.dayKey] = Math.max(0, (byDay[slot.dayKey] ?? 0) - 1);
+      }
+
+      assignedSlotIndexesByStudent.get(current)?.delete(slotIndex);
+      return current;
+    };
+
+    const countRemainingUnassignedSlots = (fromSlotIndex: number) => {
+      let remaining = 0;
+      for (let i = fromSlotIndex; i < slotRows.length; i += 1) {
+        if (!slotAssignments[i]) remaining += 1;
+      }
+      return remaining;
+    };
+
+    const calculatePotentialHoursUntilWeekEnd = (studentId: string, fromSlotIndex: number) => {
+      // Keep students who already reached target out of candidate ranking.
+      if (getRemainingRequiredHours(studentId) <= 0) return 0;
+
+      const dayCapacityLeft = DAY_KEYS.reduce((acc, dayKey) => {
+        acc[dayKey] = Math.max(0, MAX_DAILY_HOURS_PER_STUDENT - getDayCount(studentId, dayKey));
+        return acc;
+      }, {} as Record<InstructorScheduleDayKey, number>);
+
+      let potential = 0;
+      for (let i = fromSlotIndex; i < slotRows.length; i += 1) {
+        if (slotAssignments[i]) continue;
+        if (!baseCandidateSetBySlot[i]?.has(studentId)) continue;
+        const dayKey = slotRows[i]?.dayKey;
+        if (!dayKey) continue;
+        if ((dayCapacityLeft[dayKey] ?? 0) <= 0) continue;
+        dayCapacityLeft[dayKey] -= 1;
+        potential += 1;
+      }
+      return potential;
+    };
+
+    const getCoefficient = (studentId: string, fromSlotIndex: number) => {
+      // Coefficient = {hours student can attend from current slot to week end}
+      //               / {all remaining unassigned slots in same horizon}.
+      const remainingSlots = Math.max(1, countRemainingUnassignedSlots(fromSlotIndex));
+      const potentialHours = calculatePotentialHoursUntilWeekEnd(studentId, fromSlotIndex);
+      return {
+        value: potentialHours / remainingSlots,
+        potentialHours,
+        remainingSlots,
+      };
+    };
+
+    const compareCandidatesByCoefficient = (aStudentId: string, bStudentId: string, slotIndex: number) => {
+      const a = getCoefficient(aStudentId, slotIndex);
+      const b = getCoefficient(bStudentId, slotIndex);
+
+      if (a.value !== b.value) return a.value - b.value;
+      if (a.potentialHours !== b.potentialHours) return a.potentialHours - b.potentialHours;
+      if (a.remainingSlots !== b.remainingSlots) return a.remainingSlots - b.remainingSlots;
+
+      const aAssigned = assignedCountByStudent.get(aStudentId) ?? 0;
+      const bAssigned = assignedCountByStudent.get(bStudentId) ?? 0;
+      if (aAssigned !== bAssigned) return aAssigned - bAssigned;
+
+      const aCompleted = completedHoursByStudent.get(aStudentId) ?? 0;
+      const bCompleted = completedHoursByStudent.get(bStudentId) ?? 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+
+      return aStudentId.localeCompare(bStudentId);
+    };
+
+    const tryRearrangeForSlot = (targetSlotIndex: number) => {
+      const targetSlot = slotRows[targetSlotIndex];
+      if (!targetSlot) return false;
+      if (slotAssignments[targetSlotIndex]) return true;
+
+      const candidates = (baseCandidateIdsBySlot[targetSlotIndex] ?? [])
+        .slice()
+        .sort((a, b) => compareCandidatesByCoefficient(a, b, targetSlotIndex));
+
+      for (const candidateId of candidates) {
+        if (canAssignDirect(candidateId, targetSlotIndex)) {
+          return assignSlot(candidateId, targetSlotIndex);
+        }
+
+        const candidateAssignedSlots = Array.from(assignedSlotIndexesByStudent.get(candidateId) ?? []);
+        if (candidateAssignedSlots.length === 0) continue;
+
+        const needsWeeklyRelief = getRemainingRequiredHours(candidateId) <= 0;
+        const needsDayRelief = getDayCount(candidateId, targetSlot.dayKey) >= MAX_DAILY_HOURS_PER_STUDENT;
+        if (!needsWeeklyRelief && !needsDayRelief) continue;
+
+        const movableSlots = candidateAssignedSlots
+          .filter((slotIndex) => {
+            if (!needsDayRelief) return true;
+            return slotRows[slotIndex]?.dayKey === targetSlot.dayKey;
+          })
+          .sort((a, b) => {
+            const aAlternatives = (baseCandidateIdsBySlot[a] ?? []).filter((id) => id !== candidateId).length;
+            const bAlternatives = (baseCandidateIdsBySlot[b] ?? []).filter((id) => id !== candidateId).length;
+            if (aAlternatives !== bAlternatives) return bAlternatives - aAlternatives;
+            return a - b;
+          });
+
+        for (const occupiedSlotIndex of movableSlots) {
+          const removedStudentId = unassignSlot(occupiedSlotIndex);
+          if (removedStudentId !== candidateId) {
+            if (removedStudentId) assignSlot(removedStudentId, occupiedSlotIndex);
+            continue;
+          }
+
+          const alternatives = (baseCandidateIdsBySlot[occupiedSlotIndex] ?? [])
+            .filter((studentId) => studentId !== candidateId)
+            .filter((studentId) => canAssignDirect(studentId, occupiedSlotIndex))
+            .sort((a, b) => compareCandidatesByCoefficient(a, b, occupiedSlotIndex));
+
+          let movedToAlternative = false;
+          for (const alternativeId of alternatives) {
+            if (assignSlot(alternativeId, occupiedSlotIndex)) {
+              movedToAlternative = true;
+              break;
+            }
+          }
+
+          if (!movedToAlternative) {
+            assignSlot(candidateId, occupiedSlotIndex);
+            continue;
+          }
+
+          if (canAssignDirect(candidateId, targetSlotIndex) && assignSlot(candidateId, targetSlotIndex)) {
+            return true;
+          }
+
+          const rollbackAlternative = unassignSlot(occupiedSlotIndex);
+          if (rollbackAlternative) {
+            assignSlot(candidateId, occupiedSlotIndex);
+          }
+        }
+      }
+
+      return false;
+    };
+
+    // Pass 1: assign slots where exactly one student can attend (no overlap).
+    const uniqueCandidateSlotIndexes: number[] = [];
+    const overlappingCandidateSlotIndexes: number[] = [];
+
+    baseCandidateIdsBySlot.forEach((candidateIds, slotIndex) => {
+      if (candidateIds.length === 1) {
+        uniqueCandidateSlotIndexes.push(slotIndex);
+      } else if (candidateIds.length > 1) {
+        overlappingCandidateSlotIndexes.push(slotIndex);
+      }
+    });
+
+    for (const slotIndex of uniqueCandidateSlotIndexes) {
+      const onlyCandidateId = baseCandidateIdsBySlot[slotIndex]?.[0];
+      if (!onlyCandidateId) continue;
+      if (canAssignDirect(onlyCandidateId, slotIndex)) {
+        assignSlot(onlyCandidateId, slotIndex);
+      }
+    }
+
+    // Pass 2: assign overlapping slots using coefficient:
+    // {potential attendable hours until week end}/{remaining unassigned slots in same horizon}.
+    for (const slotIndex of overlappingCandidateSlotIndexes) {
+      if (slotAssignments[slotIndex]) continue;
+
+      const candidates = (baseCandidateIdsBySlot[slotIndex] ?? [])
+        .filter((studentId) => canAssignDirect(studentId, slotIndex))
+        .sort((a, b) => compareCandidatesByCoefficient(a, b, slotIndex));
+
+      const selectedCandidate = candidates[0] ?? null;
+      if (selectedCandidate) {
+        assignSlot(selectedCandidate, slotIndex);
+      }
+    }
+
+    // Pass 3: try local rearrangement to fill gaps created by greedy ordering.
+    for (let slotIndex = 0; slotIndex < slotRows.length; slotIndex += 1) {
+      if (slotAssignments[slotIndex]) continue;
+      tryRearrangeForSlot(slotIndex);
+    }
+
+    const rowsToInsert: Array<typeof timeSlots.$inferInsert> = slotRows.map((slotRow, slotIndex) => ({
+      scheduleCycleId: cycle.id,
+      instructorId: context.instructorProfileId,
+      studentId: slotAssignments[slotIndex],
+      startTime: slotRow.startTime,
+      endTime: slotRow.endTime,
+      isDone: false,
+      dayKey: slotRow.dayKey,
+      slotKey: slotRow.slotKey,
+    }));
+
+    const existingSlots = await db.query.timeSlots.findMany({
+      where: eq(timeSlots.scheduleCycleId, cycle.id),
+      columns: { id: true },
+    });
+
+    if (existingSlots.length > 0) {
+      await db.delete(lessonSessions).where(inArray(lessonSessions.timeSlotId, existingSlots.map((slot) => slot.id)));
+      await db.delete(timeSlots).where(eq(timeSlots.scheduleCycleId, cycle.id));
+    }
+
+    if (rowsToInsert.length > 0) {
+      await db.insert(timeSlots).values(rowsToInsert);
+    }
+
+    const now = new Date();
+    await db
+      .update(scheduleCycles)
+      .set({
+        status: "ALLOCATED",
+        allocationStartedAt: now,
+        allocationCompletedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(scheduleCycles.id, cycle.id));
+
+    await this.emitScheduleChanged(context.instructorProfileId, {
+      kind: "SCHEDULE_CYCLE_UPDATED",
+      cycleId: cycle.id,
+      weekStartDate: cycle.weekStartDate.toISOString(),
+    });
+
+    return {
+      status: "SUCCESS" as const,
+      allocation: {
+        cycleId: cycle.id,
+        totalSlots: rowsToInsert.length,
+        assignedSlots: rowsToInsert.filter((row) => Boolean(row.studentId)).length,
+        unassignedSlots: rowsToInsert.filter((row) => !row.studentId).length,
+      },
+    };
+  }
+
+  static async listInstructorLessons(actorUserId: string, weekStartInput?: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const weekStartDate = this.getWeekStartDate(weekStartInput);
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const slots = await db.query.timeSlots.findMany({
+      where: and(
+        eq(timeSlots.instructorId, context.instructorProfileId),
+        gte(timeSlots.startTime, weekStartDate),
+        lt(timeSlots.startTime, weekEndDate),
+      ),
+      orderBy: [asc(timeSlots.startTime)],
+      columns: {
+        id: true,
+        studentId: true,
+        startTime: true,
+        endTime: true,
+        isDone: true,
+        dayKey: true,
+        slotKey: true,
+      },
+    });
+
+    const sessionStateMap = new Map<string, LessonSessionState>();
+    if (slots.length > 0) {
+      const sessions = await db.query.lessonSessions.findMany({
+        where: inArray(lessonSessions.timeSlotId, slots.map((slot) => slot.id)),
+        columns: { timeSlotId: true, state: true },
+      });
+
+      for (const session of sessions) {
+        sessionStateMap.set(session.timeSlotId, session.state as LessonSessionState);
+      }
+    }
+
+    const studentProfileIds = Array.from(
+      new Set(
+        slots
+          .map((slot) => slot.studentId)
+          .filter((studentId): studentId is string => Boolean(studentId)),
+      ),
+    );
+
+    const studentDisplayByProfileId = new Map<string, { studentUserId: string; studentName: string | null; studentUsername: string | null }>();
+    if (studentProfileIds.length > 0) {
+      const assignedProfiles = await db.query.studentProfiles.findMany({
+        where: inArray(studentProfiles.id, studentProfileIds),
+        columns: { id: true, userId: true },
+      });
+
+      const assignedUserIds = Array.from(new Set(assignedProfiles.map((profile) => profile.userId)));
+      const assignedUsers =
+        assignedUserIds.length > 0
+          ? await db.query.users.findMany({
+            where: inArray(users.id, assignedUserIds),
+            columns: { id: true, name: true, username: true },
+          })
+          : [];
+
+      const userById = new Map(assignedUsers.map((user) => [user.id, user] as const));
+      for (const profile of assignedProfiles) {
+        const user = userById.get(profile.userId);
+        studentDisplayByProfileId.set(profile.id, {
+          studentUserId: profile.userId,
+          studentName: user?.name ?? null,
+          studentUsername: user?.username ?? null,
+        });
+      }
+    }
+
+    return {
+      status: "SUCCESS" as const,
+      lessons: slots.map((slot) => ({
+        ...(slot.studentId ? studentDisplayByProfileId.get(slot.studentId) : {}),
+        id: slot.id,
+        studentId: slot.studentId,
+        startTime: slot.startTime.toISOString(),
+        endTime: slot.endTime.toISOString(),
+        dayKey: slot.dayKey,
+        slotKey: slot.slotKey,
+        isDone: slot.isDone,
+        state: sessionStateMap.get(slot.id) ?? (slot.isDone ? "COMPLETED" : "PLANNED"),
+      })),
+    };
+  }
+
+  static async getInstructorLessonCandidates(actorUserId: string, timeSlotId: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const slot = await db.query.timeSlots.findFirst({
+      where: and(eq(timeSlots.id, timeSlotId), eq(timeSlots.instructorId, context.instructorProfileId)),
+      columns: {
+        id: true,
+        scheduleCycleId: true,
+        studentId: true,
+        dayKey: true,
+        slotKey: true,
+      },
+    });
+
+    if (!slot || !slot.scheduleCycleId || !slot.dayKey || !slot.slotKey) {
+      return { status: "LESSON_NOT_FOUND" as const };
+    }
+
+    const students = await this.listInstructorStudentProfiles(context.instructorProfileId);
+    if (students.length === 0) {
+      return {
+        status: "SUCCESS" as const,
+        details: {
+          assignedStudent: null,
+          candidates: [],
+        },
+      };
+    }
+
+    const studentProfileIds = students.map((student) => student.id);
+    const [replies, studentUsers] = await Promise.all([
+      db.query.studentScheduleReplies.findMany({
+        where: eq(studentScheduleReplies.cycleId, slot.scheduleCycleId),
+        columns: { studentProfileId: true, unavailableSlotKeys: true },
+      }),
+      db.query.users.findMany({
+        where: inArray(users.id, students.map((student) => student.userId)),
+        columns: { id: true, name: true, username: true },
+      }),
+    ]);
+
+    const userById = new Map(studentUsers.map((user) => [user.id, user] as const));
+    const replyMap = new Map<string, Record<InstructorScheduleDayKey, string[]>>();
+    for (const reply of replies) {
+      replyMap.set(reply.studentProfileId, this.normalizeUnavailableSlotKeys(reply.unavailableSlotKeys));
+    }
+
+    const assignedStudentProfile = slot.studentId
+      ? students.find((student) => student.id === slot.studentId) ?? null
+      : null;
+
+    const assignedStudent = assignedStudentProfile
+      ? {
+        profileId: assignedStudentProfile.id,
+        userId: assignedStudentProfile.userId,
+        name: userById.get(assignedStudentProfile.userId)?.name ?? null,
+        username: userById.get(assignedStudentProfile.userId)?.username ?? null,
+      }
+      : null;
+
+    const candidates = studentProfileIds
+      .filter((profileId) => profileId !== slot.studentId)
+      .map((profileId) => {
+        const profile = students.find((student) => student.id === profileId);
+        if (!profile) return null;
+        const unavailable = replyMap.get(profileId)?.[slot.dayKey as InstructorScheduleDayKey] ?? [];
+        if (unavailable.includes(slot.slotKey!)) return null;
+        const user = userById.get(profile.userId);
+        return {
+          profileId: profile.id,
+          userId: profile.userId,
+          name: user?.name ?? null,
+          username: user?.username ?? null,
+          completedHours: profile.completedHours,
+        };
+      })
+      .filter((candidate): candidate is {
+        profileId: string;
+        userId: string;
+        name: string | null;
+        username: string | null;
+        completedHours: number;
+      } => Boolean(candidate))
+      .sort((a, b) => {
+        const aLabel = (a.name?.trim() || a.username || "").toLowerCase();
+        const bLabel = (b.name?.trim() || b.username || "").toLowerCase();
+        return aLabel.localeCompare(bLabel);
+      });
+
+    return {
+      status: "SUCCESS" as const,
+      details: {
+        assignedStudent,
+        candidates,
+      },
+    };
+  }
+
+  static async listStudentLessons(actorUserId: string, weekStartInput?: string) {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const weekStartDate = this.getWeekStartDate(weekStartInput);
+    if (!weekStartDate) return { status: "VALIDATION_ERROR" as const };
+    const weekEndDate = this.getWeekEndDate(weekStartDate);
+
+    const slots = await db.query.timeSlots.findMany({
+      where: and(
+        eq(timeSlots.studentId, studentContext.studentProfileId),
+        gte(timeSlots.startTime, weekStartDate),
+        lt(timeSlots.startTime, weekEndDate),
+      ),
+      orderBy: [asc(timeSlots.startTime)],
+      columns: {
+        id: true,
+        instructorId: true,
+        startTime: true,
+        endTime: true,
+        isDone: true,
+        dayKey: true,
+        slotKey: true,
+      },
+    });
+
+    const sessionStateMap = new Map<string, LessonSessionState>();
+    if (slots.length > 0) {
+      const sessions = await db.query.lessonSessions.findMany({
+        where: inArray(lessonSessions.timeSlotId, slots.map((slot) => slot.id)),
+        columns: { timeSlotId: true, state: true },
+      });
+
+      for (const session of sessions) {
+        sessionStateMap.set(session.timeSlotId, session.state as LessonSessionState);
+      }
+    }
+
+    return {
+      status: "SUCCESS" as const,
+      lessons: slots.map((slot) => ({
+        id: slot.id,
+        instructorId: slot.instructorId,
+        startTime: slot.startTime.toISOString(),
+        endTime: slot.endTime.toISOString(),
+        dayKey: slot.dayKey,
+        slotKey: slot.slotKey,
+        isDone: slot.isDone,
+        state: sessionStateMap.get(slot.id) ?? (slot.isDone ? "COMPLETED" : "PLANNED"),
+      })),
+    };
+  }
+
+  static async issueInstructorLessonStartCode(actorUserId: string, timeSlotId: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const slot = await db.query.timeSlots.findFirst({
+      where: and(
+        eq(timeSlots.id, timeSlotId),
+        eq(timeSlots.instructorId, context.instructorProfileId),
+      ),
+      columns: { id: true, studentId: true, isDone: true, startTime: true, endTime: true },
+    });
+
+    if (!slot) return { status: "LESSON_NOT_FOUND" as const };
+    if (!slot.studentId) return { status: "UNASSIGNED_SLOT" as const };
+    if (slot.isDone) return { status: "INVALID_STATE" as const };
+
+    const currentSession = await db.query.lessonSessions.findFirst({
+      where: eq(lessonSessions.timeSlotId, slot.id),
+      columns: { state: true, startedAt: true },
+    });
+
+    if (currentSession && LESSON_SESSION_ACTIVE_STATES.includes(currentSession.state as LessonSessionState)) {
+      return { status: "INVALID_STATE" as const };
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + LESSON_START_CODE_TTL_MINUTES * 60 * 1000);
+
+    await db
+      .insert(lessonSessions)
+      .values({
+        timeSlotId: slot.id,
+        state: "START_CODE_ISSUED",
+        startCodeHash: this.hashLessonCode(code),
+        startCodeIssuedAt: now,
+        startCodeExpiresAt: expiresAt,
+        startedAt: currentSession?.startedAt ?? null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: lessonSessions.timeSlotId,
+        set: {
+          state: "START_CODE_ISSUED",
+          startCodeHash: this.hashLessonCode(code),
+          startCodeIssuedAt: now,
+          startCodeExpiresAt: expiresAt,
+          updatedAt: now,
+        },
+      });
+
+    const studentProfile = await db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.id, slot.studentId),
+      columns: { userId: true },
+    });
+
+    if (studentProfile?.userId) {
+      await NotificationsService.createForUser({
+        userId: studentProfile.userId,
+        type: "LESSON_START_REQUESTED",
+        metadata: {
+          timeSlotId: slot.id,
+          startTime: slot.startTime.toISOString(),
+          endTime: slot.endTime.toISOString(),
+        },
+      });
+    }
+
+    await this.emitScheduleChanged(context.instructorProfileId, {
+      kind: "LESSON_STATE_UPDATED",
+      timeSlotId: slot.id,
+      weekStartDate: this.getWeekStartDate(slot.startTime)?.toISOString(),
+    });
+
+    return {
+      status: "SUCCESS" as const,
+      verification: {
+        timeSlotId: slot.id,
+        code,
+        expiresAt: expiresAt.toISOString(),
+      },
+    };
+  }
+
+  static async verifyStudentLessonStartCode(actorUserId: string, timeSlotId: string, code: string) {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const slot = await db.query.timeSlots.findFirst({
+      where: and(
+        eq(timeSlots.id, timeSlotId),
+        eq(timeSlots.studentId, studentContext.studentProfileId),
+      ),
+      columns: { id: true, isDone: true, instructorId: true, startTime: true },
+    });
+
+    if (!slot) return { status: "LESSON_NOT_FOUND" as const };
+    if (slot.isDone) return { status: "INVALID_STATE" as const };
+
+    const session = await db.query.lessonSessions.findFirst({
+      where: eq(lessonSessions.timeSlotId, slot.id),
+      columns: {
+        state: true,
+        startCodeHash: true,
+        startCodeExpiresAt: true,
+      },
+    });
+
+    if (!session || session.state !== "START_CODE_ISSUED") return { status: "INVALID_STATE" as const };
+    if (!session.startCodeHash || !session.startCodeExpiresAt || session.startCodeExpiresAt.getTime() < Date.now()) {
+      return { status: "START_CODE_EXPIRED" as const };
+    }
+
+    const providedCodeHash = this.hashLessonCode((code || "").trim());
+    if (providedCodeHash !== session.startCodeHash) return { status: "INVALID_CODE" as const };
+
+    const now = new Date();
+    await db
+      .update(lessonSessions)
+      .set({
+        state: "ACTIVE",
+        startedAt: now,
+        startedByStudentAt: now,
+        updatedAt: now,
+      })
+      .where(eq(lessonSessions.timeSlotId, slot.id));
+
+    await this.emitScheduleChanged(slot.instructorId, {
+      kind: "LESSON_STATE_UPDATED",
+      timeSlotId: slot.id,
+      weekStartDate: this.getWeekStartDate(slot.startTime)?.toISOString(),
+    });
+
+    return { status: "SUCCESS" as const };
+  }
+
+  static async requestInstructorLessonEnd(actorUserId: string, timeSlotId: string) {
+    const context = await this.getInstructorProfileContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const slot = await db.query.timeSlots.findFirst({
+      where: and(
+        eq(timeSlots.id, timeSlotId),
+        eq(timeSlots.instructorId, context.instructorProfileId),
+      ),
+      columns: { id: true, studentId: true, isDone: true, startTime: true },
+    });
+
+    if (!slot) return { status: "LESSON_NOT_FOUND" as const };
+    if (!slot.studentId || slot.isDone) return { status: "INVALID_STATE" as const };
+
+    const session = await db.query.lessonSessions.findFirst({
+      where: eq(lessonSessions.timeSlotId, slot.id),
+      columns: { state: true },
+    });
+
+    if (!session || session.state !== "ACTIVE") return { status: "INVALID_STATE" as const };
+
+    const now = new Date();
+    await db
+      .update(lessonSessions)
+      .set({
+        state: "END_REQUESTED",
+        endRequestedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(lessonSessions.timeSlotId, slot.id));
+
+    await this.emitScheduleChanged(context.instructorProfileId, {
+      kind: "LESSON_STATE_UPDATED",
+      timeSlotId: slot.id,
+      weekStartDate: this.getWeekStartDate(slot.startTime)?.toISOString(),
+    });
+
+    return { status: "SUCCESS" as const };
+  }
+
+  static async confirmStudentLessonEnd(actorUserId: string, timeSlotId: string) {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const slot = await db.query.timeSlots.findFirst({
+      where: and(
+        eq(timeSlots.id, timeSlotId),
+        eq(timeSlots.studentId, studentContext.studentProfileId),
+      ),
+      columns: { id: true, instructorId: true, startTime: true, endTime: true, isDone: true },
+    });
+
+    if (!slot) return { status: "LESSON_NOT_FOUND" as const };
+    if (slot.isDone) return { status: "INVALID_STATE" as const };
+
+    const session = await db.query.lessonSessions.findFirst({
+      where: eq(lessonSessions.timeSlotId, slot.id),
+      columns: { state: true },
+    });
+
+    if (!session || session.state !== "END_REQUESTED") return { status: "INVALID_STATE" as const };
+
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lessonSessions)
+        .set({
+          state: "COMPLETED",
+          endedByStudentAt: now,
+          endedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(lessonSessions.timeSlotId, slot.id));
+
+      await tx
+        .update(timeSlots)
+        .set({ isDone: true })
+        .where(eq(timeSlots.id, slot.id));
+
+      const existingLesson = await tx.query.studentLessons.findFirst({
+        where: and(
+          eq(studentLessons.studentProfileId, studentContext.studentProfileId),
+          eq(studentLessons.startTime, slot.startTime),
+          eq(studentLessons.endTime, slot.endTime),
+        ),
+        columns: { id: true },
+      });
+
+      if (!existingLesson) {
+        await tx
+          .insert(studentLessons)
+          .values({
+            studentProfileId: studentContext.studentProfileId,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            completedAt: now,
+          });
+      }
+    });
+
+    await this.emitScheduleChanged(slot.instructorId, {
+      kind: "LESSON_STATE_UPDATED",
+      timeSlotId: slot.id,
+      weekStartDate: this.getWeekStartDate(slot.startTime)?.toISOString(),
+    });
+
+    return { status: "SUCCESS" as const };
   }
 }

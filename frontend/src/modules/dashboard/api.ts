@@ -80,6 +80,21 @@ export interface SchoolPerson {
   studentInstructorUserId: string | null
 }
 
+export interface InstructorStudent {
+  id: string
+  username: string
+  email: string | null
+  name: string | null
+  createdAt: string
+  completedHours: number
+}
+
+export interface InstructorStudentsResponse {
+  students: InstructorStudent[]
+  totalStudents: number
+  maxStudents: number
+}
+
 export interface InstructorDaySchedule {
   enabled: boolean
   startTime: string
@@ -97,6 +112,103 @@ export interface InstructorSchedule {
     saturday: InstructorDaySchedule
     sunday: InstructorDaySchedule
   }
+}
+
+export type DayKey = keyof InstructorSchedule['days']
+
+export interface ScheduleBlueprintSlot {
+  key: string
+  startTime: string
+  endTime: string
+}
+
+export type ScheduleSlotBlueprint = Record<DayKey, ScheduleBlueprintSlot[]>
+
+export type ScheduleCycleStatus =
+  | 'DRAFT'
+  | 'SENT_TO_STUDENTS'
+  | 'COLLECTING_RESPONSES'
+  | 'READY_TO_ALLOCATE'
+  | 'ALLOCATED'
+  | 'PUBLISHED'
+
+export type LessonSessionState =
+  | 'PLANNED'
+  | 'START_CODE_ISSUED'
+  | 'ACTIVE'
+  | 'END_REQUESTED'
+  | 'COMPLETED'
+
+export interface InstructorScheduleCycle {
+  id: string
+  status: ScheduleCycleStatus
+  weekStartDate: string
+  days: InstructorSchedule['days']
+  slotBlueprint: ScheduleSlotBlueprint
+  sentAt: string | null
+  allocationStartedAt: string | null
+  allocationCompletedAt: string | null
+  publishedAt: string | null
+}
+
+export interface InstructorScheduleWorkflow {
+  cycle: InstructorScheduleCycle | null
+  expectedReplies: number
+  repliesReceived: number
+  allocatedSlots: number
+  weekStartDate: string
+}
+
+export interface StudentScheduleCycle {
+  cycle: {
+    id: string
+    status: ScheduleCycleStatus
+    weekStartDate: string
+    sentAt: string | null
+  }
+  days: InstructorSchedule['days']
+  slotBlueprint: ScheduleSlotBlueprint
+  reply: {
+    unavailableSlotKeys: Record<DayKey, string[]>
+    submittedAt: string | null
+  }
+  assignedSlots: Array<{
+    id: string
+    startTime: string
+    endTime: string
+    dayKey: string | null
+    slotKey: string | null
+    isDone: boolean
+    state: LessonSessionState
+  }>
+}
+
+export interface LessonListItem {
+  id: string
+  startTime: string
+  endTime: string
+  dayKey: string | null
+  slotKey: string | null
+  isDone: boolean
+  state: LessonSessionState
+  studentId?: string | null
+  studentUserId?: string | null
+  studentName?: string | null
+  studentUsername?: string | null
+  instructorId?: string | null
+}
+
+export interface LessonCandidateStudent {
+  profileId: string
+  userId: string
+  name: string | null
+  username: string | null
+  completedHours?: number
+}
+
+export interface LessonCandidatesDetails {
+  assignedStudent: LessonCandidateStudent | null
+  candidates: LessonCandidateStudent[]
 }
 
 export interface SchoolPersonPayload {
@@ -243,4 +355,224 @@ export async function saveInstructorSchedule(schedule: InstructorSchedule) {
 
   const data = await response.json() as { schedule?: InstructorSchedule | null }
   return data.schedule ?? null
+}
+
+export async function fetchInstructorStudents() {
+  const response = await fetch('/api/dashboard/instructor/students', {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch students: ${response.status}`)
+  }
+
+  const data = await response.json() as InstructorStudentsResponse
+  return data
+}
+
+export async function fetchInstructorScheduleWorkflow(weekStartDate?: string) {
+  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
+  const response = await fetch(`/api/dashboard/instructor/schedule/workflow${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch schedule workflow: ${response.status}`)
+  }
+
+  const data = await response.json() as { workflow: InstructorScheduleWorkflow }
+  return data.workflow
+}
+
+export async function sendInstructorScheduleToStudents(payload: {
+  weekStartDate?: string
+  days: InstructorSchedule['days']
+  slotBlueprint: ScheduleSlotBlueprint
+}) {
+  const response = await fetch('/api/dashboard/instructor/schedule/send', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to send schedule to students: ${response.status}`)
+  }
+
+  const data = await response.json() as { workflow: InstructorScheduleWorkflow | null }
+  return data.workflow
+}
+
+export async function allocateInstructorSchedule(cycleId?: string) {
+  const response = await fetch('/api/dashboard/instructor/schedule/allocate', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ cycleId }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to allocate schedule: ${response.status}`)
+  }
+
+  const data = await response.json() as {
+    allocation: {
+      cycleId: string
+      totalSlots: number
+      assignedSlots: number
+      unassignedSlots: number
+    }
+  }
+  return data.allocation
+}
+
+export async function fetchInstructorLessons(weekStartDate?: string) {
+  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
+  const response = await fetch(`/api/dashboard/instructor/lessons${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch instructor lessons: ${response.status}`)
+  }
+
+  const data = await response.json() as { lessons: LessonListItem[] }
+  return data.lessons
+}
+
+export async function issueInstructorLessonStartCode(timeSlotId: string) {
+  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/start-code`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to issue start code: ${response.status}`)
+  }
+
+  const data = await response.json() as { timeSlotId: string; code: string; expiresAt: string }
+  return data
+}
+
+export async function requestInstructorLessonEnd(timeSlotId: string) {
+  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/request-end`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to request lesson end: ${response.status}`)
+  }
+
+  return response.json() as Promise<{ message: string }>
+}
+
+export async function fetchInstructorLessonCandidates(timeSlotId: string) {
+  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/candidates`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lesson candidates: ${response.status}`)
+  }
+
+  const data = await response.json() as { details: LessonCandidatesDetails }
+  return data.details
+}
+
+export async function fetchStudentScheduleCycle(weekStartDate?: string) {
+  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
+  const response = await fetch(`/api/dashboard/student/schedule${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch student schedule cycle: ${response.status}`)
+  }
+
+  const data = await response.json() as { schedule: StudentScheduleCycle | null }
+  return data.schedule
+}
+
+export async function submitStudentScheduleAvailability(payload: {
+  cycleId: string
+  unavailableSlotKeys: Record<DayKey, string[]>
+}) {
+  const response = await fetch('/api/dashboard/student/schedule/availability', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to submit student availability: ${response.status}`)
+  }
+
+  const data = await response.json() as {
+    summary: {
+      cycleId: string
+      status: ScheduleCycleStatus
+      repliesReceived: number
+      expectedReplies: number
+    }
+  }
+  return data.summary
+}
+
+export async function fetchStudentLessons(weekStartDate?: string) {
+  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
+  const response = await fetch(`/api/dashboard/student/lessons${search}`, {
+    method: 'GET',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch student lessons: ${response.status}`)
+  }
+
+  const data = await response.json() as { lessons: LessonListItem[] }
+  return data.lessons
+}
+
+export async function verifyStudentLessonStartCode(timeSlotId: string, code: string) {
+  const response = await fetch(`/api/dashboard/student/lessons/${timeSlotId}/verify-start-code`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to verify lesson start code: ${response.status}`)
+  }
+
+  return response.json() as Promise<{ message: string }>
+}
+
+export async function confirmStudentLessonEnd(timeSlotId: string) {
+  const response = await fetch(`/api/dashboard/student/lessons/${timeSlotId}/confirm-end`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to confirm lesson end: ${response.status}`)
+  }
+
+  return response.json() as Promise<{ message: string }>
 }

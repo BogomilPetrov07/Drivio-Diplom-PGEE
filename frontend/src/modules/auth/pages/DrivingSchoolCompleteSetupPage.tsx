@@ -173,37 +173,74 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
 
   if (isLoadingSession) {
     return (
-      <main className="min-h-screen bg-base-200 px-4 py-24">
-        <section className="mx-auto w-full max-w-3xl rounded-2xl border border-base-300 bg-base-100 p-8 shadow-xl">
-          <div className="skeleton h-10 w-80" />
-          <div className="mt-4 skeleton h-5 w-full" />
-          <div className="mt-2 skeleton h-5 w-2/3" />
+      <main className="min-h-screen bg-base-200/60 px-4 py-14 sm:py-20">
+        <section className="mx-auto w-full max-w-5xl rounded-3xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.8)] sm:p-8">
+          <div className="skeleton h-10 w-96 max-w-full rounded-xl" />
+          <div className="mt-4 skeleton h-5 w-full rounded-lg" />
+          <div className="mt-2 skeleton h-5 w-2/3 rounded-lg" />
+          <div className="mt-6 skeleton h-28 w-full rounded-2xl" />
         </section>
       </main>
     )
   }
 
+  const stepLabels = [labels.step1, labels.step2, labels.step3]
+
   return (
-    <main className="min-h-screen bg-base-200 px-4 py-24">
-      <section className="mx-auto w-full max-w-3xl rounded-2xl border border-primary/20 bg-gradient-to-b from-base-100 to-base-200 p-8 shadow-xl">
-        <h1 className="text-3xl font-bold text-base-content">{labels.title}</h1>
-        <p className="mt-2 text-base-content/70">{labels.subtitle}</p>
+    <main className="min-h-screen bg-base-200/60 px-4 py-14 sm:py-20">
+      <section className="mx-auto w-full max-w-5xl rounded-3xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/70 p-6 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.8)] sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-base-content sm:text-5xl">{labels.title}</h1>
+            <p className="mt-3 max-w-2xl text-base text-base-content/70 sm:text-lg">{labels.subtitle}</p>
+          </div>
+          <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-primary">
+            Drivio Setup
+          </div>
+        </div>
 
         {sessionInfo ? (
-          <div className="mt-4 rounded-xl border border-base-300 bg-base-100/80 p-4 text-sm">
-            <p><span className="font-semibold">{labels.tokenHint}</span> {new Date(sessionInfo.token.expiresAt).toLocaleString()}</p>
-            <p className="mt-1"><span className="font-semibold">{labels.tokenUses}</span> {sessionInfo.token.remainingUses}/{sessionInfo.token.maxUses}</p>
+          <div className="mt-6 grid gap-3 rounded-2xl border border-base-300/80 bg-base-100/85 p-4 sm:grid-cols-2 sm:p-5">
+            <article className="rounded-xl border border-base-300/70 bg-base-100/90 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-base-content/55">{labels.tokenHint}</p>
+              <p className="mt-1 text-sm font-semibold text-base-content">{new Date(sessionInfo.token.expiresAt).toLocaleString()}</p>
+            </article>
+            <article className="rounded-xl border border-base-300/70 bg-base-100/90 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-base-content/55">{labels.tokenUses}</p>
+              <p className="mt-1 text-sm font-semibold text-base-content">{sessionInfo.token.remainingUses}/{sessionInfo.token.maxUses}</p>
+            </article>
           </div>
         ) : null}
 
-        <div className="mt-6 flex flex-wrap gap-2 text-sm">
-          <span className={`rounded-full px-3 py-1 ${step === 1 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/70'}`}>{labels.step1}</span>
-          <span className={`rounded-full px-3 py-1 ${step === 2 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/70'}`}>{labels.step2}</span>
-          <span className={`rounded-full px-3 py-1 ${step === 3 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/70'}`}>{labels.step3}</span>
+        <div className="mt-6">
+          <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-base-300/70">
+            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(step / 3) * 100}%` }} />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {stepLabels.map((item, index) => {
+              const stepNumber = index + 1
+              const isActive = stepNumber === step
+              const isDone = stepNumber < step
+              return (
+                <div
+                  key={item}
+                  className={`rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'border-primary/40 bg-primary/15 text-primary'
+                      : isDone
+                        ? 'border-success/30 bg-success/10 text-success'
+                        : 'border-base-300/80 bg-base-100/70 text-base-content/70'
+                  }`}
+                >
+                  {item}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         <form
-          className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2"
+          className="mt-6 grid grid-cols-1 gap-4 rounded-2xl border border-base-300/80 bg-base-100/85 p-4 md:grid-cols-2 md:p-5"
           onSubmit={(event) => void handleSubmit(event)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && step < 3) {
@@ -214,16 +251,16 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
           {step === 1 ? (
             <>
               <label className="form-control md:col-span-2">
-                <span className="label-text">{labels.schoolName}</span>
-                <input className="input input-bordered" required value={formData.schoolName} onChange={(event) => handleChange('schoolName', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolName}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolName} onChange={(event) => handleChange('schoolName', event.target.value)} />
               </label>
               <label className="form-control md:col-span-2">
-                <span className="label-text">{labels.schoolAddress}</span>
-                <input className="input input-bordered" required value={formData.schoolAddress} onChange={(event) => handleChange('schoolAddress', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolAddress}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolAddress} onChange={(event) => handleChange('schoolAddress', event.target.value)} />
               </label>
               <label className="form-control">
-                <span className="label-text">{labels.schoolPhone}</span>
-                <input className="input input-bordered" required value={formData.schoolPhone} onChange={(event) => handleChange('schoolPhone', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolPhone}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolPhone} onChange={(event) => handleChange('schoolPhone', event.target.value)} />
               </label>
             </>
           ) : null}
@@ -231,26 +268,26 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
           {step === 2 ? (
             <>
               <label className="form-control">
-                <span className="label-text">{labels.name}</span>
-                <input className="input input-bordered" required value={formData.name} onChange={(event) => handleChange('name', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.name}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.name} onChange={(event) => handleChange('name', event.target.value)} />
               </label>
               <label className="form-control">
-                <span className="label-text">{labels.email}</span>
-                <input type="email" className="input input-bordered" required value={formData.email} onChange={(event) => handleChange('email', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.email}</span>
+                <input type="email" className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.email} onChange={(event) => handleChange('email', event.target.value)} />
               </label>
               <label className="form-control">
-                <span className="label-text">{labels.phone}</span>
-                <input className="input input-bordered" value={formData.phone} onChange={(event) => handleChange('phone', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.phone}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" value={formData.phone} onChange={(event) => handleChange('phone', event.target.value)} />
               </label>
               <label className="form-control">
-                <span className="label-text">{labels.username}</span>
-                <input className="input input-bordered" required value={formData.username} onChange={(event) => handleChange('username', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.username}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.username} onChange={(event) => handleChange('username', event.target.value)} />
               </label>
               <label className="form-control md:col-span-2">
-                <span className="label-text">{labels.password}</span>
-                <input type="password" className="input input-bordered" required value={formData.password} onChange={(event) => handleChange('password', event.target.value)} />
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.password}</span>
+                <input type="password" className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.password} onChange={(event) => handleChange('password', event.target.value)} />
               </label>
-              <label className="label cursor-pointer md:col-span-2 justify-start gap-3 rounded-lg border border-base-300 bg-base-100 p-3">
+              <label className="label cursor-pointer md:col-span-2 justify-start gap-3 rounded-xl border border-base-300/80 bg-base-100 p-3">
                 <input
                   type="checkbox"
                   className="checkbox checkbox-primary"
@@ -263,39 +300,41 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
           ) : null}
 
           {step === 3 ? (
-            <div className="md:col-span-2 rounded-xl border border-base-300 bg-base-100 p-4 text-sm">
-              <p className="mb-3 font-semibold">{labels.reviewTitle}</p>
-              <p><span className="font-semibold">{labels.schoolName}:</span> {formData.schoolName}</p>
-              <p><span className="font-semibold">{labels.schoolAddress}:</span> {formData.schoolAddress}</p>
-              <p><span className="font-semibold">{labels.schoolPhone}:</span> {formData.schoolPhone}</p>
-              <p><span className="font-semibold">{labels.name}:</span> {formData.name}</p>
-              <p><span className="font-semibold">{labels.email}:</span> {formData.email}</p>
-              <p><span className="font-semibold">{labels.phone}:</span> {formData.phone || '-'}</p>
-              <p><span className="font-semibold">{labels.username}:</span> {formData.username}</p>
-              <p><span className="font-semibold">{labels.instructor}:</span> {formData.wantsInstructorPrivileges ? labels.yes : labels.no}</p>
+            <div className="md:col-span-2 rounded-2xl border border-base-300/80 bg-base-100 p-4 text-sm">
+              <p className="mb-4 text-base font-semibold">{labels.reviewTitle}</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolName}:</span> {formData.schoolName}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolAddress}:</span> {formData.schoolAddress}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolPhone}:</span> {formData.schoolPhone}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.name}:</span> {formData.name}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.email}:</span> {formData.email}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.phone}:</span> {formData.phone || '-'}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.username}:</span> {formData.username}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.instructor}:</span> {formData.wantsInstructorPrivileges ? labels.yes : labels.no}</p>
+              </div>
             </div>
           ) : null}
 
-          <div className="md:col-span-2 mt-2 flex gap-2">
+          <div className="md:col-span-2 mt-2 flex flex-wrap items-center gap-2 border-t border-base-300/70 pt-3">
             {step > 1 ? (
-              <button type="button" className="btn btn-outline" onClick={() => setStep((prev) => Math.max(prev - 1, 1))}>
+              <button type="button" className="btn btn-outline rounded-xl px-5" onClick={() => setStep((prev) => Math.max(prev - 1, 1))}>
                 {labels.back}
               </button>
             ) : null}
             {step < 3 ? (
-              <button type="button" className="btn btn-primary" onClick={goNext}>
+              <button type="button" className="btn btn-primary rounded-xl px-6" onClick={goNext}>
                 {labels.next}
               </button>
             ) : (
-              <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+              <button type="submit" className="btn btn-primary rounded-xl px-6" disabled={isSubmitting}>
                 {isSubmitting ? labels.submitting : labels.submit}
               </button>
             )}
           </div>
         </form>
 
-        {success ? <p className="mt-4 text-success">{success}</p> : null}
-        {error ? <p className="mt-4 text-error">{error}</p> : null}
+        {success ? <div className="mt-4 rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-success">{success}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-error/40 bg-error/10 px-4 py-3 text-error">{error}</div> : null}
       </section>
     </main>
   )

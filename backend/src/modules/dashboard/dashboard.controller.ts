@@ -1,8 +1,22 @@
 import { Request, Response } from "express";
 import { DashboardService } from "./dashboard.service.js";
-import type { InstructorSchedulePayload, SchoolPersonInput } from "./dashboard.types.js";
+import type {
+  InstructorSchedulePayload,
+  SchoolPersonInput,
+  SendInstructorSchedulePayload,
+  StudentAvailabilityPayload,
+} from "./dashboard.types.js";
 
 export class DashboardController {
+  static getInstructorStudents = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+
+    const result = await DashboardService.listInstructorStudents(req.user.id);
+    if (result === null) return res.status(404).json({ message: "Instructor profile not found" });
+
+    return res.json(result);
+  };
+
   static getInstructorSchedule = async (req: Request, res: Response) => {
     if (!req.user) return res.sendStatus(401);
 
@@ -19,6 +33,120 @@ export class DashboardController {
     if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
     if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid schedule payload" });
     return res.json({ schedule: result.schedule });
+  };
+
+  static getInstructorScheduleWorkflow = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+
+    const result = await DashboardService.getInstructorScheduleWorkflow(req.user.id, String(req.query.weekStartDate ?? ""));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid weekStartDate" });
+    return res.json({ workflow: result.workflow });
+  };
+
+  static sendInstructorScheduleToStudents = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+
+    const result = await DashboardService.sendInstructorScheduleToStudents(req.user.id, req.body as SendInstructorSchedulePayload);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid schedule send payload" });
+    return res.json({ workflow: result.workflow });
+  };
+
+  static allocateInstructorSchedule = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const cycleId = typeof req.body?.cycleId === "string" ? req.body.cycleId : undefined;
+    const result = await DashboardService.allocateInstructorSchedule(req.user.id, cycleId);
+
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "CYCLE_NOT_FOUND") return res.status(404).json({ message: "Schedule cycle not found" });
+    if (result.status === "NO_ACTIVE_STUDENTS") return res.status(400).json({ message: "No active students to allocate" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid allocation payload" });
+    return res.json({ allocation: result.allocation });
+  };
+
+  static listInstructorLessons = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.listInstructorLessons(req.user.id, String(req.query.weekStartDate ?? ""));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid weekStartDate" });
+    return res.json({ lessons: result.lessons });
+  };
+
+  static getInstructorLessonCandidates = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.getInstructorLessonCandidates(req.user.id, String(req.params.timeSlotId));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
+    return res.json({ details: result.details });
+  };
+
+  static issueInstructorLessonStartCode = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.issueInstructorLessonStartCode(req.user.id, String(req.params.timeSlotId));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
+    if (result.status === "UNASSIGNED_SLOT") return res.status(400).json({ message: "Lesson slot is not assigned to a student" });
+    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson is already active or completed" });
+    return res.json(result.verification);
+  };
+
+  static requestInstructorLessonEnd = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.requestInstructorLessonEnd(req.user.id, String(req.params.timeSlotId));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
+    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
+    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson is not in active state" });
+    return res.json({ message: "End confirmation requested from student" });
+  };
+
+  static getStudentScheduleCycle = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.fetchStudentScheduleCycle(req.user.id, String(req.query.weekStartDate ?? ""));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid weekStartDate" });
+    if (result.status === "EMPTY") return res.json({ schedule: null });
+    return res.json({ schedule: result.schedule });
+  };
+
+  static submitStudentScheduleAvailability = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.submitStudentScheduleAvailability(req.user.id, req.body as StudentAvailabilityPayload);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    if (result.status === "CYCLE_NOT_FOUND") return res.status(404).json({ message: "Schedule cycle not found" });
+    if (result.status === "FORBIDDEN") return res.status(403).json({ message: "You cannot respond to this cycle" });
+    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Cycle is not accepting responses" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid availability payload" });
+    return res.json({ summary: result.summary });
+  };
+
+  static listStudentLessons = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.listStudentLessons(req.user.id, String(req.query.weekStartDate ?? ""));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid weekStartDate" });
+    return res.json({ lessons: result.lessons });
+  };
+
+  static verifyStudentLessonStartCode = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const code = typeof req.body?.code === "string" ? req.body.code : "";
+    const result = await DashboardService.verifyStudentLessonStartCode(req.user.id, String(req.params.timeSlotId), code);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
+    if (result.status === "START_CODE_EXPIRED") return res.status(409).json({ message: "Start code has expired" });
+    if (result.status === "INVALID_CODE") return res.status(400).json({ message: "Invalid start code" });
+    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson cannot be started from current state" });
+    return res.json({ message: "Lesson started successfully" });
+  };
+
+  static confirmStudentLessonEnd = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.confirmStudentLessonEnd(req.user.id, String(req.params.timeSlotId));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
+    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson cannot be completed from current state" });
+    return res.json({ message: "Lesson completed successfully" });
   };
 
   static getSchoolDetails = async (req: Request, res: Response) => {
