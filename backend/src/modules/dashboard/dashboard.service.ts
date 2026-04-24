@@ -48,9 +48,92 @@ const DAY_KEYS: InstructorScheduleDayKey[] = [
 const MAX_INSTRUCTOR_STUDENTS = 12;
 const REQUIRED_HOURS = 31;
 const LESSON_START_CODE_TTL_MINUTES = 10;
-const LESSON_SESSION_ACTIVE_STATES: LessonSessionState[] = ["ACTIVE", "END_REQUESTED", "COMPLETED"];
+const LESSON_SESSION_ACTIVE_STATES: LessonSessionState[] = ["ACTIVE", "FAILED", "COMPLETED"];
 
 export class DashboardService {
+  private static async autoCompleteElapsedLessons(
+    slots: Array<{
+      id: string;
+      instructorId: string;
+      studentId: string | null;
+      startTime: Date;
+      endTime: Date;
+      isDone: boolean;
+    }>,
+  ) {
+    const now = new Date();
+    const overdueSlots = slots.filter((slot) => !slot.isDone && slot.endTime.getTime() <= now.getTime());
+    if (overdueSlots.length === 0) return false;
+
+    const overdueSlotIds = overdueSlots.map((slot) => slot.id);
+    const sessions = await db.query.lessonSessions.findMany({
+      where: inArray(lessonSessions.timeSlotId, overdueSlotIds),
+      columns: { timeSlotId: true, state: true },
+    });
+    const completableSessionSlotIds = sessions
+      .filter((session) => session.state === "ACTIVE" || session.state === "END_REQUESTED")
+      .map((session) => session.timeSlotId);
+
+    if (completableSessionSlotIds.length === 0) return false;
+
+    const slotById = new Map(overdueSlots.map((slot) => [slot.id, slot] as const));
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lessonSessions)
+        .set({
+          state: "COMPLETED",
+          endedAt: now,
+          updatedAt: now,
+        })
+        .where(inArray(lessonSessions.timeSlotId, completableSessionSlotIds));
+
+      await tx
+        .update(timeSlots)
+        .set({ isDone: true })
+        .where(inArray(timeSlots.id, completableSessionSlotIds));
+
+      for (const slotId of completableSessionSlotIds) {
+        const slot = slotById.get(slotId);
+        if (!slot?.studentId) continue;
+
+        const existingLesson = await tx.query.studentLessons.findFirst({
+          where: and(
+            eq(studentLessons.studentProfileId, slot.studentId),
+            eq(studentLessons.startTime, slot.startTime),
+            eq(studentLessons.endTime, slot.endTime),
+          ),
+          columns: { id: true },
+        });
+
+        if (!existingLesson) {
+          await tx
+            .insert(studentLessons)
+            .values({
+              studentProfileId: slot.studentId,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              completedAt: now,
+            });
+        }
+      }
+    });
+
+    const affectedInstructorIds = Array.from(new Set(
+      completableSessionSlotIds
+        .map((slotId) => slotById.get(slotId)?.instructorId)
+        .filter((instructorId): instructorId is string => Boolean(instructorId)),
+    ));
+
+    await Promise.all(
+      affectedInstructorIds.map((instructorId) =>
+        this.emitScheduleChanged(instructorId, { kind: "LESSON_STATE_UPDATED" }),
+      ),
+    );
+
+    return true;
+  }
+
   private static sanitizeUsernameBase(value: string) {
     const base = value
       .toLowerCase()
@@ -753,6 +836,7 @@ export class DashboardService {
     const studentRows = await db.query.studentProfiles.findMany({
       where: eq(studentProfiles.instructorId, context.instructorProfileId),
       columns: {
+        id: true,
         userId: true,
         completedHours: true,
       },
@@ -780,18 +864,40 @@ export class DashboardService {
     });
 
     const studentUserById = new Map(studentUsers.map((row) => [row.id, row] as const));
+    const profileIds = studentRows.map((row) => row.id);
+
+    const completedLessons =
+      profileIds.length > 0
+        ? await db.query.studentLessons.findMany({
+          where: inArray(studentLessons.studentProfileId, profileIds),
+          columns: {
+            studentProfileId: true,
+            startTime: true,
+            endTime: true,
+          },
+        })
+        : [];
+
+    const completedHoursByProfileId = new Map<string, number>();
+    for (const lesson of completedLessons) {
+      const durationMs = lesson.endTime.getTime() - lesson.startTime.getTime();
+      const durationHours = Math.max(0, durationMs / (1000 * 60 * 60));
+      const current = completedHoursByProfileId.get(lesson.studentProfileId) ?? 0;
+      completedHoursByProfileId.set(lesson.studentProfileId, current + durationHours);
+    }
 
     const mappedStudents: InstructorStudentListItem[] = studentRows
       .map((row) => {
         const user = studentUserById.get(row.userId);
         if (!user) return null;
+        const computedCompletedHours = Math.round(completedHoursByProfileId.get(row.id) ?? row.completedHours ?? 0);
         return {
           id: user.id,
           username: user.username,
           email: user.email,
           name: user.name,
           createdAt: user.createdAt.toISOString(),
-          completedHours: row.completedHours,
+          completedHours: computedCompletedHours,
         };
       })
       .filter((row): row is InstructorStudentListItem => Boolean(row))
@@ -1583,7 +1689,7 @@ export class DashboardService {
     };
   }
 
-  static async listInstructorLessons(actorUserId: string, weekStartInput?: string) {
+  static async listInstructorLessons(actorUserId: string, weekStartInput?: string): Promise<any> {
     const context = await this.getInstructorProfileContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
 
@@ -1608,6 +1714,20 @@ export class DashboardService {
         slotKey: true,
       },
     });
+
+    if (slots.length > 0) {
+      const updated = await this.autoCompleteElapsedLessons(slots.map((slot) => ({
+        id: slot.id,
+        instructorId: context.instructorProfileId,
+        studentId: slot.studentId ?? null,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isDone: slot.isDone,
+      })));
+      if (updated) {
+        return this.listInstructorLessons(actorUserId, weekStartInput);
+      }
+    }
 
     const sessionStateMap = new Map<string, LessonSessionState>();
     if (slots.length > 0) {
@@ -1771,7 +1891,7 @@ export class DashboardService {
     };
   }
 
-  static async listStudentLessons(actorUserId: string, weekStartInput?: string) {
+  static async listStudentLessons(actorUserId: string, weekStartInput?: string): Promise<any> {
     const studentContext = await this.getStudentProfileContext(actorUserId);
     if (!studentContext) return { status: "NOT_FOUND" as const };
 
@@ -1796,6 +1916,20 @@ export class DashboardService {
         slotKey: true,
       },
     });
+
+    if (slots.length > 0) {
+      const updated = await this.autoCompleteElapsedLessons(slots.map((slot) => ({
+        id: slot.id,
+        instructorId: slot.instructorId,
+        studentId: studentContext.studentProfileId,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        isDone: slot.isDone,
+      })));
+      if (updated) {
+        return this.listStudentLessons(actorUserId, weekStartInput);
+      }
+    }
 
     const sessionStateMap = new Map<string, LessonSessionState>();
     if (slots.length > 0) {
@@ -1960,7 +2094,7 @@ export class DashboardService {
     return { status: "SUCCESS" as const };
   }
 
-  static async requestInstructorLessonEnd(actorUserId: string, timeSlotId: string) {
+  static async markInstructorLessonFailed(actorUserId: string, timeSlotId: string) {
     const context = await this.getInstructorProfileContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
 
@@ -1983,14 +2117,21 @@ export class DashboardService {
     if (!session || session.state !== "ACTIVE") return { status: "INVALID_STATE" as const };
 
     const now = new Date();
-    await db
-      .update(lessonSessions)
-      .set({
-        state: "END_REQUESTED",
-        endRequestedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(lessonSessions.timeSlotId, slot.id));
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lessonSessions)
+        .set({
+          state: "FAILED",
+          endedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(lessonSessions.timeSlotId, slot.id));
+
+      await tx
+        .update(timeSlots)
+        .set({ isDone: true })
+        .where(eq(timeSlots.id, slot.id));
+    });
 
     await this.emitScheduleChanged(context.instructorProfileId, {
       kind: "LESSON_STATE_UPDATED",
@@ -2001,73 +2142,4 @@ export class DashboardService {
     return { status: "SUCCESS" as const };
   }
 
-  static async confirmStudentLessonEnd(actorUserId: string, timeSlotId: string) {
-    const studentContext = await this.getStudentProfileContext(actorUserId);
-    if (!studentContext) return { status: "NOT_FOUND" as const };
-
-    const slot = await db.query.timeSlots.findFirst({
-      where: and(
-        eq(timeSlots.id, timeSlotId),
-        eq(timeSlots.studentId, studentContext.studentProfileId),
-      ),
-      columns: { id: true, instructorId: true, startTime: true, endTime: true, isDone: true },
-    });
-
-    if (!slot) return { status: "LESSON_NOT_FOUND" as const };
-    if (slot.isDone) return { status: "INVALID_STATE" as const };
-
-    const session = await db.query.lessonSessions.findFirst({
-      where: eq(lessonSessions.timeSlotId, slot.id),
-      columns: { state: true },
-    });
-
-    if (!session || session.state !== "END_REQUESTED") return { status: "INVALID_STATE" as const };
-
-    const now = new Date();
-
-    await db.transaction(async (tx) => {
-      await tx
-        .update(lessonSessions)
-        .set({
-          state: "COMPLETED",
-          endedByStudentAt: now,
-          endedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(lessonSessions.timeSlotId, slot.id));
-
-      await tx
-        .update(timeSlots)
-        .set({ isDone: true })
-        .where(eq(timeSlots.id, slot.id));
-
-      const existingLesson = await tx.query.studentLessons.findFirst({
-        where: and(
-          eq(studentLessons.studentProfileId, studentContext.studentProfileId),
-          eq(studentLessons.startTime, slot.startTime),
-          eq(studentLessons.endTime, slot.endTime),
-        ),
-        columns: { id: true },
-      });
-
-      if (!existingLesson) {
-        await tx
-          .insert(studentLessons)
-          .values({
-            studentProfileId: studentContext.studentProfileId,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            completedAt: now,
-          });
-      }
-    });
-
-    await this.emitScheduleChanged(slot.instructorId, {
-      kind: "LESSON_STATE_UPDATED",
-      timeSlotId: slot.id,
-      weekStartDate: this.getWeekStartDate(slot.startTime)?.toISOString(),
-    });
-
-    return { status: "SUCCESS" as const };
-  }
 }

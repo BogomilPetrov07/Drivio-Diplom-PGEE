@@ -62,7 +62,7 @@ export type LessonSessionState =
   | "PLANNED"
   | "START_CODE_ISSUED"
   | "ACTIVE"
-  | "END_REQUESTED"
+  | "FAILED"
   | "COMPLETED";
 
 export interface ScheduleBlueprintSlot {

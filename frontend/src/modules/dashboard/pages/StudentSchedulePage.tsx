@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send, ShieldCheck } from 'lucide-react'
+import { CalendarDays, CalendarX2, CheckCircle2, CircleAlert, CircleCheck, Loader2, Pause, Play, Send, ShieldCheck, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import type { Language } from '../../../i18n/language'
 import {
-  confirmStudentLessonEnd,
   fetchStudentLessons,
   fetchStudentScheduleCycle,
   submitStudentScheduleAvailability,
@@ -17,6 +16,14 @@ import { getRealtimeSocket } from '../realtime'
 import { addDays, formatWeekRange, getStartOfWeek } from './instructor-schedule/week'
 
 interface Props { language: Language }
+type LessonActionModal =
+  | { lessonId: string; mode: 'start' }
+type ToastKind = 'success' | 'error'
+type ToastItem = {
+  id: number
+  kind: ToastKind
+  message: string
+}
 
 const DAY_KEYS: DayKey[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const AVAILABILITY_EDITABLE_STATUSES = new Set(['SENT_TO_STUDENTS', 'COLLECTING_RESPONSES', 'READY_TO_ALLOCATE'])
@@ -58,13 +65,9 @@ export default function StudentSchedulePage({ language }: Props) {
       startCodePlaceholder: '\u0412\u044a\u0432\u0435\u0434\u0438 6-\u0446\u0438\u0444\u0440\u0435\u043d \u043a\u043e\u0434',
       verifyCode: '\u041f\u043e\u0442\u0432\u044a\u0440\u0434\u0438 \u043d\u0430\u0447\u0430\u043b\u043e',
       verifyingCode: '\u041f\u043e\u0442\u0432\u044a\u0440\u0436\u0434\u0430\u0432\u0430\u043d\u0435...',
-      confirmEnd: '\u041f\u043e\u0442\u0432\u044a\u0440\u0434\u0438 \u043a\u0440\u0430\u0439',
-      confirmingEnd: '\u041f\u043e\u0442\u0432\u044a\u0440\u0436\u0434\u0430\u0432\u0430\u043d\u0435...',
       startCodeRequired: '\u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 \u043a\u043e\u0434\u0430, \u043a\u043e\u0439\u0442\u043e \u043f\u043e\u043b\u0443\u0447\u0438\u0445\u0442\u0435 \u043e\u0442 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440\u0430.',
       verifyFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u043f\u043e\u0442\u0432\u044a\u0440\u0434\u0438\u043c \u043d\u0430\u0447\u0430\u043b\u043e\u0442\u043e \u043d\u0430 \u0443\u0440\u043e\u043a\u0430.',
       verifySuccess: '\u0423\u0440\u043e\u043a\u044a\u0442 \u0435 \u0441\u0442\u0430\u0440\u0442\u0438\u0440\u0430\u043d.',
-      confirmEndFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u043f\u043e\u0442\u0432\u044a\u0440\u0434\u0438\u043c \u043a\u0440\u0430\u044f \u043d\u0430 \u0443\u0440\u043e\u043a\u0430.',
-      confirmEndSuccess: '\u0423\u0440\u043e\u043a\u044a\u0442 \u0435 \u043f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d.',
       saveAvailabilityFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u043c \u043d\u0435\u0434\u043e\u0441\u0442\u044a\u043f\u043d\u043e\u0441\u0442\u0442\u0430.',
       saveAvailabilitySuccess: '\u041d\u0435\u0434\u043e\u0441\u0442\u044a\u043f\u043d\u043e\u0441\u0442\u0442\u0430 \u0435 \u0438\u0437\u043f\u0440\u0430\u0442\u0435\u043d\u0430.',
       loading: '\u0417\u0430\u0440\u0435\u0436\u0434\u0430\u043d\u0435...',
@@ -78,8 +81,11 @@ export default function StudentSchedulePage({ language }: Props) {
       lessonPlanned: '\u041f\u043b\u0430\u043d\u0438\u0440\u0430\u043d',
       lessonCodeIssued: '\u0418\u0437\u0434\u0430\u0434\u0435\u043d \u043a\u043e\u0434',
       lessonActive: '\u0410\u043a\u0442\u0438\u0432\u0435\u043d',
-      lessonEndRequested: '\u0427\u0430\u043a\u0430 \u043f\u043e\u0442\u0432\u044a\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u0437\u0430 \u043a\u0440\u0430\u0439',
+      lessonEndRequested: '\u041d\u0435\u0443\u0441\u043f\u0435\u0448\u0435\u043d',
       lessonCompleted: '\u041f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d',
+      startModalTitle: '\u0412\u044a\u0432\u0435\u0436\u0434\u0430\u043d\u0435 \u043d\u0430 \u043a\u043e\u0434 \u0437\u0430 \u0441\u0442\u0430\u0440\u0442',
+      startModalDescription: '\u0412\u044a\u0432\u0435\u0434\u0435\u0442\u0435 6-\u0446\u0438\u0444\u0440\u0435\u043d\u0438\u044f \u043a\u043e\u0434, \u043a\u043e\u0439\u0442\u043e \u0432\u0438 \u043f\u043e\u043a\u0430\u0437\u0430 \u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0442\u043e\u0440\u044a\u0442.',
+      cancel: '\u041d\u0430\u0437\u0430\u0434',
       dayNames: {
         monday: '\u041f\u043e\u043d\u0435\u0434\u0435\u043b\u043d\u0438\u043a',
         tuesday: '\u0412\u0442\u043e\u0440\u043d\u0438\u043a',
@@ -109,13 +115,9 @@ export default function StudentSchedulePage({ language }: Props) {
       startCodePlaceholder: 'Enter 6-digit code',
       verifyCode: 'Verify start',
       verifyingCode: 'Verifying...',
-      confirmEnd: 'Confirm end',
-      confirmingEnd: 'Confirming...',
       startCodeRequired: 'Enter the code from your instructor.',
       verifyFailed: 'Could not verify lesson start code.',
       verifySuccess: 'Lesson started successfully.',
-      confirmEndFailed: 'Could not confirm lesson end.',
-      confirmEndSuccess: 'Lesson completed successfully.',
       saveAvailabilityFailed: 'Could not submit availability.',
       saveAvailabilitySuccess: 'Availability submitted.',
       loading: 'Loading...',
@@ -129,8 +131,11 @@ export default function StudentSchedulePage({ language }: Props) {
       lessonPlanned: 'Planned',
       lessonCodeIssued: 'Start code issued',
       lessonActive: 'Active',
-      lessonEndRequested: 'End requested',
+      lessonEndRequested: 'Failed',
       lessonCompleted: 'Completed',
+      startModalTitle: 'Enter lesson start code',
+      startModalDescription: 'Enter the 6-digit code shown by your instructor.',
+      cancel: 'Back',
       dayNames: {
         monday: 'Monday',
         tuesday: 'Tuesday',
@@ -142,42 +147,28 @@ export default function StudentSchedulePage({ language }: Props) {
       } as Record<DayKey, string>,
     }
 
-  const statusLabelMap: Record<string, string> = {
-    DRAFT: copy.statusDraft,
-    SENT_TO_STUDENTS: copy.statusSent,
-    COLLECTING_RESPONSES: copy.statusCollecting,
-    READY_TO_ALLOCATE: copy.statusReady,
-    ALLOCATED: copy.statusAllocated,
-    PUBLISHED: copy.statusPublished,
-  }
-
-  const lessonStateLabelMap: Record<LessonSessionState, string> = {
-    PLANNED: copy.lessonPlanned,
-    START_CODE_ISSUED: copy.lessonCodeIssued,
-    ACTIVE: copy.lessonActive,
-    END_REQUESTED: copy.lessonEndRequested,
-    COMPLETED: copy.lessonCompleted,
-  }
-
   const [searchParams, setSearchParams] = useSearchParams()
-  const [weekStartDate, setWeekStartDate] = useState<Date>(() => getStartOfWeek(new Date()))
+  const [weekStartDate] = useState<Date>(() => getStartOfWeek(new Date()))
   const [schedule, setSchedule] = useState<StudentScheduleCycle | null>(null)
   const [lessons, setLessons] = useState<LessonListItem[]>([])
   const [unavailableSlotKeys, setUnavailableSlotKeys] = useState<Record<DayKey, string[]>>(getEmptyUnavailableSlotKeys)
-  const [codeInputs, setCodeInputs] = useState<Record<string, string>>({})
+  const [codeInput, setCodeInput] = useState('')
   const [highlightedLessonId, setHighlightedLessonId] = useState<string | null>(null)
+  const [lessonActionModal, setLessonActionModal] = useState<LessonActionModal | null>(null)
   const [loading, setLoading] = useState(true)
   const [submittingAvailability, setSubmittingAvailability] = useState(false)
   const [verifyingLessonId, setVerifyingLessonId] = useState<string | null>(null)
-  const [confirmingLessonId, setConfirmingLessonId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [toasts, setToasts] = useState<ToastItem[]>([])
   const lessonCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const codeInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  const loadWeekData = useCallback(async (targetWeek: Date) => {
+  const loadWeekData = useCallback(async (targetWeek: Date, options?: { silent?: boolean }) => {
+    const isSilent = Boolean(options?.silent)
     const loadStartedAt = Date.now()
-    setLoading(true)
+    if (!isSilent) {
+      setLoading(true)
+    }
     setError('')
 
     try {
@@ -193,18 +184,41 @@ export default function StudentSchedulePage({ language }: Props) {
     } catch {
       setError(copy.loadError)
     } finally {
-      const elapsed = Date.now() - loadStartedAt
-      const remainingDelay = Math.max(0, MIN_SKELETON_MS - elapsed)
-      if (remainingDelay > 0) {
-        await new Promise((resolve) => window.setTimeout(resolve, remainingDelay))
+      if (!isSilent) {
+        const elapsed = Date.now() - loadStartedAt
+        const remainingDelay = Math.max(0, MIN_SKELETON_MS - elapsed)
+        if (remainingDelay > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, remainingDelay))
+        }
+        setLoading(false)
       }
-      setLoading(false)
     }
-  }, [copy.loading])
+  }, [copy.loadError])
+
+  const pushToast = useCallback((kind: ToastKind, message: string) => {
+    if (!message) return
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setToasts((current) => [...current, { id, kind, message }])
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+    }, 4200)
+  }, [])
 
   useEffect(() => {
     void loadWeekData(weekStartDate)
   }, [loadWeekData, weekStartDate])
+
+  useEffect(() => {
+    if (!error) return
+    pushToast('error', error)
+    setError('')
+  }, [error, pushToast])
+
+  useEffect(() => {
+    if (!success) return
+    pushToast('success', success)
+    setSuccess('')
+  }, [success, pushToast])
 
   useEffect(() => {
     const slotFromQuery = searchParams.get('startLessonId')
@@ -225,8 +239,6 @@ export default function StudentSchedulePage({ language }: Props) {
   const canSubmitAvailability = Boolean(
     schedule && AVAILABILITY_EDITABLE_STATUSES.has(schedule.cycle.status),
   )
-  const activeWeekIso = useMemo(() => toIsoDate(weekStartDate), [weekStartDate])
-
   const lessonsForWeek = useMemo(() => {
     if (lessons.length > 0) return lessons
     if (!schedule) return []
@@ -259,6 +271,16 @@ export default function StudentSchedulePage({ language }: Props) {
     return grouped
   }, [lessonsForWeek, resolveLessonDayKey])
 
+  const activeMaxLessonsPerDay = useMemo(
+    () => DAY_KEYS.reduce((max, dayKey) => Math.max(max, lessonsByDay[dayKey].length), 0),
+    [lessonsByDay],
+  )
+  const activeColumnRows = Math.max(1, activeMaxLessonsPerDay)
+  const activeColumnMinHeight = useMemo(
+    () => `calc(${activeColumnRows} * 2.25rem + ${Math.max(0, activeColumnRows - 1)} * 0.375rem)`,
+    [activeColumnRows],
+  )
+
   useEffect(() => {
     if (!highlightedLessonId) return
     const lesson = lessonsForWeek.find((item) => item.id === highlightedLessonId)
@@ -268,11 +290,7 @@ export default function StudentSchedulePage({ language }: Props) {
     card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
     if (lesson.state === 'START_CODE_ISSUED') {
-      const timer = window.setTimeout(() => {
-        codeInputRefs.current[highlightedLessonId]?.focus()
-      }, 120)
-
-      return () => window.clearTimeout(timer)
+      setLessonActionModal({ lessonId: lesson.id, mode: 'start' })
     }
   }, [highlightedLessonId, lessonsForWeek])
 
@@ -299,17 +317,34 @@ export default function StudentSchedulePage({ language }: Props) {
   useEffect(() => {
     const socket = getRealtimeSocket()
 
-    const onScheduleChanged = (payload: { weekStartDate?: string } | undefined) => {
-      const changedWeek = payload?.weekStartDate?.slice(0, 10)
-      if (changedWeek && changedWeek !== activeWeekIso) return
-      void loadWeekData(weekStartDate)
+    const onScheduleChanged = () => {
+      void loadWeekData(weekStartDate, { silent: true })
     }
 
     socket.on('schedule:changed', onScheduleChanged)
     return () => {
       socket.off('schedule:changed', onScheduleChanged)
     }
-  }, [activeWeekIso, loadWeekData, weekStartDate])
+  }, [loadWeekData, weekStartDate])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void loadWeekData(weekStartDate, { silent: true })
+    }, 7000)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadWeekData(weekStartDate, { silent: true })
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [loadWeekData, weekStartDate])
 
   const handleSubmitAvailability = async () => {
     if (!schedule || !canSubmitAvailability) return
@@ -332,7 +367,7 @@ export default function StudentSchedulePage({ language }: Props) {
   }
 
   const handleVerifyStartCode = async (lessonId: string) => {
-    const code = (codeInputs[lessonId] || '').trim()
+    const code = codeInput.trim()
     if (!code) {
       setError(copy.startCodeRequired)
       return
@@ -346,7 +381,8 @@ export default function StudentSchedulePage({ language }: Props) {
       await verifyStudentLessonStartCode(lessonId, code)
       setSuccess(copy.verifySuccess)
       setHighlightedLessonId(null)
-      setCodeInputs((current) => ({ ...current, [lessonId]: '' }))
+      setCodeInput('')
+      setLessonActionModal(null)
       await loadWeekData(weekStartDate)
     } catch {
       setError(copy.verifyFailed)
@@ -355,74 +391,53 @@ export default function StudentSchedulePage({ language }: Props) {
     }
   }
 
-  const handleConfirmEnd = async (lessonId: string) => {
-    setConfirmingLessonId(lessonId)
-    setError('')
-    setSuccess('')
-
-    try {
-      await confirmStudentLessonEnd(lessonId)
-      setSuccess(copy.confirmEndSuccess)
-      await loadWeekData(weekStartDate)
-    } catch {
-      setError(copy.confirmEndFailed)
-    } finally {
-      setConfirmingLessonId(null)
-    }
-  }
-
   const locale = isBg ? 'bg-BG' : 'en-US'
-  const currentWeekStart = getStartOfWeek(new Date())
-  const canGoNextWeek = getStartOfWeek(weekStartDate).getTime() < currentWeekStart.getTime()
   const weekTitle = isBg ? '\u0421\u0435\u0434\u043c\u0438\u0446\u0430' : 'Week'
-  const noPlanLabel = isBg ? '\u041d\u044f\u043c\u0430 \u043f\u043b\u0430\u043d' : 'No plan'
   const dayOffTitle = isBg ? '\u041f\u043e\u0447\u0438\u0432\u0435\u043d \u0434\u0435\u043d' : 'Day Off'
   const dayOffHint = isBg ? '\u0417\u0430 \u0442\u043e\u0437\u0438 \u0434\u0435\u043d \u043d\u044f\u043c\u0430 \u0441\u043b\u043e\u0442\u043e\u0432\u0435.' : 'No slots for this day.'
-  const noLessonForDayLabel = isBg ? '\u041d\u044f\u043c\u0430 \u0440\u0430\u0437\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d \u0443\u0440\u043e\u043a' : 'No assigned lesson'
+  const noLessonForDayTitle = isBg ? '\u0411\u0435\u0437 \u0447\u0430\u0441\u043e\u0432\u0435' : 'No lessons'
+  const noLessonForDayHint = isBg ? '\u041d\u044f\u043c\u0430\u0442\u0435 \u0434\u0430\u0434\u0435\u043d\u0438 \u0447\u0430\u0441\u043e\u0432\u0435 \u0432 \u0442\u043e\u0437\u0438 \u0434\u0435\u043d' : 'You have no assigned lessons for this day'
   const showLessonsInsideWeekGrid = !canSubmitAvailability
   const lessonRowStyleByState: Record<LessonSessionState, string> = {
-    PLANNED: 'border-success/80 bg-success/95 text-success-content',
-    START_CODE_ISSUED: 'border-info/80 bg-info/90 text-info-content',
-    ACTIVE: 'border-primary/80 bg-primary/90 text-primary-content',
-    END_REQUESTED: 'border-warning/80 bg-warning/90 text-warning-content',
-    COMPLETED: 'border-success/80 bg-success/75 text-success-content opacity-95',
+    PLANNED: 'border-emerald-500/70 bg-emerald-500/85 text-emerald-950',
+    START_CODE_ISSUED: 'border-cyan-400/85 bg-cyan-400/90 text-cyan-950',
+    ACTIVE: 'border-sky-400/85 bg-sky-400/90 text-sky-950',
+    FAILED: 'border-error/80 bg-error/75 text-error-content',
+    COMPLETED: 'border-amber-300/85 bg-amber-300 text-amber-950',
+  }
+
+  const lessonStateIcon = (state: LessonSessionState) => {
+    if (state === 'START_CODE_ISSUED') return <ShieldCheck className="h-3.5 w-3.5" />
+    if (state === 'ACTIVE') return <Pause className="h-3.5 w-3.5" />
+    if (state === 'FAILED') return <X className="h-3.5 w-3.5" />
+    if (state === 'COMPLETED') return <CheckCircle2 className="h-3.5 w-3.5" />
+    return <Play className="h-3.5 w-3.5" />
   }
 
   return (
     <section className="space-y-3 rounded-2xl border border-base-300/70 bg-gradient-to-b from-base-100 to-base-200/60 p-3 shadow-[0_12px_30px_-24px_rgba(0,0,0,0.8)] sm:space-y-4 sm:p-5 lg:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight text-base-content sm:text-2xl">{copy.title}</h2>
-          <p className="mt-1 text-sm text-base-content/70">{copy.subtitle}</p>
-        </div>
-
-        <div className="inline-flex items-center gap-3 self-start rounded-xl bg-base-100/80 px-2 py-1.5 shadow-sm">
-          <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={() => setWeekStartDate((d) => addDays(d, -7))}>
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="min-w-44 text-center text-sm font-semibold text-base-content/85">{formatWeekRange(weekStartDate)}</span>
-          <button
-            type="button"
-            className="btn btn-sm btn-circle btn-ghost"
-            onClick={() => setWeekStartDate((d) => addDays(d, 7))}
-            disabled={!canGoNextWeek}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+      <div className="rounded-2xl border border-base-content/15 bg-base-100/60 p-3 sm:p-4">
+        <h2 className="text-xl font-semibold tracking-tight text-base-content sm:text-2xl">
+          {isBg ? 'Активно седмично разписание' : 'Active Weekly Timetable'}
+        </h2>
+        <div className="mt-3 grid items-center gap-2 rounded-xl border border-base-content/15 bg-base-100/55 px-3 py-2 md:grid-cols-[1fr_auto_1fr]">
+          <div />
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 justify-self-center">
+            <span className="min-w-0 text-center text-xl font-semibold text-base-content sm:min-w-72">{formatWeekRange(weekStartDate)}</span>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={!canSubmitAvailability || submittingAvailability}
+              onClick={() => void handleSubmitAvailability()}
+            >
+              {submittingAvailability ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {submittingAvailability ? copy.savingAvailability : copy.saveAvailability}
+            </button>
+          </div>
         </div>
       </div>
-
-      {error ? (
-        <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
-          <span>{error}</span>
-        </div>
-      ) : null}
-
-      {success ? (
-        <div className="alert alert-success rounded-xl border border-success/40 bg-success/10">
-          <span>{success}</span>
-        </div>
-      ) : null}
 
       {loading ? (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -441,36 +456,37 @@ export default function StudentSchedulePage({ language }: Props) {
         </div>
       ) : (
         <>
-          <div className="grid gap-2 rounded-xl border border-base-300/80 bg-base-100/90 p-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto]">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-base-content/60">{copy.cycleStatus}</p>
-              <p className="mt-1 text-sm font-semibold text-base-content">{statusLabelMap[schedule.cycle.status] || schedule.cycle.status}</p>
-              {schedule.reply.submittedAt ? (
-                <p className="mt-1 text-xs text-base-content/70">
-                  {copy.savedAt}: {new Date(schedule.reply.submittedAt).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex items-end justify-start lg:justify-end">
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                disabled={!canSubmitAvailability || submittingAvailability}
-                onClick={() => void handleSubmitAvailability()}
-              >
-                {submittingAvailability ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {submittingAvailability ? copy.savingAvailability : copy.saveAvailability}
-              </button>
-            </div>
-          </div>
-
-          {!canSubmitAvailability ? (
-            <p className="text-xs text-base-content/65">{copy.availabilityLocked}</p>
-          ) : null}
 
           <div className="rounded-xl border border-base-300/70 bg-base-100/80 p-4">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/70">{weekTitle}</h3>
+            <div className="mb-2 rounded-xl border border-base-content/10 bg-base-100/55 px-3 py-2.5">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-base-content/65">
+                {isBg ? 'Легенда' : 'Legend'}
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-emerald-500/70 bg-emerald-500/85 px-3 text-xs font-medium text-emerald-950">
+                  <Play className="h-3.5 w-3.5" />
+                  {copy.lessonPlanned}
+                </span>
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-cyan-400/80 bg-cyan-400/90 px-3 text-xs font-medium text-cyan-950">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {copy.lessonCodeIssued}
+                </span>
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-sky-400/85 bg-sky-400/90 px-3 text-xs font-medium text-sky-950">
+                  <Pause className="h-3.5 w-3.5" />
+                  {copy.lessonActive}
+                </span>
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-orange-400/80 bg-orange-400/90 px-3 text-xs font-medium text-orange-950">
+                  <X className="h-3.5 w-3.5" />
+                  {copy.lessonEndRequested}
+                </span>
+                <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-amber-300/85 bg-amber-300 px-3 text-xs font-medium text-amber-950">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {copy.lessonCompleted}
+                </span>
+              </div>
+            </div>
+            <h3 className="mb-2 text-lg font-semibold text-base-content">{isBg ? 'Уроци за седмицата' : 'Lessons for the week'}</h3>
+            <h3 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-base-content/70">{weekTitle}</h3>
             <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-7">
               {DAY_KEYS.map((dayKey, dayIndex) => {
                 const day = schedule.days[dayKey]
@@ -503,18 +519,18 @@ export default function StudentSchedulePage({ language }: Props) {
                       <p className="mt-0.5 whitespace-nowrap text-[10px] font-medium text-base-content/60">{dateLabel}</p>
                     </div>
 
-                    <p className="mt-1 text-center text-[10px] text-base-content/60">
-                      {day.enabled ? `${day.startTime} - ${day.endTime}` : noPlanLabel}
-                    </p>
-
                     {day.enabled && displaySlots.length > 0 ? (
                       showLessonsInsideWeekGrid ? (
-                        <div className="mt-2 space-y-1 pr-0.5">
+                        <div className="mt-2 space-y-1 pr-0.5" style={{ minHeight: activeColumnMinHeight }}>
                           {lessonsByDay[dayKey].length === 0 ? (
-                            <div className="h-[clamp(24px,3vh,40px)] w-full text-left flex items-center rounded-md border border-base-300/70 bg-base-200/60 px-2 py-0.5">
-                              <span className="w-full truncate whitespace-nowrap text-[10px] leading-tight font-semibold text-base-content/65 sm:text-[11px]">
-                                {noLessonForDayLabel}
-                              </span>
+                            <div className="h-full rounded-xl border border-dashed border-base-300/80 bg-gradient-to-b from-base-100/30 to-base-200/20 px-3 py-6 xl:h-full">
+                              <div className="flex h-full min-h-[180px] flex-col items-center justify-center text-center">
+                                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-base-300/70 bg-base-300/20">
+                                  <CalendarX2 className="h-5 w-5 text-base-content/60" />
+                                </div>
+                                <p className="text-base font-semibold text-base-content/80">{noLessonForDayTitle}</p>
+                                <p className="mt-1 text-xs text-base-content/55">{noLessonForDayHint}</p>
+                              </div>
                             </div>
                           ) : lessonsByDay[dayKey].map((lesson) => {
                             const start = new Date(lesson.startTime)
@@ -528,58 +544,23 @@ export default function StudentSchedulePage({ language }: Props) {
                                 ref={(node) => {
                                   lessonCardRefs.current[lesson.id] = node
                                 }}
-                                className={`rounded-md border border-base-300/65 bg-base-100/85 p-1.5 ${isHighlightedLesson ? 'ring-2 ring-primary/60' : ''}`}
+                                className={`h-[clamp(30px,2.3vw,36px)] w-full rounded-md border px-[clamp(4px,0.4vw,6px)] ${lessonRowStyleByState[lesson.state]} ${isHighlightedLesson ? 'ring-2 ring-primary/60' : ''} ${lesson.state === 'START_CODE_ISSUED' ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={() => {
+                                  setHighlightedLessonId(lesson.id)
+                                  if (lesson.state === 'START_CODE_ISSUED') {
+                                    setCodeInput('')
+                                    setLessonActionModal({ lessonId: lesson.id, mode: 'start' })
+                                  }
+                                }}
                               >
-                                <div
-                                  className={`h-[clamp(24px,3vh,40px)] w-full text-left flex items-center rounded-md border px-2 py-0.5 shadow-sm ${lessonRowStyleByState[lesson.state]}`}
-                                >
-                                  <span className="w-full truncate whitespace-nowrap text-[10px] leading-tight font-semibold sm:text-[11px]">
+                                <div className="grid h-full grid-cols-[18px_minmax(0,1fr)] items-center gap-2">
+                                  <span className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-md border border-base-content/25 bg-base-100/20">
+                                    {lessonStateIcon(lesson.state)}
+                                  </span>
+                                  <span className="min-w-0 truncate whitespace-nowrap text-[clamp(10px,0.82vw,12px)] font-semibold leading-none tracking-tight tabular-nums">
                                     {timeLabel}
                                   </span>
                                 </div>
-                                <div className="mt-1.5">
-                                  <span className="badge badge-ghost badge-xs">{lessonStateLabelMap[lesson.state]}</span>
-                                </div>
-
-                                {lesson.state === 'START_CODE_ISSUED' ? (
-                                  <div className="mt-2 space-y-1.5">
-                                    <label className="input input-bordered flex h-8 items-center gap-1.5 rounded-md border-base-300 bg-base-100/90 px-2">
-                                      <ShieldCheck className="h-3.5 w-3.5 text-base-content/60" />
-                                      <input
-                                        ref={(node) => {
-                                          codeInputRefs.current[lesson.id] = node
-                                        }}
-                                        type="text"
-                                        inputMode="numeric"
-                                        value={codeInputs[lesson.id] || ''}
-                                        onChange={(event) => setCodeInputs((current) => ({ ...current, [lesson.id]: event.target.value }))}
-                                        placeholder={copy.startCodePlaceholder}
-                                        className="w-full bg-transparent text-xs outline-none"
-                                      />
-                                    </label>
-                                    <button
-                                      type="button"
-                                      className="btn btn-xs btn-primary w-full"
-                                      disabled={verifyingLessonId === lesson.id}
-                                      onClick={() => void handleVerifyStartCode(lesson.id)}
-                                    >
-                                      {verifyingLessonId === lesson.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                      {verifyingLessonId === lesson.id ? copy.verifyingCode : copy.verifyCode}
-                                    </button>
-                                  </div>
-                                ) : null}
-
-                                {lesson.state === 'END_REQUESTED' ? (
-                                  <button
-                                    type="button"
-                                    className="btn btn-xs btn-primary mt-2 w-full"
-                                    disabled={confirmingLessonId === lesson.id}
-                                    onClick={() => void handleConfirmEnd(lesson.id)}
-                                  >
-                                    {confirmingLessonId === lesson.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                    {confirmingLessonId === lesson.id ? copy.confirmingEnd : copy.confirmEnd}
-                                  </button>
-                                ) : null}
                               </div>
                             )
                           })}
@@ -650,6 +631,74 @@ export default function StudentSchedulePage({ language }: Props) {
           </div>
         </>
       )}
+
+      {lessonActionModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-base-content/20 bg-base-100 p-4 shadow-xl">
+            <p className="text-base font-semibold text-base-content">{copy.startModalTitle}</p>
+            <p className="mt-1.5 text-sm text-base-content/75">{copy.startModalDescription}</p>
+
+            <div className="mt-3 space-y-2">
+              <label className="input input-bordered flex h-10 items-center gap-2 rounded-md border-base-300 bg-base-100/90 px-3">
+                <ShieldCheck className="h-4 w-4 text-base-content/60" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={codeInput}
+                  onChange={(event) => setCodeInput(event.target.value)}
+                  placeholder={copy.startCodePlaceholder}
+                  className="w-full bg-transparent text-sm outline-none"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setLessonActionModal(null)}
+              >
+                {copy.cancel}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                disabled={verifyingLessonId === lessonActionModal.lessonId}
+                onClick={() => void handleVerifyStartCode(lessonActionModal.lessonId)}
+              >
+                {verifyingLessonId === lessonActionModal.lessonId ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                {verifyingLessonId === lessonActionModal.lessonId ? copy.verifyingCode : copy.verifyCode}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toasts.length > 0 ? (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[min(92vw,420px)] flex-col gap-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="pointer-events-auto overflow-hidden rounded-lg border border-white/10 bg-zinc-800/95 text-zinc-100 shadow-xl backdrop-blur-sm"
+            >
+              <div className="flex items-start gap-3 p-3">
+                <div className={`mt-0.5 ${toast.kind === 'success' ? 'text-success' : 'text-error'}`}>
+                  {toast.kind === 'success' ? <CircleCheck className="h-5 w-5" /> : <CircleAlert className="h-5 w-5" />}
+                </div>
+                <p className="flex-1 text-sm font-medium">{toast.message}</p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs h-6 min-h-6 w-6 p-0 text-zinc-300 hover:text-zinc-100"
+                  onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className={`h-1 ${toast.kind === 'success' ? 'bg-success/90' : 'bg-error/90'}`} />
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }

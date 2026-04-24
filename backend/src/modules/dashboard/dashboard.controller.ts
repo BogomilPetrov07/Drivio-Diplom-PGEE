@@ -91,13 +91,13 @@ export class DashboardController {
     return res.json(result.verification);
   };
 
-  static requestInstructorLessonEnd = async (req: Request, res: Response) => {
+  static markInstructorLessonFailed = async (req: Request, res: Response) => {
     if (!req.user) return res.sendStatus(401);
-    const result = await DashboardService.requestInstructorLessonEnd(req.user.id, String(req.params.timeSlotId));
+    const result = await DashboardService.markInstructorLessonFailed(req.user.id, String(req.params.timeSlotId));
     if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Instructor profile not found" });
     if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
     if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson is not in active state" });
-    return res.json({ message: "End confirmation requested from student" });
+    return res.json({ message: "Lesson marked as failed" });
   };
 
   static getStudentScheduleCycle = async (req: Request, res: Response) => {
@@ -138,15 +138,6 @@ export class DashboardController {
     if (result.status === "INVALID_CODE") return res.status(400).json({ message: "Invalid start code" });
     if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson cannot be started from current state" });
     return res.json({ message: "Lesson started successfully" });
-  };
-
-  static confirmStudentLessonEnd = async (req: Request, res: Response) => {
-    if (!req.user) return res.sendStatus(401);
-    const result = await DashboardService.confirmStudentLessonEnd(req.user.id, String(req.params.timeSlotId));
-    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
-    if (result.status === "LESSON_NOT_FOUND") return res.status(404).json({ message: "Lesson slot not found" });
-    if (result.status === "INVALID_STATE") return res.status(409).json({ message: "Lesson cannot be completed from current state" });
-    return res.json({ message: "Lesson completed successfully" });
   };
 
   static getSchoolDetails = async (req: Request, res: Response) => {

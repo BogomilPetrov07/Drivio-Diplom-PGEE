@@ -14,18 +14,15 @@ import SuperAdminSupportPage from './modules/dashboard/pages/SuperAdminSupportPa
 import SchoolAdminLayout from './modules/dashboard/pages/SchoolAdminLayout'
 import InstructorDashboardPage from './modules/dashboard/pages/InstructorDashboardPage'
 import InstructorLayout from './modules/dashboard/pages/InstructorLayout'
-import InstructorInboxPage from './modules/dashboard/pages/InstructorInboxPage'
 import InstructorSchedulePage from './modules/dashboard/pages/InstructorSchedulePage'
 import InstructorStudentsPage from './modules/dashboard/pages/InstructorStudentsPage'
 import SchoolAdminDashboardPage from './modules/dashboard/pages/SchoolAdminDashboardPage'
-import SchoolAdminInboxPage from './modules/dashboard/pages/SchoolAdminInboxPage'
 import SchoolAdminPeoplePage from './modules/dashboard/pages/SchoolAdminPeoplePage'
 import SchoolAdminCarsPage from './modules/dashboard/pages/SchoolAdminCarsPage'
 import SchoolAdminSupportPage from './modules/dashboard/pages/SchoolAdminSupportPage'
 import SchoolAdminSchoolPage from './modules/dashboard/pages/SchoolAdminSchoolPage'
 import StudentLayout from './modules/dashboard/pages/StudentLayout'
 import StudentSupportPage from './modules/dashboard/pages/StudentSupportPage'
-import StudentInboxPage from './modules/dashboard/pages/StudentInboxPage'
 import StudentInstructorsPage from './modules/dashboard/pages/StudentInstructorsPage'
 import StudentProgressPage from './modules/dashboard/pages/StudentProgressPage'
 import StudentSchedulePage from './modules/dashboard/pages/StudentSchedulePage'
@@ -323,13 +320,11 @@ function AppRoutes({
               <Route index element={<Navigate to="/dashboard/schooladmin/home" replace />} />
               <Route path="home" element={<SchoolAdminDashboardPage language={language} />} />
               <Route path="school" element={<SchoolAdminSchoolPage language={language} />} />
-              <Route path="inbox" element={<SchoolAdminInboxPage language={language} />} />
               <Route path="people" element={<SchoolAdminPeoplePage language={language} />} />
               <Route path="cars" element={<SchoolAdminCarsPage language={language} />} />
               <Route path="support" element={<SchoolAdminSupportPage language={language} />} />
               <Route element={<SchoolAdminInstructorPrivilegesGuard />}>
                 <Route path="instructor/home" element={<InstructorDashboardPage language={language} />} />
-                <Route path="instructor/inbox" element={<InstructorInboxPage language={language} />} />
                 <Route path="instructor/planner" element={<InstructorSchedulePage language={language} mode="planner" />} />
                 <Route path="instructor/schedule" element={<InstructorSchedulePage language={language} mode="active" />} />
                 <Route path="instructor/students" element={<InstructorStudentsPage language={language} />} />
@@ -358,7 +353,6 @@ function AppRoutes({
             >
               <Route index element={<Navigate to="/dashboard/instructor/home" replace />} />
               <Route path="home" element={<InstructorDashboardPage language={language} />} />
-              <Route path="inbox" element={<InstructorInboxPage language={language} />} />
               <Route path="planner" element={<InstructorSchedulePage language={language} mode="planner" />} />
               <Route path="schedule" element={<InstructorSchedulePage language={language} mode="active" />} />
               <Route path="students" element={<InstructorStudentsPage language={language} />} />
@@ -386,7 +380,6 @@ function AppRoutes({
             >
               <Route index element={<Navigate to="/dashboard/student/home" replace />} />
               <Route path="home" element={<StudentDashboardPage language={language} />} />
-              <Route path="inbox" element={<StudentInboxPage language={language} />} />
               <Route path="instructors" element={<StudentInstructorsPage language={language} />} />
               <Route path="progress" element={<StudentProgressPage language={language} />} />
               <Route path="schedule" element={<StudentSchedulePage language={language} />} />

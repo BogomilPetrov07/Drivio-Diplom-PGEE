@@ -1,5 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Ban, BriefcaseBusiness, CheckCircle2, ChevronLeft, ChevronRight, Copy, Loader2, Play, User, UserX } from 'lucide-react'
+import { Ban, BriefcaseBusiness, CheckCircle2, CircleAlert, CircleCheck, Loader2, Pause, Play, Send, User, UserX, X } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import {
@@ -9,7 +9,7 @@ import {
   fetchInstructorSchedule,
   fetchInstructorScheduleWorkflow,
   issueInstructorLessonStartCode,
-  requestInstructorLessonEnd,
+  markInstructorLessonFailed,
   saveInstructorSchedule,
   sendInstructorScheduleToStudents,
   type DayKey as ApiDayKey,
@@ -63,6 +63,13 @@ type StartCodeModalState = {
 type LessonInfoModalState = {
   slotId: string
   timeLabel: string
+}
+
+type ToastKind = 'success' | 'error'
+type ToastItem = {
+  id: number
+  kind: ToastKind
+  message: string
 }
 
 function getEmptyWeekDays(): WeekScheduleDays {
@@ -250,7 +257,9 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
       confirmStartTitle: '\u0421\u0438\u0433\u0443\u0440\u0435\u043d \u043b\u0438 \u0441\u0438?',
       confirmStartDescription: '\u041a\u043e\u0434\u044a\u0442 \u0437\u0430 \u0441\u0442\u0430\u0440\u0442 \u0449\u0435 \u0431\u044a\u0434\u0435 \u0438\u0437\u043f\u0440\u0430\u0442\u0435\u043d \u043a\u044a\u043c \u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0430 \u0432\u0435\u0434\u043d\u0430\u0433\u0430.',
       back: '\u041d\u0430\u0437\u0430\u0434',
-      requestEnd: '\u041f\u043e\u0438\u0441\u043a\u0430\u0439 \u043a\u0440\u0430\u0439',
+      requestEnd: '\u041c\u0430\u0440\u043a\u0438\u0440\u0430\u0439 \u043d\u0435\u0443\u0441\u043f\u0435\u0448\u0435\u043d',
+      confirmEndTitle: '\u0421\u0438\u0433\u0443\u0440\u0435\u043d \u043b\u0438 \u0441\u0438?',
+      confirmEndDescription: '\u0427\u0430\u0441\u044a\u0442 \u0449\u0435 \u0431\u044a\u0434\u0435 \u043c\u0430\u0440\u043a\u0438\u0440\u0430\u043d \u043a\u0430\u0442\u043e \u043d\u0435\u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043f\u0440\u043e\u0432\u0435\u0434\u0435\u043d.',
       waitingStudentEnd: '\u0427\u0430\u043a\u0430 \u043f\u043e\u0442\u0432\u044a\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u043e\u0442 \u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0430',
       completed: '\u041f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d',
       active: '\u0410\u043a\u0442\u0438\u0432\u0435\u043d',
@@ -263,8 +272,8 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
       copyCodeFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u043a\u043e\u043f\u0438\u0440\u0430\u043c\u0435 \u043a\u043e\u0434\u0430.',
       codeExpires: '\u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0434\u043e',
       issueCodeFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u0438\u0437\u0434\u0430\u0434\u0435\u043c \u0441\u0442\u0430\u0440\u0442\u043e\u0432 \u043a\u043e\u0434.',
-      requestEndFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u043f\u043e\u0438\u0441\u043a\u0430\u043c\u0435 \u043a\u0440\u0430\u0439 \u043d\u0430 \u0447\u0430\u0441\u0430.',
-      requestEndSuccess: '\u0418\u0437\u043f\u0440\u0430\u0442\u0438\u0445\u043c\u0435 \u0438\u0441\u043a\u0430\u043d\u0435 \u0437\u0430 \u043f\u0440\u0438\u043a\u043b\u044e\u0447\u0432\u0430\u043d\u0435.',
+      requestEndFailed: '\u041d\u0435 \u0443\u0441\u043f\u044f\u0445\u043c\u0435 \u0434\u0430 \u043c\u0430\u0440\u043a\u0438\u0440\u0430\u043c\u0435 \u0447\u0430\u0441\u0430 \u043a\u0430\u0442\u043e \u043d\u0435\u0443\u0441\u043f\u0435\u0448\u0435\u043d.',
+      requestEndSuccess: '\u0427\u0430\u0441\u044a\u0442 \u0435 \u043c\u0430\u0440\u043a\u0438\u0440\u0430\u043d \u043a\u0430\u0442\u043e \u043d\u0435\u0443\u0441\u043f\u0435\u0448\u0435\u043d.',
     }
     : {
       replies: 'Replies',
@@ -292,7 +301,9 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
       confirmStartTitle: 'Are you sure?',
       confirmStartDescription: 'The lesson start code will be sent to the student immediately.',
       back: 'Back',
-      requestEnd: 'Request end',
+      requestEnd: 'Mark failed',
+      confirmEndTitle: 'Are you sure?',
+      confirmEndDescription: 'This lesson will be marked as unsuccessfully conducted.',
       waitingStudentEnd: 'Waiting for student end confirmation',
       completed: 'Completed',
       active: 'Active',
@@ -305,11 +316,11 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
       copyCodeFailed: 'Could not copy code.',
       codeExpires: 'valid until',
       issueCodeFailed: 'Could not issue lesson start code.',
-      requestEndFailed: 'Could not request lesson end.',
-      requestEndSuccess: 'End confirmation request sent to student.',
+      requestEndFailed: 'Could not mark lesson as failed.',
+      requestEndSuccess: 'Lesson marked as failed.',
     }
 
-  const [weekStartDate, setWeekStartDate] = useState<Date>(() => getStartOfWeek(new Date()))
+  const [weekStartDate] = useState<Date>(() => getStartOfWeek(new Date()))
   const [isEditMode, setIsEditMode] = useState(false)
   const [isLoadingSchedule, setIsLoadingSchedule] = useState(true)
   const [isSavingSchedule, setIsSavingSchedule] = useState(false)
@@ -327,6 +338,7 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   const [workflow, setWorkflow] = useState<InstructorScheduleWorkflow | null>(null)
   const [lessons, setLessons] = useState<LessonListItem[]>([])
   const [confirmStartSlotId, setConfirmStartSlotId] = useState<string | null>(null)
+  const [confirmEndSlotId, setConfirmEndSlotId] = useState<string | null>(null)
   const [startCodeModal, setStartCodeModal] = useState<StartCodeModalState | null>(null)
   const [lessonInfoModal, setLessonInfoModal] = useState<LessonInfoModalState | null>(null)
   const [lessonInfoLoading, setLessonInfoLoading] = useState(false)
@@ -335,6 +347,7 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   const [issuingCodeSlotId, setIssuingCodeSlotId] = useState<string | null>(null)
   const [requestingEndSlotId, setRequestingEndSlotId] = useState<string | null>(null)
   const [activePanel, setActivePanel] = useState<'planner' | 'active'>(mode)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
 
   const [defaultStartTime, setDefaultStartTime] = useState('09:00')
   const [defaultEndTime, setDefaultEndTime] = useState('17:00')
@@ -344,13 +357,47 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   const [days, setDays] = useState<WeekScheduleDays>(() => getEmptyWeekDays())
   const [lockedDays, setLockedDays] = useState<Record<DayKey, boolean>>(() => getAllDaysLocked())
 
+  const pushToast = useCallback((kind: ToastKind, message: string) => {
+    if (!message) return
+    const id = Date.now() + Math.floor(Math.random() * 1000)
+    setToasts((current) => [...current, { id, kind, message }])
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+    }, 4200)
+  }, [])
+
   useEffect(() => {
     setActivePanel(mode)
   }, [mode])
 
-  const loadWeekData = useCallback(async (targetWeek: Date, syncDaysFromCycle: boolean) => {
-    setIsLoadingWorkflow(true)
-    setIsLoadingLessons(true)
+  useEffect(() => {
+    if (!saveError) return
+    pushToast('error', saveError)
+    setSaveError('')
+  }, [saveError, pushToast])
+
+  useEffect(() => {
+    if (!actionError) return
+    pushToast('error', actionError)
+    setActionError('')
+  }, [actionError, pushToast])
+
+  useEffect(() => {
+    if (!actionSuccess) return
+    pushToast('success', actionSuccess)
+    setActionSuccess('')
+  }, [actionSuccess, pushToast])
+
+  const loadWeekData = useCallback(async (
+    targetWeek: Date,
+    syncDaysFromCycle: boolean,
+    options?: { silent?: boolean },
+  ) => {
+    const isSilent = Boolean(options?.silent)
+    if (!isSilent) {
+      setIsLoadingWorkflow(true)
+      setIsLoadingLessons(true)
+    }
 
     try {
       const weekKey = toIsoDate(targetWeek)
@@ -374,8 +421,10 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
     } catch {
       setActionError(copy.workflowLoadFailed)
     } finally {
-      setIsLoadingWorkflow(false)
-      setIsLoadingLessons(false)
+      if (!isSilent) {
+        setIsLoadingWorkflow(false)
+        setIsLoadingLessons(false)
+      }
     }
   }, [copy.workflowLoading, isEditMode])
 
@@ -436,27 +485,38 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
     if (isEditMode) return
     void loadWeekData(weekStartDate, true)
   }, [isEditMode, loadWeekData, weekStartDate])
-  const activeWeekIso = useMemo(() => toIsoDate(weekStartDate), [weekStartDate])
-
   useEffect(() => {
     const socket = getRealtimeSocket()
-    const onScheduleChanged = (payload: { weekStartDate?: string } | undefined) => {
+    const onScheduleChanged = () => {
       if (isEditMode) return
-      const changedWeek = payload?.weekStartDate?.slice(0, 10)
-      if (changedWeek && changedWeek !== activeWeekIso) return
-      void loadWeekData(weekStartDate, true)
+      void loadWeekData(weekStartDate, true, { silent: true })
     }
 
     socket.on('schedule:changed', onScheduleChanged)
     return () => {
       socket.off('schedule:changed', onScheduleChanged)
     }
-  }, [activeWeekIso, isEditMode, loadWeekData, weekStartDate])
+  }, [isEditMode, loadWeekData, weekStartDate])
 
-  const isCurrentWeek = useMemo(
-    () => getStartOfWeek(weekStartDate).getTime() === getStartOfWeek(new Date()).getTime(),
-    [weekStartDate],
-  )
+  useEffect(() => {
+    if (isEditMode) return
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      void loadWeekData(weekStartDate, true, { silent: true })
+    }, 7000)
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadWeekData(weekStartDate, true, { silent: true })
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isEditMode, loadWeekData, weekStartDate])
 
   const isDirty = useMemo(
     () => isEditMode && JSON.stringify(days) !== editSnapshot,
@@ -493,9 +553,10 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   const expectedReplies = workflow?.expectedReplies ?? 0
   const repliesReceived = workflow?.repliesReceived ?? 0
   const allStudentsReplied = expectedReplies > 0 && repliesReceived >= expectedReplies
+  const isAlreadyGenerated = cycle?.status === 'ALLOCATED' || cycle?.status === 'PUBLISHED'
 
-  const canSendToStudents = !isEditMode && hasPersistedDbSchedule
-  const canAllocate = !isEditMode && Boolean(cycle?.id) && allStudentsReplied
+  const canSendToStudents = !isEditMode && hasPersistedDbSchedule && !isAlreadyGenerated
+  const canAllocate = !isEditMode && Boolean(cycle?.id) && allStudentsReplied && !isAlreadyGenerated
 
   function toggleDay(day: DayKey) {
     if (!isEditMode) return
@@ -543,32 +604,6 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
         endTime: defaultEndTime,
       },
     }))
-  }
-
-  const copyFromPreviousWeek = async () => {
-    if (!isEditMode) return
-    setActionError('')
-    setActionSuccess('')
-
-    try {
-      const previousWeek = addDays(weekStartDate, -7)
-      const previous = await fetchInstructorScheduleWorkflow(toIsoDate(previousWeek))
-      const cycleDays = mapCycleDays(previous.cycle)
-
-      if (!cycleDays) {
-        setActionError(copy.copyPreviousMissing)
-        return
-      }
-
-      const derived = deriveGlobalTimesFromDays(cycleDays)
-      setDays(cycleDays)
-      setDefaultStartTime(derived.startTime)
-      setDefaultEndTime(derived.endTime)
-      setLockedDays(getAllDaysLocked())
-      setActionSuccess(copy.copyPreviousDone)
-    } catch {
-      setActionError(copy.copyPreviousFailed)
-    }
   }
 
   const beginCreate = () => {
@@ -737,10 +772,11 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   const handleRequestEnd = async (slotId: string) => {
     setActionError('')
     setActionSuccess('')
+    setConfirmEndSlotId(null)
     setRequestingEndSlotId(slotId)
 
     try {
-      await requestInstructorLessonEnd(slotId)
+      await markInstructorLessonFailed(slotId)
       setActionSuccess(copy.requestEndSuccess)
       await loadWeekData(weekStartDate, false)
     } catch {
@@ -807,6 +843,16 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
     return grouped
   }, [resolveLessonDayKey, sortedLessons])
 
+  const activeMaxLessonsPerDay = useMemo(
+    () => LESSON_DAY_KEYS.reduce((max, dayKey) => Math.max(max, lessonsByDay[dayKey].length), 0),
+    [lessonsByDay],
+  )
+  const activeColumnRows = Math.max(1, activeMaxLessonsPerDay)
+  const activeColumnMinHeight = useMemo(
+    () => `calc(${activeColumnRows} * 2.25rem + ${Math.max(0, activeColumnRows - 1)} * 0.375rem)`,
+    [activeColumnRows],
+  )
+
   const dayDatesByKey = useMemo(
     () =>
       LESSON_DAY_KEYS.reduce((acc, dayKey, index) => {
@@ -842,17 +888,16 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
       assigned: '\u0421 \u043a\u0443\u0440\u0441\u0438\u0441\u0442',
       unassigned: '\u0411\u0435\u0437 \u043a\u0443\u0440\u0441\u0438\u0441\u0442',
       active: '\u0412 \u0445\u043e\u0434',
+      endRequested: '\u041d\u0435\u0443\u0441\u043f\u0435\u0448\u0435\u043d',
       completed: '\u041f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d',
     }
     : {
       assigned: 'Assigned',
       unassigned: 'Unassigned',
       active: 'Active',
+      endRequested: 'Failed',
       completed: 'Done',
     }
-  const currentWeekStart = getStartOfWeek(new Date())
-  const canGoNextWeek = getStartOfWeek(weekStartDate).getTime() < currentWeekStart.getTime()
-
   return (
     <section className="px-2 pt-2 pb-1 sm:px-3 sm:pt-3 sm:pb-2">
       <div className="rounded-2xl border border-base-content/15 bg-base-100/60 p-3 sm:p-4">
@@ -862,76 +907,78 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
               {activePanel === 'planner' ? (isBg ? '\u0421\u0435\u0434\u043c\u0438\u0447\u0435\u043d \u043f\u043b\u0430\u043d\u0435\u0440 \u043d\u0430 \u0433\u0440\u0430\u0444\u0438\u043a\u0430' : 'Weekly Schedule Planner') : (isBg ? '\u0410\u043a\u0442\u0438\u0432\u043d\u043e \u0441\u0435\u0434\u043c\u0438\u0447\u043d\u043e \u0440\u0430\u0437\u043f\u0438\u0441\u0430\u043d\u0438\u0435' : 'Active Weekly Timetable')}
             </h2>
           </div>
-          {activePanel === 'planner' ? (
-            isEditMode ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => void cancelEdit()} disabled={isSavingSchedule || isCancellingEdit}>
-                  {isCancellingEdit ? t.cancelling : t.cancel}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => void handleSave()}
-                  disabled={isSavingSchedule || !isDirty || Boolean(error)}
-                >
-                  {isSavingSchedule ? t.saving : t.save}
-                </button>
-              </div>
-            ) : hasPersistedDbSchedule ? (
-              <button type="button" className="btn btn-sm btn-outline" onClick={beginEdit}>{t.edit}</button>
-            ) : (
-              <button type="button" className="btn btn-sm btn-primary" onClick={beginCreate}>{t.createSchedule}</button>
-            )
-          ) : null}
+          <div />
         </div>
 
         <div className="mt-3 grid items-center gap-2 rounded-xl border border-base-content/15 bg-base-100/55 px-3 py-2 md:grid-cols-[1fr_auto_1fr]">
           <div className="text-left">
-            <p className="text-xs font-semibold text-base-content/70">{isBg ? '\u041e\u0442\u0433\u043e\u0432\u043e\u0440\u0438 \u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u044a\u043f\u043d\u043e\u0441\u0442' : copy.replies}</p>
-            <p className="inline-flex items-center gap-2 text-3xl font-semibold leading-none text-base-content">
-              <span>{repliesReceived}/{expectedReplies}</span>
-              {isLoadingWorkflow ? <Loader2 className="h-5 w-5 animate-spin text-base-content/60" /> : null}
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 justify-self-center">
-            <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={() => setWeekStartDate((d) => addDays(d, -7))} title={t.previousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-0 text-center text-2xl font-semibold text-base-content sm:min-w-72">{formatWeekRange(weekStartDate)}</span>
-            {isEditMode && isCurrentWeek ? (
-              <button
-                type="button"
-                className="btn btn-sm btn-circle btn-ghost"
-                onClick={() => void copyFromPreviousWeek()}
-                title={t.copyPreviousWeek}
-                aria-label={t.copyPreviousWeek}
-              >
-                <Copy className="h-4 w-4" />
-              </button>
+            {activePanel === 'planner' ? (
+              isEditMode ? (
+                <p className="text-xs font-semibold text-base-content/65">{isBg ? '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u0430\u043d\u0435 \u043d\u0430 \u0433\u0440\u0430\u0444\u0438\u043a' : 'Editing schedule'}</p>
+              ) : hasPersistedDbSchedule ? (
+                <button type="button" className="btn btn-sm btn-outline" onClick={beginEdit}>{t.edit}</button>
+              ) : (
+                <button type="button" className="btn btn-sm btn-primary" onClick={beginCreate}>{t.createSchedule}</button>
+              )
             ) : (
-              <button
-                type="button"
-                className="btn btn-sm btn-circle btn-ghost"
-                onClick={() => setWeekStartDate((d) => addDays(d, 7))}
-                title={t.nextWeek}
-                aria-label={t.nextWeek}
-                disabled={!canGoNextWeek}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <>
+                <p className="text-xs font-semibold text-base-content/70">{isBg ? '\u041e\u0442\u0433\u043e\u0432\u043e\u0440\u0438 \u0437\u0430 \u043d\u0435\u0434\u043e\u0441\u0442\u044a\u043f\u043d\u043e\u0441\u0442' : copy.replies}</p>
+                <p className="inline-flex items-center gap-2 text-xl font-semibold leading-none text-base-content">
+                  <span>{repliesReceived}/{expectedReplies}</span>
+                  {isLoadingWorkflow ? <Loader2 className="h-5 w-5 animate-spin text-base-content/60" /> : null}
+                </p>
+              </>
             )}
           </div>
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 justify-self-center">
+            <span className="min-w-0 text-center text-xl font-semibold text-base-content sm:min-w-72">{formatWeekRange(weekStartDate)}</span>
+          </div>
           <div className="flex justify-end">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline"
-              disabled={!canSendToStudents || isSendingToStudents || isEditMode}
-              onClick={() => setShowSendConfirm(true)}
-            >
-              {isSendingToStudents ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />{copy.sending}</>
-              ) : cycle ? copy.sendAgain : t.sendToStudents}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {activePanel === 'planner' ? (
+                <>
+                  {isEditMode ? (
+                    <>
+                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => void cancelEdit()} disabled={isSavingSchedule || isCancellingEdit}>
+                        {isCancellingEdit ? t.cancelling : t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => void handleSave()}
+                        disabled={isSavingSchedule || !isDirty || Boolean(error)}
+                      >
+                        {isSavingSchedule ? t.saving : t.save}
+                      </button>
+                    </>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    disabled={!canSendToStudents || isSendingToStudents || isEditMode}
+                    onClick={() => setShowSendConfirm(true)}
+                  >
+                    {isSendingToStudents ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />{copy.sending}</>
+                    ) : (
+                      <><Send className="h-4 w-4" />{isBg ? '\u0418\u0437\u043f\u0440\u0430\u0442\u0438 \u0433\u0440\u0430\u0444\u0438\u043a' : 'Send Schedule'}</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  disabled={!canAllocate || isAllocating}
+                  onClick={() => void handleAllocate()}
+                >
+                  {isAllocating ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />{copy.allocating}</>
+                  ) : (isBg ? '\u0413\u0435\u043d\u0435\u0440\u0438\u0440\u0430\u0439 \u0440\u0430\u0437\u043f\u0438\u0441\u0430\u043d\u0438\u0435' : copy.allocate)}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1023,33 +1070,37 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
         </>
       ) : (
         <div className="mt-2 rounded-xl border border-base-content/15 bg-base-100/60 p-3">
-          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div />
-            <button
-              type="button"
-              className="btn btn-sm btn-primary w-full sm:w-auto"
-              disabled={!canAllocate || isAllocating}
-              onClick={() => void handleAllocate()}
-            >
-              {isAllocating ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />{copy.allocating}</>
-              ) : (isBg ? '\u0413\u0435\u043d\u0435\u0440\u0438\u0440\u0430\u0439 \u0440\u0430\u0437\u043f\u0438\u0441\u0430\u043d\u0438\u0435' : copy.allocate)}
-            </button>
-          </div>
-          <div className="rounded-xl border border-base-content/10 bg-base-100/55 px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/70 bg-emerald-500/85 px-2 py-1 text-emerald-950"><User className="h-3 w-3" />{legendLabels.assigned}</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-900/70 bg-emerald-900/80 px-2 py-1 text-emerald-100"><UserX className="h-3 w-3" />{legendLabels.unassigned}</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/85 bg-sky-400/90 px-2 py-1 text-sky-950"><Play className="h-3 w-3" />{legendLabels.active}</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/85 bg-amber-300 px-2 py-1 text-amber-950"><CheckCircle2 className="h-3 w-3" />{legendLabels.completed}</span>
+          <div className="rounded-xl border border-base-content/10 bg-base-100/55 px-3 py-2.5">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-base-content/65">
+                {isBg ? 'Легенда' : 'Legend'}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-emerald-500/70 bg-emerald-500/85 px-3 text-xs font-medium text-emerald-950">
+                <User className="h-3.5 w-3.5" />
+                {legendLabels.assigned}
+              </span>
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-emerald-900/70 bg-emerald-900/80 px-3 text-xs font-medium text-emerald-100">
+                <UserX className="h-3.5 w-3.5" />
+                {legendLabels.unassigned}
+              </span>
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-sky-400/85 bg-sky-400/90 px-3 text-xs font-medium text-sky-950">
+                <Pause className="h-3.5 w-3.5" />
+                {legendLabels.active}
+              </span>
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-error/80 bg-error/75 px-3 text-xs font-medium text-error-content">
+                <X className="h-3.5 w-3.5" />
+                {legendLabels.endRequested}
+              </span>
+              <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-amber-300/85 bg-amber-300 px-3 text-xs font-medium text-amber-950">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {legendLabels.completed}
+              </span>
             </div>
           </div>
         </div>
       )}
-
-      {saveError ? <p className="mt-3 text-sm text-error">{saveError}</p> : null}
-      {actionError ? <p className="mt-2 text-sm text-error">{actionError}</p> : null}
-      {actionSuccess ? <p className="mt-2 text-sm text-success">{actionSuccess}</p> : null}
 
       {activePanel === 'active' ? (
       <div className="mt-4 rounded-xl border border-base-300/80 bg-base-100/90 p-3 shadow-sm sm:p-4">
@@ -1072,7 +1123,7 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
           <p className="mt-2 text-sm text-base-content/70">{copy.lessonsEmpty}</p>
         ) : (
           <div className="mt-3 rounded-xl border border-base-300/70 bg-base-100/80 p-4">
-            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/70">{isBg ? '\u0421\u0435\u0434\u043c\u0438\u0446\u0430' : 'Week'}</h4>
+            <h4 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-base-content/70">{isBg ? '\u0421\u0435\u0434\u043c\u0438\u0446\u0430' : 'Week'}</h4>
             <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-7">
               {LESSON_DAY_KEYS.map((dayKey) => {
                 const dayLessons = lessonsByDay[dayKey]
@@ -1086,9 +1137,9 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
                       <p className="mt-0.5 whitespace-nowrap text-[10px] font-medium text-base-content/60">{dateLabel}</p>
                     </div>
 
-                    <div className="mt-2 space-y-1.5 pr-0.5">
+                    <div className="mt-2 space-y-1.5 pr-0.5" style={{ minHeight: activeColumnMinHeight }}>
                       {dayLessons.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-base-300/75 bg-gradient-to-b from-base-100/20 to-base-200/15 px-3 py-6">
+                        <div className="h-full rounded-xl border border-dashed border-base-300/75 bg-gradient-to-b from-base-100/20 to-base-200/15 px-3 py-6">
                           <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
                             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-base-300/70 bg-base-300/20">
                               <BriefcaseBusiness className="h-5 w-5 text-base-content/60" />
@@ -1107,9 +1158,15 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
 
                         const canStart = lesson.studentId && (lesson.state === 'PLANNED' || lesson.state === 'START_CODE_ISSUED')
                         const canRequestEnd = lesson.studentId && lesson.state === 'ACTIVE'
-                        const rowTone = lesson.studentId
-                          ? 'border-emerald-500/70 bg-emerald-500/85 text-emerald-950'
-                          : 'border-emerald-900/70 bg-emerald-900/80 text-emerald-100'
+                        const rowTone = lesson.state === 'ACTIVE'
+                          ? 'border-sky-400/85 bg-sky-400/90 text-sky-950'
+                          : lesson.state === 'FAILED'
+                            ? 'border-error/80 bg-error/75 text-error-content'
+                          : lesson.state === 'COMPLETED'
+                            ? 'border-amber-300/85 bg-amber-300 text-amber-950'
+                            : lesson.studentId
+                              ? 'border-emerald-500/70 bg-emerald-500/85 text-emerald-950'
+                              : 'border-emerald-900/70 bg-emerald-900/80 text-emerald-100'
                         const assigneeLabel = lesson.studentId
                           ? (lesson.studentName?.trim() || lesson.studentUsername || (isBg ? '\u0417\u0430\u0434\u0430\u0434\u0435\u043d \u043a\u0443\u0440\u0441\u0438\u0441\u0442' : 'Assigned student'))
                           : (isBg ? '\u041d\u044f\u043c\u0430 \u0437\u0430\u0434\u0430\u0434\u0435\u043d \u043a\u0443\u0440\u0441\u0438\u0441\u0442' : 'No assigned student')
@@ -1127,9 +1184,15 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
                             }`}>
                               <span
                                 className={`inline-flex h-[clamp(18px,1.35vw,22px)] w-[clamp(18px,1.35vw,22px)] shrink-0 items-center justify-center rounded-md border ${
-                                  lesson.studentId
-                                    ? 'border-emerald-700/55 bg-emerald-700/25 text-emerald-100'
-                                    : 'border-emerald-950/60 bg-emerald-950/30 text-emerald-100'
+                                  lesson.state === 'ACTIVE'
+                                    ? 'border-sky-700/45 bg-sky-700/20 text-sky-950'
+                                    : lesson.state === 'FAILED'
+                                      ? 'border-error/45 bg-error/20 text-error-content'
+                                    : lesson.state === 'COMPLETED'
+                                      ? 'border-amber-700/45 bg-amber-700/20 text-amber-950'
+                                      : lesson.studentId
+                                        ? 'border-emerald-700/55 bg-emerald-700/25 text-emerald-100'
+                                        : 'border-emerald-950/60 bg-emerald-950/30 text-emerald-100'
                                 }`}
                                 aria-label={assigneeLabel}
                               >
@@ -1156,15 +1219,15 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
                               ) : canRequestEnd ? (
                                 <button
                                   type="button"
-                                  className="inline-flex h-[clamp(18px,1.35vw,22px)] w-[clamp(18px,1.35vw,22px)] shrink-0 items-center justify-center rounded-full border border-base-content/35 bg-base-100/20 p-0 text-base-content/90 justify-self-end"
+                                  className="inline-flex h-[clamp(18px,1.35vw,22px)] w-[clamp(18px,1.35vw,22px)] shrink-0 items-center justify-center rounded-full border border-error/45 bg-error/20 p-0 text-error-content justify-self-end"
                                   aria-label={copy.requestEnd}
                                   disabled={requestingEndSlotId === lesson.id}
                                   onClick={(event) => {
                                     event.stopPropagation()
-                                    void handleRequestEnd(lesson.id)
+                                    setConfirmEndSlotId(lesson.id)
                                   }}
                                 >
-                                  {requestingEndSlotId === lesson.id ? <Loader2 className="h-[clamp(9px,0.72vw,11px)] w-[clamp(9px,0.72vw,11px)] animate-spin" /> : <Play className="h-[clamp(9px,0.72vw,11px)] w-[clamp(9px,0.72vw,11px)]" />}
+                                  {requestingEndSlotId === lesson.id ? <Loader2 className="h-[clamp(9px,0.72vw,11px)] w-[clamp(9px,0.72vw,11px)] animate-spin" /> : <X className="h-[clamp(9px,0.72vw,11px)] w-[clamp(9px,0.72vw,11px)]" />}
                                 </button>
                               ) : <span className="h-[clamp(18px,1.35vw,22px)] w-[clamp(18px,1.35vw,22px)] justify-self-end" />}
                             </div>
@@ -1274,6 +1337,35 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
         </div>
       ) : null}
 
+      {confirmEndSlotId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-sm rounded-xl border border-base-content/20 bg-base-100 p-4 shadow-xl">
+            <p className="text-base font-semibold text-base-content">{copy.confirmEndTitle}</p>
+            <p className="mt-1.5 text-sm text-base-content/75">
+              {copy.confirmEndDescription}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setConfirmEndSlotId(null)}
+              >
+                {copy.back}
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => void handleRequestEnd(confirmEndSlotId)}
+                disabled={requestingEndSlotId === confirmEndSlotId}
+              >
+                {requestingEndSlotId === confirmEndSlotId ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {copy.requestEnd}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {startCodeModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-md rounded-xl border border-base-content/20 bg-base-100 p-4 shadow-xl">
@@ -1334,7 +1426,32 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
           </div>
         </div>
       ) : null}
+
+      {toasts.length > 0 ? (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-[70] flex w-[min(92vw,420px)] flex-col gap-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className="pointer-events-auto overflow-hidden rounded-lg border border-white/10 bg-zinc-800/95 text-zinc-100 shadow-xl backdrop-blur-sm"
+            >
+              <div className="flex items-start gap-3 p-3">
+                <div className={`mt-0.5 ${toast.kind === 'success' ? 'text-success' : 'text-error'}`}>
+                  {toast.kind === 'success' ? <CircleCheck className="h-5 w-5" /> : <CircleAlert className="h-5 w-5" />}
+                </div>
+                <p className="flex-1 text-sm font-medium">{toast.message}</p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs h-6 min-h-6 w-6 p-0 text-zinc-300 hover:text-zinc-100"
+                  onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className={`h-1 ${toast.kind === 'success' ? 'bg-success/90' : 'bg-error/90'}`} />
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }
-

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LifeBuoy, Mail, RefreshCw, TriangleAlert, Users } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LifeBuoy, RefreshCw, TriangleAlert, Users } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import type { Language } from '../../../i18n/language'
 import { useAuth } from '../../auth/hooks'
 import {
+  fetchInstructorLessons,
   fetchInstructorSchedule,
+  fetchInstructorScheduleWorkflow,
   fetchInstructorStudents,
   type InstructorDaySchedule,
+  type LessonListItem,
   type InstructorSchedule,
   type InstructorStudent,
 } from '../api'
@@ -39,7 +42,10 @@ const BG = {
   ofTarget: '\u043e\u0442 \u0446\u0435\u043b\u0442\u0430',
   needsFocus: '\u041d\u0443\u0436\u0434\u0430 \u043e\u0442 \u0444\u043e\u043a\u0443\u0441',
   laggingUnder20Hours: '\u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0438 \u0441 \u0433\u043e\u043b\u044f\u043c\u043e \u0438\u0437\u043e\u0441\u0442\u0430\u0432\u0430\u043d\u0435 \u043f\u043e\u0434 20 \u0447\u0430\u0441\u0430',
+  activeLessons: '\u0410\u043a\u0442\u0438\u0432\u043d\u0438 \u0443\u0440\u043e\u0446\u0438',
+  failedLessons: '\u041d\u0435\u0443\u0441\u043f\u0435\u0448\u043d\u0438',
   examReady: '\u0413\u043e\u0442\u043e\u0432\u0438 \u0437\u0430 \u0438\u0437\u043f\u0438\u0442',
+  completedLessonsWeek: '\u041f\u0440\u0438\u043a\u043b\u044e\u0447\u0435\u043d\u0438 \u0443\u0440\u043e\u0446\u0438 (\u0442\u0430\u0437\u0438 \u0441\u0435\u0434\u043c\u0438\u0446\u0430)',
   scheduleActive: (count: number) => `\u0421 \u0430\u043a\u0442\u0438\u0432\u0435\u043d \u0433\u0440\u0430\u0444\u0438\u043a: ${count}/7 \u0434\u043d\u0438`,
   focusTitle: '\u0424\u043e\u043a\u0443\u0441 \u0432\u044a\u0440\u0445\u0443 \u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0438\u0442\u0435',
   onlyRisk: '\u0421\u0430\u043c\u043e \u0440\u0438\u0441\u043a\u043e\u0432\u0438',
@@ -62,7 +68,7 @@ const BG = {
   quickActions: '\u0411\u044a\u0440\u0437\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044f',
   manageStudents: '\u0423\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u043d\u0430 \u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0438',
   planSchedule: '\u041f\u043b\u0430\u043d\u0438\u0440\u0430\u0439 \u0433\u0440\u0430\u0444\u0438\u043a',
-  inbox: '\u0412\u0445\u043e\u0434\u044f\u0449\u0438',
+  activeSchedule: '\u0410\u043a\u0442\u0438\u0432\u0435\u043d \u0433\u0440\u0430\u0444\u0438\u043a',
   support: '\u041f\u043e\u0434\u0434\u0440\u044a\u0436\u043a\u0430',
   capacity: '\u041a\u0430\u043f\u0430\u0446\u0438\u0442\u0435\u0442',
   currentCapacity: (current: number, max: number) => `\u0422\u0435\u043a\u0443\u0449 \u043a\u0430\u043f\u0430\u0446\u0438\u0442\u0435\u0442: ${current} \u043e\u0442 ${max} \u043a\u0443\u0440\u0441\u0438\u0441\u0442\u0430.`,
@@ -135,6 +141,15 @@ function getCurrentDayKey(): DayKey {
   return map[day] || 'monday'
 }
 
+function getWeekStartIsoFromClientNow() {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const day = now.getDay()
+  const diffToMonday = day === 0 ? -6 : 1 - day
+  now.setDate(now.getDate() + diffToMonday)
+  return now.toISOString().slice(0, 10)
+}
+
 export default function InstructorDashboardPage({ language }: Props) {
   const isBg = language === 'bg'
   const { user } = useAuth()
@@ -144,6 +159,8 @@ export default function InstructorDashboardPage({ language }: Props) {
   const [maxStudents, setMaxStudents] = useState(FALLBACK_MAX_STUDENTS)
   const [totalStudents, setTotalStudents] = useState(0)
   const [schedule, setSchedule] = useState<InstructorSchedule | null>(null)
+  const [lessons, setLessons] = useState<LessonListItem[]>([])
+  const [workflowReplies, setWorkflowReplies] = useState<{ expected: number; received: number }>({ expected: 0, received: 0 })
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -154,6 +171,7 @@ export default function InstructorDashboardPage({ language }: Props) {
   const basePath = location.pathname.startsWith('/dashboard/schooladmin/instructor')
     ? '/dashboard/schooladmin/instructor'
     : '/dashboard/instructor'
+  const dashboardWeekStartIso = useMemo(() => getWeekStartIsoFromClientNow(), [])
 
   useEffect(() => {
     let active = true
@@ -163,9 +181,11 @@ export default function InstructorDashboardPage({ language }: Props) {
       setError(null)
 
       try {
-        const [studentsResponse, scheduleResponse] = await Promise.all([
+        const [studentsResponse, scheduleResponse, lessonsResponse, workflowResponse] = await Promise.all([
           fetchInstructorStudents(),
           fetchInstructorSchedule(),
+          fetchInstructorLessons(dashboardWeekStartIso),
+          fetchInstructorScheduleWorkflow(dashboardWeekStartIso),
         ])
 
         if (!active) return
@@ -173,6 +193,11 @@ export default function InstructorDashboardPage({ language }: Props) {
         setMaxStudents(studentsResponse.maxStudents || FALLBACK_MAX_STUDENTS)
         setTotalStudents(studentsResponse.totalStudents)
         setSchedule(scheduleResponse)
+        setLessons(lessonsResponse)
+        setWorkflowReplies({
+          expected: workflowResponse.expectedReplies ?? 0,
+          received: workflowResponse.repliesReceived ?? 0,
+        })
       } catch {
         if (!active) return
         setError(isBg ? BG.loadError : 'Could not load your dashboard data.')
@@ -185,22 +210,29 @@ export default function InstructorDashboardPage({ language }: Props) {
     return () => {
       active = false
     }
-  }, [isBg])
+  }, [isBg, dashboardWeekStartIso])
 
   const refreshDashboard = async () => {
     setRefreshing(true)
     setError(null)
 
     try {
-      const [studentsResponse, scheduleResponse] = await Promise.all([
+      const [studentsResponse, scheduleResponse, lessonsResponse, workflowResponse] = await Promise.all([
         fetchInstructorStudents(),
         fetchInstructorSchedule(),
+        fetchInstructorLessons(dashboardWeekStartIso),
+        fetchInstructorScheduleWorkflow(dashboardWeekStartIso),
       ])
 
       setStudents(studentsResponse.students)
       setMaxStudents(studentsResponse.maxStudents || FALLBACK_MAX_STUDENTS)
       setTotalStudents(studentsResponse.totalStudents)
       setSchedule(scheduleResponse)
+      setLessons(lessonsResponse)
+      setWorkflowReplies({
+        expected: workflowResponse.expectedReplies ?? 0,
+        received: workflowResponse.repliesReceived ?? 0,
+      })
     } catch {
       setError(isBg ? BG.refreshError : 'Refresh failed. Please try again.')
     } finally {
@@ -237,6 +269,26 @@ export default function InstructorDashboardPage({ language }: Props) {
     () => studentRows.filter((student) => student.status === 'ready').length,
     [studentRows],
   )
+
+  const lessonStats = useMemo(() => {
+    const stats = {
+      planned: 0,
+      startCodeIssued: 0,
+      active: 0,
+      failed: 0,
+      completed: 0,
+    }
+
+    for (const lesson of lessons) {
+      if (lesson.state === 'PLANNED') stats.planned += 1
+      if (lesson.state === 'START_CODE_ISSUED') stats.startCodeIssued += 1
+      if (lesson.state === 'ACTIVE') stats.active += 1
+      if (lesson.state === 'FAILED') stats.failed += 1
+      if (lesson.state === 'COMPLETED') stats.completed += 1
+    }
+
+    return stats
+  }, [lessons])
 
   const focusStudents = useMemo(() => {
     let rows = [...studentRows]
@@ -389,7 +441,11 @@ export default function InstructorDashboardPage({ language }: Props) {
                 <span>{isBg ? BG.needsFocus : 'Needs focus'}</span>
               </div>
               <p className="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{riskCount}</p>
-              <p className="text-xs text-base-content/65">{isBg ? BG.laggingUnder20Hours : 'students with large gap under 20 hours'}</p>
+              <p className="text-xs text-base-content/65">
+                {isBg
+                  ? `${BG.activeLessons}: ${lessonStats.active} · ${BG.failedLessons}: ${lessonStats.failed}`
+                  : `Active lessons: ${lessonStats.active} · Failed: ${lessonStats.failed}`}
+              </p>
             </article>
 
             <article className="rounded-xl border border-base-300/80 bg-base-100/90 p-3 shadow-sm sm:p-4">
@@ -399,9 +455,17 @@ export default function InstructorDashboardPage({ language }: Props) {
               </div>
               <p className="mt-2 text-xl font-semibold text-base-content sm:text-2xl">{readyCount}</p>
               <p className="text-xs text-base-content/65">
-                {isBg ? BG.scheduleActive(enabledDaysCount) : `Schedule active: ${enabledDaysCount}/7 days`}
+                {isBg
+                  ? `${BG.completedLessonsWeek}: ${lessonStats.completed}`
+                  : `Completed lessons (this week): ${lessonStats.completed}`}
               </p>
             </article>
+          </div>
+
+          <div className="rounded-xl border border-base-300/75 bg-base-100/80 px-3 py-2 text-xs text-base-content/70">
+            {isBg
+              ? `Отговори за недостъпност: ${workflowReplies.received}/${workflowReplies.expected} · Планирани: ${lessonStats.planned} · Код издаден: ${lessonStats.startCodeIssued}`
+              : `Availability replies: ${workflowReplies.received}/${workflowReplies.expected} · Planned: ${lessonStats.planned} · Code issued: ${lessonStats.startCodeIssued}`}
           </div>
 
           <div className="grid gap-3 md:grid-cols-[1.2fr_1fr] xl:grid-cols-[1.45fr_1fr]">
@@ -534,13 +598,13 @@ export default function InstructorDashboardPage({ language }: Props) {
                   <span>{isBg ? BG.manageStudents : 'Manage students'}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link to={`${basePath}/schedule`} className="btn btn-sm btn-outline h-11 justify-between rounded-lg">
+                <Link to={`${basePath}/planner`} className="btn btn-sm btn-outline h-11 justify-between rounded-lg">
                   <span>{isBg ? BG.planSchedule : 'Plan schedule'}</span>
                   <CalendarDays className="h-4 w-4" />
                 </Link>
-                <Link to={`${basePath}/inbox`} className="btn btn-sm btn-outline h-11 justify-between rounded-lg">
-                  <span>{isBg ? BG.inbox : 'Inbox'}</span>
-                  <Mail className="h-4 w-4" />
+                <Link to={`${basePath}/schedule`} className="btn btn-sm btn-outline h-11 justify-between rounded-lg">
+                  <span>{isBg ? BG.activeSchedule : 'Active schedule'}</span>
+                  <Clock3 className="h-4 w-4" />
                 </Link>
                 <Link to={`${basePath}/support`} className="btn btn-sm btn-outline h-11 justify-between rounded-lg">
                   <span>{isBg ? BG.support : 'Support'}</span>

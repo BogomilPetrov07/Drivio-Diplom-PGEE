@@ -1,4 +1,4 @@
-import { LayoutDashboard, LifeBuoy, Mail, LineChart, CalendarDays, UserRoundCheck } from 'lucide-react'
+import { LayoutDashboard, LifeBuoy, LineChart, CalendarDays, UserRoundCheck } from 'lucide-react'
 import DashboardShell from '../components/DashboardShell.js'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
@@ -22,7 +22,6 @@ export default function StudentLayout({ language, setLanguage, themePreference, 
       setThemePreference={setThemePreference}
       navItems={[
         { kind: 'link', to: '/dashboard/student/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
-        { kind: 'link', to: '/dashboard/student/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/student/instructors', label: t.layout.instructors, icon: <UserRoundCheck className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/student/progress', label: t.layout.progress, icon: <LineChart className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/student/schedule', label: t.layout.schedule, icon: <CalendarDays className='h-4 w-4' /> },
@@ -31,4 +30,3 @@ export default function StudentLayout({ language, setLanguage, themePreference, 
     />
   )
 }
-

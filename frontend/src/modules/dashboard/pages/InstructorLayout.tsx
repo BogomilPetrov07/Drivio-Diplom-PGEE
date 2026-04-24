@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, LayoutDashboard, LifeBuoy, Mail, Users } from 'lucide-react'
+import { Calendar, CalendarDays, LayoutDashboard, LifeBuoy, Users } from 'lucide-react'
 import DashboardShell from '../components/DashboardShell.js'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
@@ -22,7 +22,6 @@ export default function InstructorLayout({ language, setLanguage, themePreferenc
       setThemePreference={setThemePreference}
       navItems={[
         { kind: 'link', to: '/dashboard/instructor/home', label: t.layout.home, icon: <LayoutDashboard className='h-4 w-4' /> },
-        { kind: 'link', to: '/dashboard/instructor/inbox', label: t.layout.inbox, icon: <Mail className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/instructor/planner', label: t.layout.planner, icon: <Calendar className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/instructor/schedule', label: t.layout.schedule, icon: <CalendarDays className='h-4 w-4' /> },
         { kind: 'link', to: '/dashboard/instructor/students', label: t.layout.students, icon: <Users className='h-4 w-4' /> },

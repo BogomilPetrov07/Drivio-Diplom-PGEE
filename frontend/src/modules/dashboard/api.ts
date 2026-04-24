@@ -136,7 +136,7 @@ export type LessonSessionState =
   | 'PLANNED'
   | 'START_CODE_ISSUED'
   | 'ACTIVE'
-  | 'END_REQUESTED'
+  | 'FAILED'
   | 'COMPLETED'
 
 export interface InstructorScheduleCycle {
@@ -462,14 +462,14 @@ export async function issueInstructorLessonStartCode(timeSlotId: string) {
   return data
 }
 
-export async function requestInstructorLessonEnd(timeSlotId: string) {
-  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/request-end`, {
+export async function markInstructorLessonFailed(timeSlotId: string) {
+  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/mark-failed`, {
     method: 'POST',
     credentials: 'include',
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to request lesson end: ${response.status}`)
+    throw new Error(`Failed to mark lesson as failed: ${response.status}`)
   }
 
   return response.json() as Promise<{ message: string }>

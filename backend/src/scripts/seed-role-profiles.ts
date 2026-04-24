@@ -11,7 +11,7 @@ type SeedUser = {
 
 const seedUsers: SeedUser[] = [
   {
-    username: "superadmin_bogo",
+    username: "superadmin",
     email: "bogopetrov07@gmail.com",
     password: "SAdmin",
     role: "SUPERADMIN",

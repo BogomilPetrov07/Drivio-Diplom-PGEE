@@ -16,7 +16,9 @@
     "db:migrate": "tsx src/scripts/db-migrate.ts",
     "db:nuke": "tsx src/scripts/db-nuke.ts",
     "db:generate": "tsx src/scripts/db-generate.ts",
-    "db:refresh": "npm run db:nuke && npm run db:generate && npm run db:migrate"
+    "db:refresh": "npm run db:nuke && npm run db:generate && npm run db:migrate",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@infisical/sdk": "^5.0.1",
@@ -54,7 +56,8 @@
     "@types/web-push": "^3.6.4",
     "nodemon": "^3.1.9",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "fast-xml-parser": "^5.3.6",

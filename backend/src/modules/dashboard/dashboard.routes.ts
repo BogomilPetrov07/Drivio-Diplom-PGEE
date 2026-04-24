@@ -18,13 +18,12 @@ router.post("/instructor/schedule/allocate", authorizeMiddleware(["INSTRUCTOR", 
 router.get("/instructor/lessons", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.listInstructorLessons);
 router.get("/instructor/lessons/:timeSlotId/candidates", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.getInstructorLessonCandidates);
 router.post("/instructor/lessons/:timeSlotId/start-code", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.issueInstructorLessonStartCode);
-router.post("/instructor/lessons/:timeSlotId/request-end", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.requestInstructorLessonEnd);
+router.post("/instructor/lessons/:timeSlotId/mark-failed", authorizeMiddleware(["INSTRUCTOR", "SCHOOLADMIN"]), DashboardController.markInstructorLessonFailed);
 
 router.get("/student/schedule", authorizeMiddleware(["STUDENT"]), DashboardController.getStudentScheduleCycle);
 router.post("/student/schedule/availability", authorizeMiddleware(["STUDENT"]), DashboardController.submitStudentScheduleAvailability);
 router.get("/student/lessons", authorizeMiddleware(["STUDENT"]), DashboardController.listStudentLessons);
 router.post("/student/lessons/:timeSlotId/verify-start-code", authorizeMiddleware(["STUDENT"]), DashboardController.verifyStudentLessonStartCode);
-router.post("/student/lessons/:timeSlotId/confirm-end", authorizeMiddleware(["STUDENT"]), DashboardController.confirmStudentLessonEnd);
 
 router.use(authorizeMiddleware(["SCHOOLADMIN"]));
 

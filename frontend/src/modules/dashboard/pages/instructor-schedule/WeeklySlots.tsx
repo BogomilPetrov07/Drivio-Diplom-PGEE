@@ -189,7 +189,7 @@ export function WeeklySlots({
 
   return (
     <div className="mt-2 rounded-xl border border-base-300/70 bg-base-100/80 p-4">
-      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-base-content/70">{isBg ? 'Седмица' : 'Week'}</h3>
+      <h3 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-base-content/70">{isBg ? 'Седмица' : 'Week'}</h3>
       <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-2 xl:grid-cols-7">
         {dayModels.map(({ day, dayKey, dayState, checked, dateLabel, dayItems, isCollapsed }) => (
           <div key={day.key} className={`min-w-0 rounded-xl border p-2 flex flex-col xl:h-full ${checked ? 'border-base-300 bg-base-100' : 'border-base-300/60 bg-base-200/40'}`}>
