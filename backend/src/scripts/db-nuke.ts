@@ -1,12 +1,12 @@
 import { initConfig, env } from "../config/env.js";
 import pg from "pg";
-import { logDbConnectionString, resolveDbConnectionString } from "./db-connection-log.js";
+import { logDbConnectionString, resolveScriptDbConnectionString } from "./db-connection-log.js";
 
 async function runNuke() {
   try {
     await initConfig("/backend/app", true);
 
-    const connectionString = resolveDbConnectionString();
+    const connectionString = resolveScriptDbConnectionString();
     logDbConnectionString("db:nuke", connectionString);
 
     const client = new pg.Client({ connectionString });

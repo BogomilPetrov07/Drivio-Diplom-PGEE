@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import { disconnectRealtimeSocket } from '../dashboard/realtime.js'
 import { login, logout, refreshSession } from './api.js'
 import type { AuthUser, LoginDTO } from './types.js'
 
@@ -85,6 +86,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           await logout()
         } finally {
+          disconnectRealtimeSocket()
           set({ user: null, initialized: true, loading: false })
         }
       },

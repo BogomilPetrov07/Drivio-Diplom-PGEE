@@ -1,6 +1,6 @@
 import { initConfig, env } from "../config/env.js";
 import pg from "pg";
-import { logDbConnectionString, resolveDbConnectionString } from "./db-connection-log.js";
+import { logDbConnectionString, resolveScriptDbConnectionString } from "./db-connection-log.js";
 
 async function runRecreate() {
     try {
@@ -8,7 +8,7 @@ async function runRecreate() {
         await initConfig("/backend/app", true);
 
         // Pick the authorized URL (prioritizing DIRECT_URL if available)
-        const connectionString = resolveDbConnectionString();
+        const connectionString = resolveScriptDbConnectionString();
         logDbConnectionString("db:recreate", connectionString);
 
         const client = new pg.Client({ connectionString });

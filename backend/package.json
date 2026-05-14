@@ -12,6 +12,7 @@
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit",
     "seed:roles": "tsx src/scripts/seed-role-profiles.ts",
+    "seed:hosted-demo": "tsx src/scripts/seed-hosted-demo.ts",
     "db:recreate": "tsx src/scripts/db-recreate.ts",
     "db:migrate": "tsx src/scripts/db-migrate.ts",
     "db:nuke": "tsx src/scripts/db-nuke.ts",

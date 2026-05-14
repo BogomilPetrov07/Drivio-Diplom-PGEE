@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client'
 
 let socketRef: Socket | null = null
 let reconnectInFlight: Promise<void> | null = null
+let socketGeneration = 0
 
 async function tryRefreshSession() {
   const response = await fetch('/api/auth/refresh', {
@@ -13,9 +14,21 @@ async function tryRefreshSession() {
   }
 }
 
+export function disconnectRealtimeSocket() {
+  socketGeneration += 1
+  reconnectInFlight = null
+
+  if (!socketRef) return
+
+  socketRef.removeAllListeners()
+  socketRef.disconnect()
+  socketRef = null
+}
+
 export function getRealtimeSocket() {
   if (socketRef) return socketRef
 
+  const currentGeneration = socketGeneration
   socketRef = io('/', {
     path: '/socket.io',
     withCredentials: true,
@@ -32,7 +45,9 @@ export function getRealtimeSocket() {
     reconnectInFlight = (async () => {
       try {
         await tryRefreshSession()
-        socketRef?.connect()
+        if (socketRef && socketGeneration === currentGeneration) {
+          socketRef.connect()
+        }
       } catch {
         // Ignore; auth guards will handle redirect if session is gone.
       } finally {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { disconnectRealtimeSocket } from '../../dashboard/realtime.js'
 import { useAuth } from '../hooks.js'
 
 export default function AuthnGuard() {
@@ -11,6 +12,12 @@ export default function AuthnGuard() {
       void initialize()
     }
   }, [initialized, initialize])
+
+  useEffect(() => {
+    if (initialized && !loading && !isAuthenticated) {
+      disconnectRealtimeSocket()
+    }
+  }, [initialized, isAuthenticated, loading])
 
   if (!initialized || loading) {
     return <div className="min-h-screen bg-base-100" />
