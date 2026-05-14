@@ -1,3 +1,4 @@
+import api from '../../services/api'
 import { io, type Socket } from 'socket.io-client'
 
 let socketRef: Socket | null = null
@@ -30,13 +31,7 @@ function getRealtimeBaseUrl() {
 }
 
 async function tryRefreshSession() {
-  const response = await fetch('/api/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  })
-  if (!response.ok) {
-    throw new Error(`Refresh failed: ${response.status}`)
-  }
+  await api.post('/auth/refresh')
 }
 
 export function disconnectRealtimeSocket() {

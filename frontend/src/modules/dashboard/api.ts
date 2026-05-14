@@ -1,3 +1,4 @@
+import axios from 'axios'
 import api from '../../services/api'
 
 export interface SchoolJoinRequest {
@@ -324,40 +325,28 @@ export async function removePushSubscription(endpoint: string) {
   return data
 }
 
-async function readResponseErrorMessage(response: Response, fallback: string) {
-  try {
-    const contentType = response.headers.get('content-type') || ''
-    if (contentType.includes('application/json')) {
-      const data = await response.json() as { message?: string }
-      if (data?.message) return data.message
-    } else {
-      const text = await response.text()
-      if (text.trim()) return text.trim()
+function readApiErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data
+    if (typeof data === 'string' && data.trim()) return data.trim()
+    if (data && typeof data === 'object' && 'message' in data && typeof data.message === 'string' && data.message.trim()) {
+      return data.message.trim()
     }
-  } catch {
-    // Ignore parse failures and use the fallback below.
   }
-
   return fallback
 }
 
 export async function fetchInstructorSchedule() {
   if (typeof window === 'undefined') return null
   try {
-    const response = await fetch('/api/dashboard/instructor/schedule', {
-      method: 'GET',
-      credentials: 'include',
-    })
-    if (!response.ok) {
-      const message = await readResponseErrorMessage(response, `Failed to fetch schedule: ${response.status}`)
-      if (response.status === 404 && message === 'Instructor profile not found') {
-        throw new Error(message)
-      }
-      return null
-    }
-    const data = await response.json() as { schedule?: InstructorSchedule | null }
+    const { data } = await api.get<{ schedule?: InstructorSchedule | null }>('/dashboard/instructor/schedule')
     return data.schedule ?? null
   } catch (error) {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined
+    const message = readApiErrorMessage(error, status ? `Failed to fetch schedule: ${status}` : 'Failed to fetch schedule')
+    if (status === 404 && message === 'Instructor profile not found') {
+      throw new Error(message)
+    }
     if (error instanceof Error && error.message === 'Instructor profile not found') {
       throw error
     }
@@ -366,50 +355,19 @@ export async function fetchInstructorSchedule() {
 }
 
 export async function saveInstructorSchedule(schedule: InstructorSchedule) {
-  const response = await fetch('/api/dashboard/instructor/schedule', {
-    method: 'PUT',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(schedule),
-  })
-
-  if (!response.ok) {
-    const message = await readResponseErrorMessage(response, `Failed to save schedule: ${response.status}`)
-    throw new Error(message)
-  }
-
-  const data = await response.json() as { schedule?: InstructorSchedule | null }
+  const { data } = await api.put<{ schedule?: InstructorSchedule | null }>('/dashboard/instructor/schedule', schedule)
   return data.schedule ?? null
 }
 
 export async function fetchInstructorStudents() {
-  const response = await fetch('/api/dashboard/instructor/students', {
-    method: 'GET',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch students: ${response.status}`)
-  }
-
-  const data = await response.json() as InstructorStudentsResponse
+  const { data } = await api.get<InstructorStudentsResponse>('/dashboard/instructor/students')
   return data
 }
 
 export async function fetchInstructorScheduleWorkflow(weekStartDate?: string) {
-  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
-  const response = await fetch(`/api/dashboard/instructor/schedule/workflow${search}`, {
-    method: 'GET',
-    credentials: 'include',
+  const { data } = await api.get<{ workflow: InstructorScheduleWorkflow }>('/dashboard/instructor/schedule/workflow', {
+    params: weekStartDate ? { weekStartDate } : undefined,
   })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch schedule workflow: ${response.status}`)
-  }
-
-  const data = await response.json() as { workflow: InstructorScheduleWorkflow }
   return data.workflow
 }
 
@@ -418,116 +376,50 @@ export async function sendInstructorScheduleToStudents(payload: {
   days: InstructorSchedule['days']
   slotBlueprint: ScheduleSlotBlueprint
 }) {
-  const response = await fetch('/api/dashboard/instructor/schedule/send', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to send schedule to students: ${response.status}`)
-  }
-
-  const data = await response.json() as { workflow: InstructorScheduleWorkflow | null }
+  const { data } = await api.post<{ workflow: InstructorScheduleWorkflow | null }>('/dashboard/instructor/schedule/send', payload)
   return data.workflow
 }
 
 export async function allocateInstructorSchedule(cycleId?: string) {
-  const response = await fetch('/api/dashboard/instructor/schedule/allocate', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ cycleId }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to allocate schedule: ${response.status}`)
-  }
-
-  const data = await response.json() as {
+  const { data } = await api.post<{
     allocation: {
       cycleId: string
       totalSlots: number
       assignedSlots: number
       unassignedSlots: number
     }
-  }
+  }>('/dashboard/instructor/schedule/allocate', { cycleId })
   return data.allocation
 }
 
 export async function fetchInstructorLessons(weekStartDate?: string) {
-  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
-  const response = await fetch(`/api/dashboard/instructor/lessons${search}`, {
-    method: 'GET',
-    credentials: 'include',
+  const { data } = await api.get<{ lessons: LessonListItem[] }>('/dashboard/instructor/lessons', {
+    params: weekStartDate ? { weekStartDate } : undefined,
   })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch instructor lessons: ${response.status}`)
-  }
-
-  const data = await response.json() as { lessons: LessonListItem[] }
   return data.lessons
 }
 
 export async function issueInstructorLessonStartCode(timeSlotId: string) {
-  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/start-code`, {
-    method: 'POST',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to issue start code: ${response.status}`)
-  }
-
-  const data = await response.json() as { timeSlotId: string; code: string; expiresAt: string }
+  const { data } = await api.post<{ timeSlotId: string; code: string; expiresAt: string }>(
+    `/dashboard/instructor/lessons/${timeSlotId}/start-code`,
+  )
   return data
 }
 
 export async function markInstructorLessonFailed(timeSlotId: string) {
-  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/mark-failed`, {
-    method: 'POST',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to mark lesson as failed: ${response.status}`)
-  }
-
-  return response.json() as Promise<{ message: string }>
+  const { data } = await api.post<{ message: string }>(`/dashboard/instructor/lessons/${timeSlotId}/mark-failed`)
+  return data
 }
 
 export async function fetchInstructorLessonCandidates(timeSlotId: string) {
-  const response = await fetch(`/api/dashboard/instructor/lessons/${timeSlotId}/candidates`, {
-    method: 'GET',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch lesson candidates: ${response.status}`)
-  }
-
-  const data = await response.json() as { details: LessonCandidatesDetails }
+  const { data } = await api.get<{ details: LessonCandidatesDetails }>(`/dashboard/instructor/lessons/${timeSlotId}/candidates`)
   return data.details
 }
 
 export async function fetchStudentScheduleCycle(weekStartDate?: string) {
-  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
-  const response = await fetch(`/api/dashboard/student/schedule${search}`, {
-    method: 'GET',
-    credentials: 'include',
+  const { data } = await api.get<{ schedule: StudentScheduleCycle | null }>('/dashboard/student/schedule', {
+    params: weekStartDate ? { weekStartDate } : undefined,
   })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch student schedule cycle: ${response.status}`)
-  }
-
-  const data = await response.json() as { schedule: StudentScheduleCycle | null }
   return data.schedule
 }
 
@@ -535,71 +427,33 @@ export async function submitStudentScheduleAvailability(payload: {
   cycleId: string
   unavailableSlotKeys: Record<DayKey, string[]>
 }) {
-  const response = await fetch('/api/dashboard/student/schedule/availability', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to submit student availability: ${response.status}`)
-  }
-
-  const data = await response.json() as {
+  const { data } = await api.post<{
     summary: {
       cycleId: string
       status: ScheduleCycleStatus
       repliesReceived: number
       expectedReplies: number
     }
-  }
+  }>('/dashboard/student/schedule/availability', payload)
   return data.summary
 }
 
 export async function fetchStudentLessons(weekStartDate?: string) {
-  const search = weekStartDate ? `?weekStartDate=${encodeURIComponent(weekStartDate)}` : ''
-  const response = await fetch(`/api/dashboard/student/lessons${search}`, {
-    method: 'GET',
-    credentials: 'include',
+  const { data } = await api.get<{ lessons: LessonListItem[] }>('/dashboard/student/lessons', {
+    params: weekStartDate ? { weekStartDate } : undefined,
   })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch student lessons: ${response.status}`)
-  }
-
-  const data = await response.json() as { lessons: LessonListItem[] }
   return data.lessons
 }
 
 export async function verifyStudentLessonStartCode(timeSlotId: string, code: string) {
-  const response = await fetch(`/api/dashboard/student/lessons/${timeSlotId}/verify-start-code`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ code }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to verify lesson start code: ${response.status}`)
-  }
-
-  return response.json() as Promise<{ message: string }>
+  const { data } = await api.post<{ message: string }>(
+    `/dashboard/student/lessons/${timeSlotId}/verify-start-code`,
+    { code },
+  )
+  return data
 }
 
 export async function confirmStudentLessonEnd(timeSlotId: string) {
-  const response = await fetch(`/api/dashboard/student/lessons/${timeSlotId}/confirm-end`, {
-    method: 'POST',
-    credentials: 'include',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to confirm lesson end: ${response.status}`)
-  }
-
-  return response.json() as Promise<{ message: string }>
+  const { data } = await api.post<{ message: string }>(`/dashboard/student/lessons/${timeSlotId}/confirm-end`)
+  return data
 }

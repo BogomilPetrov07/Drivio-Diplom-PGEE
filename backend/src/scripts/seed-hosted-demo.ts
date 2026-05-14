@@ -76,7 +76,6 @@ const demoStudentProfiles = [
     id: "daa3f95c-6c73-41b4-94b3-63883bae8600",
     userId: "66058fbb-f0dd-4fec-9302-1b5b4ab670bc",
     completedHours: 0,
-    instructorId: "87740251-1557-4fa4-ae01-3a9bbd4ec0ee",
   },
 ];
 
@@ -85,6 +84,7 @@ async function seedHostedDemo() {
   const connectionString = resolveScriptDbConnectionString();
   logDbConnectionString("seed:hosted-demo", connectionString);
   await initializeDb();
+  const { DashboardService } = await import("../modules/dashboard/dashboard.service.js");
 
   await db.transaction(async (tx) => {
     await tx.delete(studentProfiles).where(inArray(studentProfiles.id, demoStudentProfiles.map((profile) => profile.id)));
@@ -97,10 +97,64 @@ async function seedHostedDemo() {
     await tx.insert(schools).values(demoSchool);
     await tx.insert(users).values(demoUsers);
     await tx.insert(instructorProfiles).values(demoInstructorProfiles);
-    await tx.insert(studentProfiles).values(demoStudentProfiles);
+
+    const instructorProfile = await tx.query.instructorProfiles.findFirst({
+      where: eq(instructorProfiles.userId, "ff52aaf1-1528-4898-b0b8-370a19fa68f3"),
+      columns: { id: true, userId: true },
+    });
+
+    if (!instructorProfile) {
+      throw new Error("Seed verification failed: instructor profile was not created.");
+    }
+
+    await tx.insert(studentProfiles).values(
+      demoStudentProfiles.map((profile) => ({
+        ...profile,
+        instructorId: instructorProfile.id,
+      })),
+    );
   });
 
+  const [instructorProfile, studentProfile] = await Promise.all([
+    db.query.instructorProfiles.findFirst({
+      where: eq(instructorProfiles.userId, "ff52aaf1-1528-4898-b0b8-370a19fa68f3"),
+      columns: { id: true, userId: true },
+    }),
+    db.query.studentProfiles.findFirst({
+      where: eq(studentProfiles.userId, "66058fbb-f0dd-4fec-9302-1b5b4ab670bc"),
+      columns: { id: true, userId: true, instructorId: true, completedHours: true },
+    }),
+  ]);
+
+  if (!instructorProfile) {
+    throw new Error("Seed verification failed: instructor profile missing after commit.");
+  }
+
+  if (!studentProfile) {
+    throw new Error("Seed verification failed: student profile missing after commit.");
+  }
+
+  if (studentProfile.instructorId !== instructorProfile.id) {
+    throw new Error(
+      `Seed verification failed: student profile ${studentProfile.id} is linked to ${studentProfile.instructorId}, expected ${instructorProfile.id}.`,
+    );
+  }
+
+  const instructorStudentList = await DashboardService.listInstructorStudents("ff52aaf1-1528-4898-b0b8-370a19fa68f3");
+  if (!instructorStudentList) {
+    throw new Error("Seed verification failed: seeded instructor does not resolve to an instructor profile in DashboardService.");
+  }
+
+  if (instructorStudentList.totalStudents < 1) {
+    throw new Error("Seed verification failed: DashboardService.listInstructorStudents returned no students for the seeded instructor.");
+  }
+
   console.log("Hosted demo seed completed.");
+  console.log(`Instructor user ${instructorProfile.userId} -> instructor profile ${instructorProfile.id}`);
+  console.log(
+    `Student user ${studentProfile.userId} -> student profile ${studentProfile.id} -> instructor profile ${studentProfile.instructorId}`,
+  );
+  console.log(`DashboardService.listInstructorStudents -> ${instructorStudentList.totalStudents} student(s)`);
 }
 
 seedHostedDemo().catch((error) => {
