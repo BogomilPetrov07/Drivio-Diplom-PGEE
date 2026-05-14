@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import type { Language } from '../../../i18n/language'
 import { useAuth } from '../../auth/hooks'
 import { fetchSchoolDetails, fetchSchoolPeople, type SchoolPerson, type SchoolPersonRole } from '../api'
+import { useDashboardShell } from '../hooks'
 
 interface Props {
   language: Language
@@ -123,12 +124,12 @@ function roleBadgeClass(role: SchoolPersonRole) {
 
 export default function SchoolAdminDashboardPage({ language }: Props) {
   const { user } = useAuth()
+  const { pushToast } = useDashboardShell()
   const t = COPY[language]
   const [people, setPeople] = useState<SchoolPerson[]>([])
   const [school, setSchool] = useState<Awaited<ReturnType<typeof fetchSchoolDetails>> | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL')
 
   useEffect(() => {
@@ -136,8 +137,6 @@ export default function SchoolAdminDashboardPage({ language }: Props) {
 
     const load = async () => {
       setLoading(true)
-      setError(null)
-
       try {
         const [schoolResponse, peopleResponse] = await Promise.all([
           fetchSchoolDetails(),
@@ -149,7 +148,7 @@ export default function SchoolAdminDashboardPage({ language }: Props) {
         setPeople(peopleResponse)
       } catch {
         if (!active) return
-        setError(t.loadError)
+        pushToast('error', t.loadError)
       } finally {
         if (active) setLoading(false)
       }
@@ -159,12 +158,10 @@ export default function SchoolAdminDashboardPage({ language }: Props) {
     return () => {
       active = false
     }
-  }, [t.loadError])
+  }, [pushToast, t.loadError])
 
   const refresh = async () => {
     setRefreshing(true)
-    setError(null)
-
     try {
       const [schoolResponse, peopleResponse] = await Promise.all([
         fetchSchoolDetails(),
@@ -173,7 +170,7 @@ export default function SchoolAdminDashboardPage({ language }: Props) {
       setSchool(schoolResponse)
       setPeople(peopleResponse)
     } catch {
-      setError(t.refreshError)
+      pushToast('error', t.refreshError)
     } finally {
       setRefreshing(false)
     }
@@ -264,12 +261,6 @@ export default function SchoolAdminDashboardPage({ language }: Props) {
           {refreshing ? t.refreshing : t.refresh}
         </button>
       </div>
-
-      {error ? (
-        <div className="alert alert-error">
-          <span>{error}</span>
-        </div>
-      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {summaryCards.map((card) => (

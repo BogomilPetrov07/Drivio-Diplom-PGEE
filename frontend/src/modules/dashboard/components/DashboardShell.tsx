@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Bell, CircleUserRound, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, CircleHelp, BellRing, X } from 'lucide-react'
+import { Bell, BellRing, CircleAlert, CircleCheck, CircleHelp, CircleUserRound, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/hooks.js'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
@@ -9,6 +9,7 @@ import logoLight from '../../../assets/logo_light.svg'
 import logoDark from '../../../assets/logo_dark.svg'
 import { fetchMyNotifications, markAllNotificationsAsRead, savePushSubscription, fetchPushPublicKey, deleteMyNotification, type DashboardNotification } from '../api'
 import { getRealtimeSocket } from '../realtime'
+import type { DashboardToastKind, DashboardShellOutletContext } from '../hooks'
 
 export type DashboardNavItem =
   | { kind: 'link'; label: string; icon?: ReactNode; to: string }
@@ -40,6 +41,7 @@ export default function DashboardShell({
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState<DashboardNotification[]>([])
+  const [toasts, setToasts] = useState<Array<{ id: string; kind: DashboardToastKind; message: string }>>([])
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>(() => {
     try {
       const raw = sessionStorage.getItem('drivio_dismissed_notifications')
@@ -108,6 +110,17 @@ export default function DashboardShell({
       body: item.body?.trim() ? item.body : fromType.body,
     }
   }, [notificationCopyByType])
+
+  const pushToast = useCallback((kind: DashboardToastKind, message: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setToasts((current) => [...current, { id, kind, message }].slice(-4))
+
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id))
+    }, 4200)
+  }, [])
+
+  const outletContext = useMemo<DashboardShellOutletContext>(() => ({ pushToast }), [pushToast])
 
   const formatNotificationTime = (dateString: string) => {
     const date = new Date(dateString)
@@ -570,11 +583,35 @@ export default function DashboardShell({
 
           <div className="flex min-h-0 flex-1 flex-col px-3 py-3 sm:px-4 sm:py-4 md:px-8">
             <div className="h-full overflow-y-auto rounded-xl border border-base-300/70 bg-base-100/55 p-1 sm:p-2">
-              <Outlet />
+              <Outlet context={outletContext} />
             </div>
           </div>
         </div>
       </section>
+
+      {toasts.length > 0 ? (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-[80] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-3">
+          {toasts.map((toast) => (
+            <div key={toast.id} className="pointer-events-auto overflow-hidden rounded-2xl border border-base-300/80 bg-base-100/95 shadow-2xl backdrop-blur">
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                <div className={`mt-0.5 ${toast.kind === 'success' ? 'text-success' : 'text-error'}`}>
+                  {toast.kind === 'success' ? <CircleCheck className="h-5 w-5" /> : <CircleAlert className="h-5 w-5" />}
+                </div>
+                <p className="flex-1 text-sm font-medium text-base-content">{toast.message}</p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs btn-circle"
+                  onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}
+                  aria-label="Dismiss toast"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className={`h-1 ${toast.kind === 'success' ? 'bg-success/90' : 'bg-error/90'}`} />
+            </div>
+          ))}
+        </div>
+      ) : null}
     </main>
   )
 }

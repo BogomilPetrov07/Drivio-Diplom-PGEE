@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Search, SlidersHorizontal, Users } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
 import { fetchInstructorStudents, type InstructorStudent } from '../api'
+import { useDashboardShell } from '../hooks'
 
 interface Props { language: Language }
 
@@ -72,9 +73,9 @@ function getStudentStatus(student: InstructorStudent, needsFocusStudentIds: Set<
 
 export default function InstructorStudentsPage({ language }: Props) {
   const isBg = language === 'bg'
+  const { pushToast } = useDashboardShell()
   const [students, setStudents] = useState<InstructorStudent[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [maxStudents, setMaxStudents] = useState(FALLBACK_MAX_STUDENTS)
   const [totalStudents, setTotalStudents] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
@@ -86,8 +87,6 @@ export default function InstructorStudentsPage({ language }: Props) {
 
     const load = async () => {
       setLoading(true)
-      setError(null)
-
       try {
         const response = await fetchInstructorStudents()
         if (!active) return
@@ -96,7 +95,8 @@ export default function InstructorStudentsPage({ language }: Props) {
         setTotalStudents(response.totalStudents)
       } catch {
         if (!active) return
-        setError(isBg ? BG.loadError : 'Could not load students.')
+        const message = isBg ? BG.loadError : 'Could not load students.'
+        pushToast('error', message)
       } finally {
         if (active) setLoading(false)
       }
@@ -107,7 +107,7 @@ export default function InstructorStudentsPage({ language }: Props) {
     return () => {
       active = false
     }
-  }, [isBg])
+  }, [isBg, pushToast])
 
   const needsFocusStudentIds = useMemo(
     () => getNeedsFocusStudentIds(students),
@@ -232,12 +232,6 @@ export default function InstructorStudentsPage({ language }: Props) {
         ) : null}
       </div>
 
-      {error ? (
-        <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
-          <span>{error}</span>
-        </div>
-      ) : null}
-
       {loading ? (
         <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -298,4 +292,3 @@ export default function InstructorStudentsPage({ language }: Props) {
     </section>
   )
 }
-

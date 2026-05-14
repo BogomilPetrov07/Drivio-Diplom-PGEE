@@ -13,6 +13,7 @@ import {
   updateSchoolPerson,
 } from '../api'
 import { useAuth } from '../../auth/hooks'
+import { useDashboardShell } from '../hooks'
 
 interface Props {
   language: Language
@@ -112,9 +113,9 @@ const defaultFormState: PersonFormState = {
 
 export default function SchoolAdminPeoplePage({ language }: Props) {
   const { user } = useAuth()
+  const { pushToast } = useDashboardShell()
   const [people, setPeople] = useState<SchoolPerson[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [form, setForm] = useState<PersonFormState>(defaultFormState)
@@ -138,16 +139,15 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
 
   const loadPeople = useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
       const response = await fetchSchoolPeople()
       setPeople(response)
     } catch {
-      setError(t.loadError)
+      pushToast('error', t.loadError)
     } finally {
       setLoading(false)
     }
-  }, [t.loadError])
+  }, [pushToast, t.loadError])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -175,8 +175,6 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsSubmitting(true)
-    setError(null)
-
     const payload: SchoolPersonPayload = {
       email: form.email,
       name: form.name,
@@ -193,12 +191,13 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
       }
       await loadPeople()
       resetForm()
+      pushToast('success', editingUserId ? t.updatePerson : t.createPerson)
     } catch (submitError: unknown) {
       const message =
         submitError && typeof submitError === 'object' && 'response' in submitError
           ? (submitError as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined
-      setError(message ?? t.operationFailed)
+      pushToast('error', message ?? t.operationFailed)
     } finally {
       setIsSubmitting(false)
     }
@@ -211,8 +210,9 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
     try {
       await deleteSchoolPerson(person.id)
       await loadPeople()
+      pushToast('success', t.delete)
     } catch {
-      setError(t.deleteFailed)
+      pushToast('error', t.deleteFailed)
     }
   }
 
@@ -293,12 +293,6 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
           ) : null}
         </div>
       </form>
-
-      {error ? (
-        <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
-          <span>{error}</span>
-        </div>
-      ) : null}
 
       {loading ? (
         <div className="space-y-2 rounded-2xl border border-base-300 bg-base-100/85 p-4">

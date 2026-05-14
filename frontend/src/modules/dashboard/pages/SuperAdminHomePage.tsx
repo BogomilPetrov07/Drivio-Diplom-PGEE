@@ -3,6 +3,7 @@ import { BellRing, Clock3, LifeBuoy, Mail, MoveRight, RefreshCw, ShieldCheck, Sp
 import { Link } from 'react-router-dom'
 import { fetchMyNotifications, fetchPendingSchoolJoinRequests, fetchSupportThreadsForAdmin, type DashboardNotification, type SchoolJoinRequest, type SupportThread } from '../api'
 import type { Language } from '../../../i18n/language'
+import { useDashboardShell } from '../hooks'
 
 interface Props {
   language: Language
@@ -34,13 +35,13 @@ function getNotificationLabel(item: DashboardNotification, language: Language) {
 }
 
 export default function SuperAdminHomePage({ language }: Props) {
+  const { pushToast } = useDashboardShell()
   const [requests, setRequests] = useState<SchoolJoinRequest[]>([])
   const [threads, setThreads] = useState<SupportThread[]>([])
   const [notifications, setNotifications] = useState<DashboardNotification[]>([])
   const [activePanel, setActivePanel] = useState<HomePanel>('requests')
   const [isLoading, setIsLoading] = useState(true)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
-  const [loadError, setLoadError] = useState('')
 
   const copy = {
     title: language === 'bg' ? 'Начало' : 'Home',
@@ -90,8 +91,6 @@ export default function SuperAdminHomePage({ language }: Props) {
       setIsManualRefreshing(true)
     }
 
-    setLoadError('')
-
     try {
       const [pendingRequests, supportThreads, notificationData] = await Promise.all([
         fetchPendingSchoolJoinRequests(),
@@ -104,7 +103,7 @@ export default function SuperAdminHomePage({ language }: Props) {
       setNotifications(notificationData.items)
     } catch {
       if (!isSilent) {
-        setLoadError(copy.error)
+        pushToast('error', copy.error)
       }
     } finally {
       if (!isSilent) {
@@ -114,7 +113,7 @@ export default function SuperAdminHomePage({ language }: Props) {
         setIsManualRefreshing(false)
       }
     }
-  }, [copy.error])
+  }, [copy.error, pushToast])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -235,13 +234,6 @@ export default function SuperAdminHomePage({ language }: Props) {
               <RefreshCw className={`h-4 w-4 ${isManualRefreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
-
-          {loadError ? (
-            <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
-              <p>{loadError}</p>
-              <button type="button" className="btn btn-ghost btn-xs mt-3" onClick={() => void loadHomeData()}>{copy.retry}</button>
-            </div>
-          ) : null}
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {spotlightItems.map((item) => (

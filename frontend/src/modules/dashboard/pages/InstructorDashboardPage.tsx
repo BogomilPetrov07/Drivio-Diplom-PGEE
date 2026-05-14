@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, CheckCircle2, Clock3, LifeBuoy, RefreshCw, Tr
 import { Link, useLocation } from 'react-router-dom'
 import type { Language } from '../../../i18n/language'
 import { useAuth } from '../../auth/hooks'
+import { useDashboardShell } from '../hooks'
 import {
   fetchInstructorLessons,
   fetchInstructorSchedule,
@@ -153,6 +154,7 @@ function getWeekStartIsoFromClientNow() {
 export default function InstructorDashboardPage({ language }: Props) {
   const isBg = language === 'bg'
   const { user } = useAuth()
+  const { pushToast } = useDashboardShell()
   const location = useLocation()
 
   const [students, setStudents] = useState<InstructorStudent[]>([])
@@ -163,7 +165,6 @@ export default function InstructorDashboardPage({ language }: Props) {
   const [workflowReplies, setWorkflowReplies] = useState<{ expected: number; received: number }>({ expected: 0, received: 0 })
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [showRiskOnly, setShowRiskOnly] = useState(false)
   const [focusSort, setFocusSort] = useState<FocusSort>('risk')
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('today')
@@ -178,8 +179,6 @@ export default function InstructorDashboardPage({ language }: Props) {
 
     const load = async () => {
       setLoading(true)
-      setError(null)
-
       try {
         const [studentsResponse, scheduleResponse, lessonsResponse, workflowResponse] = await Promise.all([
           fetchInstructorStudents(),
@@ -200,7 +199,8 @@ export default function InstructorDashboardPage({ language }: Props) {
         })
       } catch {
         if (!active) return
-        setError(isBg ? BG.loadError : 'Could not load your dashboard data.')
+        const message = isBg ? BG.loadError : 'Could not load your dashboard data.'
+        pushToast('error', message)
       } finally {
         if (active) setLoading(false)
       }
@@ -210,12 +210,10 @@ export default function InstructorDashboardPage({ language }: Props) {
     return () => {
       active = false
     }
-  }, [isBg, dashboardWeekStartIso])
+  }, [dashboardWeekStartIso, isBg, pushToast])
 
   const refreshDashboard = async () => {
     setRefreshing(true)
-    setError(null)
-
     try {
       const [studentsResponse, scheduleResponse, lessonsResponse, workflowResponse] = await Promise.all([
         fetchInstructorStudents(),
@@ -234,7 +232,8 @@ export default function InstructorDashboardPage({ language }: Props) {
         received: workflowResponse.repliesReceived ?? 0,
       })
     } catch {
-      setError(isBg ? BG.refreshError : 'Refresh failed. Please try again.')
+      const message = isBg ? BG.refreshError : 'Refresh failed. Please try again.'
+      pushToast('error', message)
     } finally {
       setRefreshing(false)
     }
@@ -395,12 +394,6 @@ export default function InstructorDashboardPage({ language }: Props) {
           {refreshing ? (isBg ? BG.refreshing : 'Refreshing...') : (isBg ? BG.refresh : 'Refresh')}
         </button>
       </div>
-
-      {error ? (
-        <div className="alert alert-error rounded-xl border border-error/40 bg-error/10">
-          <span>{error}</span>
-        </div>
-      ) : null}
 
       {loading ? (
         <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-4">

@@ -3,54 +3,50 @@ import type { FormEvent } from 'react'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import { fetchSchoolDetails, updateSchoolDetails } from '../api'
+import { useDashboardShell } from '../hooks'
 
 interface Props {
   language: Language
 }
 
 export default function SchoolAdminSchoolPage({ language }: Props) {
+  const { pushToast } = useDashboardShell()
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const t = getDashboardTranslations(language).pages.schoolProfile
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
-      setError(null)
       try {
         const school = await fetchSchoolDetails()
         setName(school.name)
         setAddress(school.address)
         setPhone(school.phone)
       } catch {
-        setError(t.loadError)
+        pushToast('error', t.loadError)
       } finally {
         setLoading(false)
       }
     }
 
     void load()
-  }, [t.loadError])
+  }, [pushToast, t.loadError])
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
-    setError(null)
-    setSuccess(null)
-
     try {
       const updated = await updateSchoolDetails({ name, address, phone })
       setName(updated.name)
       setAddress(updated.address)
       setPhone(updated.phone)
-      setSuccess(t.updateSuccess)
+      pushToast('success', t.updateSuccess)
     } catch {
-      setError(t.updateError)
+      pushToast('error', t.updateError)
     } finally {
       setSaving(false)
     }
@@ -87,9 +83,6 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
           </div>
         </form>
       )}
-
-      {error ? <div className="alert alert-error"><span>{error}</span></div> : null}
-      {success ? <div className="alert alert-success"><span>{success}</span></div> : null}
     </section>
   )
 }
