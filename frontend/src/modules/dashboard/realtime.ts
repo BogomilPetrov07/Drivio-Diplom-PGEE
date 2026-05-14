@@ -4,6 +4,31 @@ let socketRef: Socket | null = null
 let reconnectInFlight: Promise<void> | null = null
 let socketGeneration = 0
 
+function normalizeApiBaseUrl(rawValue: string | undefined) {
+  const fallback = '/api'
+  if (!rawValue) return fallback
+
+  const value = rawValue.trim()
+  if (!value) return fallback
+  if (value.startsWith('/')) return value
+  if (value.startsWith('http://') || value.startsWith('https://')) return value
+
+  return `https://${value}`
+}
+
+function getRealtimeBaseUrl() {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('localhost')) {
+    return undefined
+  }
+
+  const apiBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_URL)
+  if (apiBaseUrl.startsWith('/')) {
+    return undefined
+  }
+
+  return apiBaseUrl.replace(/\/api\/?$/, '')
+}
+
 async function tryRefreshSession() {
   const response = await fetch('/api/auth/refresh', {
     method: 'POST',
@@ -29,7 +54,7 @@ export function getRealtimeSocket() {
   if (socketRef) return socketRef
 
   const currentGeneration = socketGeneration
-  socketRef = io('/', {
+  socketRef = io(getRealtimeBaseUrl(), {
     path: '/socket.io',
     withCredentials: true,
     transports: ['websocket', 'polling'],
