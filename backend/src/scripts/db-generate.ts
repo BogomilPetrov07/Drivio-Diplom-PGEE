@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { initConfig, env } from "../config/env.js";
+import { logDbConnectionString } from "./db-connection-log.js";
 
 function mapNodeEnvForDrizzle(nodeEnv: string) {
   if (nodeEnv === "prod") return "production";
@@ -19,6 +20,11 @@ async function runGenerate() {
       DIRECT_URL: env.DIRECT_URL ?? "",
       LOCAL_DB_URL: env.LOCAL_DB_URL ?? "",
     };
+
+    logDbConnectionString(
+      "db:generate",
+      childEnv.DIRECT_URL || childEnv.DATABASE_URL || childEnv.LOCAL_DB_URL || ""
+    );
 
     console.log(`🧩 Generating Drizzle migration files for [Env: ${env.NODE_ENV}]...`);
 

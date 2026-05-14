@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type SyntheticEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from 'react'
 import { ArrowLeft, CircleX, MessageCircle, RotateCcw, Send, Ticket, Trash2 } from 'lucide-react'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import type { Language } from '../../../i18n/language'
@@ -44,7 +44,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
 
   const selectedThread = useMemo(() => threads.find((thread) => thread.id === selectedThreadId) ?? null, [threads, selectedThreadId])
 
-  const loadThreads = async (silent = false) => {
+  const loadThreads = useCallback(async (silent = false) => {
     if (!silent) {
       setIsThreadsLoading(true)
       setSupportError('')
@@ -54,13 +54,15 @@ export default function SuperAdminSupportPage({ language }: Props) {
       setThreads((prev) => (JSON.stringify(prev) === JSON.stringify(loaded) ? prev : loaded))
       setSelectedThreadId((current) => current ?? loaded[0]?.id ?? null)
     } catch {
-      setSupportError(support.loadError)
+      if (!silent) {
+        setSupportError(support.loadError)
+      }
     } finally {
       if (!silent) setIsThreadsLoading(false)
     }
-  }
+  }, [support.loadError])
 
-  const loadMessages = async (threadId: string, silent = false) => {
+  const loadMessages = useCallback(async (threadId: string, silent = false) => {
     if (!silent) {
       setIsMessagesLoading(true)
       setSupportError('')
@@ -70,26 +72,33 @@ export default function SuperAdminSupportPage({ language }: Props) {
       const visibleMessages = data.messages.filter((message) => message.senderType !== 'SYSTEM' && !isSupportStatusSystemMessage(message.body))
       setMessages((prev) => (JSON.stringify(prev) === JSON.stringify(visibleMessages) ? prev : visibleMessages))
     } catch {
-      setSupportError(support.messagesError)
+      if (!silent) {
+        setSupportError(support.messagesError)
+      }
     } finally {
       if (!silent) setIsMessagesLoading(false)
     }
-  }
+  }, [support.messagesError])
 
   useEffect(() => {
-    void loadThreads()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
+    const timeoutId = window.setTimeout(() => {
+      void loadThreads()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadThreads])
   useEffect(() => {
     if (!selectedThreadId) {
-      setMessages([])
-      setMobileView('list')
-      return
+      const timeoutId = window.setTimeout(() => {
+        setMessages([])
+        setMobileView('list')
+      }, 0)
+      return () => window.clearTimeout(timeoutId)
     }
-    void loadMessages(selectedThreadId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+    const timeoutId = window.setTimeout(() => {
+      void loadMessages(selectedThreadId)
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadMessages, selectedThreadId])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -98,7 +107,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
     }, 6000)
     return () => window.clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+  }, [loadMessages, selectedThreadId])
 
   useEffect(() => {
     const socket = getRealtimeSocket()
@@ -122,7 +131,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
       socket.off('support:thread-deleted', onSupportDeleted)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+  }, [loadMessages, selectedThreadId])
 
   const handleReply = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -219,7 +228,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
     setDeleteThreadId(null)
   }
 
-  const deleteKeyword = language === 'bg' ? 'ДА' : 'YES'
+  const deleteKeyword = language === 'bg' ? '??' : 'YES'
   const isDeletePhraseValid = deleteConfirmInput.trim() === deleteKeyword
 
   const confirmDelete = async () => {
@@ -229,7 +238,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
   }
 
   const statusBadgeClass = (status: SupportThread['status']) => (status === 'CLOSED' ? 'badge-warning' : 'badge-success')
-  const statusLabel = (status: SupportThread['status']) => (status === 'CLOSED' ? (language === 'bg' ? 'Затворен' : 'Closed') : (language === 'bg' ? 'Отворен' : 'Open'))
+  const statusLabel = (status: SupportThread['status']) => (status === 'CLOSED' ? (language === 'bg' ? '????????' : 'Closed') : (language === 'bg' ? '???????' : 'Open'))
   const ticketTitle = (thread: SupportThread) => {
     const firstLine = (thread.ticketSubject ?? '').split('\n')[0]?.trim()
     return firstLine && firstLine.length > 2 ? firstLine : `Ticket #${thread.id.slice(0, 8)}`
@@ -284,12 +293,12 @@ export default function SuperAdminSupportPage({ language }: Props) {
                       disabled={isClosing || (thread.status === 'CLOSED' && !thread.canReopen)}
                     >
                       {thread.status === 'CLOSED' ? <RotateCcw className="h-3.5 w-3.5" /> : <CircleX className="h-3.5 w-3.5" />}
-                      {thread.status === 'CLOSED' ? (language === 'bg' ? 'Отвори' : 'Reopen') : (language === 'bg' ? 'Затвори' : 'Close')}
+                      {thread.status === 'CLOSED' ? (language === 'bg' ? '??????' : 'Reopen') : (language === 'bg' ? '???????' : 'Close')}
                     </button>
                     {thread.status === 'CLOSED' ? (
                       <button type="button" className="btn btn-error btn-xs h-7 min-h-0 min-w-[110px] gap-1 whitespace-nowrap px-2 text-[11px]" onClick={() => openDeleteModal(thread.id)} disabled={isDeleting}>
                         <Trash2 className="h-3.5 w-3.5" />
-                        {language === 'bg' ? 'Изтрий' : 'Delete'}
+                        {language === 'bg' ? '??????' : 'Delete'}
                       </button>
                     ) : null}
                   </div>
@@ -312,7 +321,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
               <div className="mb-2 lg:hidden">
                 <button type="button" className="btn btn-ghost btn-xs gap-1" onClick={() => setMobileView('list')}>
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  {language === 'bg' ? 'Назад' : 'Back'}
+                  {language === 'bg' ? '?????' : 'Back'}
                 </button>
               </div>
 
@@ -329,7 +338,7 @@ export default function SuperAdminSupportPage({ language }: Props) {
                   const isMine = message.senderType === 'SUPERADMIN'
                   return (
                     <article key={message.id} className={`max-w-[88%] rounded-2xl border px-3 py-2 ${isMine ? 'ml-auto border-primary/30 bg-primary/10' : 'border-base-300 bg-base-100'}`}>
-                      <p className="text-xs text-base-content/60">{message.senderName} · {message.via}</p>
+                      <p className="text-xs text-base-content/60">{message.senderName} Ãƒâ€šÃ‚Â· {message.via}</p>
                       <p className="mt-1 whitespace-pre-wrap text-sm text-base-content">{message.body}</p>
                     </article>
                   )
@@ -383,3 +392,4 @@ export default function SuperAdminSupportPage({ language }: Props) {
     </section>
   )
 }
+

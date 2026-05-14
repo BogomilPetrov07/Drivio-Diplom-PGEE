@@ -121,7 +121,7 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
     }
 
     void loadSession()
-  }, [localDraftKey, token])
+  }, [labels.invalidToken, labels.sessionError, localDraftKey, token])
 
   useEffect(() => {
     if (!sessionInfo) return

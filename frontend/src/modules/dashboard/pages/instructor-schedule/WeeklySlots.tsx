@@ -141,19 +141,23 @@ export function WeeklySlots({
   }, [dayDates, weekStartDate])
 
   useEffect(() => {
-    setCollapsedDays((prev) => {
-      const next: Record<string, boolean> = {}
-      DAY_OPTIONS.forEach((day) => {
-        if (isCompactViewport) {
-          next[day.key] = day.key !== defaultExpandedDayKey
-        } else {
-          next[day.key] = false
-        }
-      })
+    const timeoutId = window.setTimeout(() => {
+      setCollapsedDays((prev) => {
+        const next: Record<string, boolean> = {}
+        DAY_OPTIONS.forEach((day) => {
+          if (isCompactViewport) {
+            next[day.key] = day.key !== defaultExpandedDayKey
+          } else {
+            next[day.key] = false
+          }
+        })
 
-      const unchanged = DAY_OPTIONS.every((day) => prev[day.key] === next[day.key])
-      return unchanged ? prev : next
-    })
+        const unchanged = DAY_OPTIONS.every((day) => prev[day.key] === next[day.key])
+        return unchanged ? prev : next
+      })
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [isCompactViewport, defaultExpandedDayKey, weekStartDate])
 
   function toggleCollapsed(dayKey: string) {
@@ -166,8 +170,11 @@ export function WeeklySlots({
 
   useEffect(() => {
     if (!editingDay) return
-    setStartDraft('')
-    setEndDraft('')
+    const timeoutId = window.setTimeout(() => {
+      setStartDraft('')
+      setEndDraft('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [editingDay, days])
 
   const toCanonicalTime = (value: string, fallback: string) => {

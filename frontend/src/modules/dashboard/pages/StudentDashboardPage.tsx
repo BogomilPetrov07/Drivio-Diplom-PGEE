@@ -113,6 +113,7 @@ export default function StudentDashboardPage({ language }: Props) {
   const [lessonFilter, setLessonFilter] = useState<LessonFilter>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     let cancelled = false
@@ -152,6 +153,14 @@ export default function StudentDashboardPage({ language }: Props) {
     }
   }, [isBg, weekStartDate])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now())
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   const lessonsForWeek = useMemo(() => {
     if (lessons.length > 0) return lessons
     if (!schedule) return []
@@ -164,8 +173,8 @@ export default function StudentDashboardPage({ language }: Props) {
   )
 
   const upcomingLessons = useMemo(
-    () => sortedLessons.filter((lesson) => new Date(lesson.endTime).getTime() >= Date.now() && UPCOMING_STATES.has(lesson.state)),
-    [sortedLessons],
+    () => sortedLessons.filter((lesson) => new Date(lesson.endTime).getTime() >= now && UPCOMING_STATES.has(lesson.state)),
+    [now, sortedLessons],
   )
 
   const actionLessons = useMemo(

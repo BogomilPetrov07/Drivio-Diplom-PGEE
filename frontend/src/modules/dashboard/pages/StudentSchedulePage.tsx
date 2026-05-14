@@ -168,8 +168,8 @@ export default function StudentSchedulePage({ language }: Props) {
     const loadStartedAt = Date.now()
     if (!isSilent) {
       setLoading(true)
+      setError('')
     }
-    setError('')
 
     try {
       const weekStart = toIsoDate(targetWeek)
@@ -182,7 +182,9 @@ export default function StudentSchedulePage({ language }: Props) {
       setLessons(lessonRows)
       setUnavailableSlotKeys(scheduleData?.reply.unavailableSlotKeys ?? getEmptyUnavailableSlotKeys())
     } catch {
-      setError(copy.loadError)
+      if (!isSilent) {
+        setError(copy.loadError)
+      }
     } finally {
       if (!isSilent) {
         const elapsed = Date.now() - loadStartedAt
@@ -205,19 +207,28 @@ export default function StudentSchedulePage({ language }: Props) {
   }, [])
 
   useEffect(() => {
-    void loadWeekData(weekStartDate)
+    const timeoutId = window.setTimeout(() => {
+      void loadWeekData(weekStartDate)
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [loadWeekData, weekStartDate])
 
   useEffect(() => {
     if (!error) return
-    pushToast('error', error)
-    setError('')
+    const timeoutId = window.setTimeout(() => {
+      pushToast('error', error)
+      setError('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [error, pushToast])
 
   useEffect(() => {
     if (!success) return
-    pushToast('success', success)
-    setSuccess('')
+    const timeoutId = window.setTimeout(() => {
+      pushToast('success', success)
+      setSuccess('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [success, pushToast])
 
   useEffect(() => {
@@ -226,14 +237,18 @@ export default function StudentSchedulePage({ language }: Props) {
     const slotId = slotFromQuery || slotFromStorage
     if (!slotId) return
 
-    setHighlightedLessonId(slotId)
-    sessionStorage.removeItem(LESSON_START_NOTIFICATION_STORAGE_KEY)
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedLessonId(slotId)
+      sessionStorage.removeItem(LESSON_START_NOTIFICATION_STORAGE_KEY)
 
-    if (slotFromQuery) {
-      const next = new URLSearchParams(searchParams)
-      next.delete('startLessonId')
-      setSearchParams(next, { replace: true })
-    }
+      if (slotFromQuery) {
+        const next = new URLSearchParams(searchParams)
+        next.delete('startLessonId')
+        setSearchParams(next, { replace: true })
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [searchParams, setSearchParams])
 
   const canSubmitAvailability = Boolean(
@@ -290,7 +305,10 @@ export default function StudentSchedulePage({ language }: Props) {
     card?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
     if (lesson.state === 'START_CODE_ISSUED') {
-      setLessonActionModal({ lessonId: lesson.id, mode: 'start' })
+      const timeoutId = window.setTimeout(() => {
+        setLessonActionModal({ lessonId: lesson.id, mode: 'start' })
+      }, 0)
+      return () => window.clearTimeout(timeoutId)
     }
   }, [highlightedLessonId, lessonsForWeek])
 

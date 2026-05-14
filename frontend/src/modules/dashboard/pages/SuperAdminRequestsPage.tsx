@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ClipboardX } from 'lucide-react'
 import { approveSchoolJoinRequest, fetchPendingSchoolJoinRequests, type SchoolJoinRequest } from '../api'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
@@ -13,7 +13,7 @@ export default function SuperAdminRequestsPage({ language }: Props) {
   const [actionError, setActionError] = useState('')
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null)
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     setIsLoading(true)
     setActionError('')
     try {
@@ -24,9 +24,14 @@ export default function SuperAdminRequestsPage({ language }: Props) {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [onboarding.loadError])
 
-  useEffect(() => { void loadRequests() }, [])
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadRequests()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadRequests])
 
   const handleApprove = async (requestId: string) => {
     setApprovingRequestId(requestId)

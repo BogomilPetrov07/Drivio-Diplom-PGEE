@@ -1,4 +1,4 @@
-import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, LifeBuoy, Plus, Send, Ticket } from 'lucide-react'
 import {
   fetchUserSupportThreadMessages,
@@ -54,12 +54,12 @@ export default function SupportContactCard({ language }: SupportContactCardProps
 
   const selectedThread = useMemo(() => threads.find((thread) => thread.id === selectedThreadId) ?? null, [threads, selectedThreadId])
 
-  const getTicketTitle = (thread: SupportThread) => {
+  const getTicketTitle = useCallback((thread: SupportThread) => {
     const firstLine = (thread.ticketSubject ?? '').split('\n')[0]?.trim()
     return firstLine && firstLine.length > 2 ? firstLine : `Ticket #${thread.id.slice(0, 8)}`
-  }
+  }, [])
 
-  const loadThreads = async (_silent = false) => {
+  const loadThreads = useCallback(async (silent = false) => {
     try {
       const loaded = await fetchUserSupportThreads()
       loaded.forEach((thread) => {
@@ -86,66 +86,80 @@ export default function SupportContactCard({ language }: SupportContactCardProps
         return loaded[0].id
       })
     } catch {
-      setError(t.loadError)
+      if (!silent) {
+        setError(t.loadError)
+      }
     }
-  }
+  }, [getTicketTitle, language, selectedThreadId, t.loadError])
 
-  const loadMessages = async (threadId: string, _silent = false) => {
+  const loadMessages = useCallback(async (threadId: string, silent = false) => {
     try {
       const data = await fetchUserSupportThreadMessages(threadId)
       const visibleMessages = data.messages.filter((message) => message.senderType !== 'SYSTEM' && !isSupportStatusSystemMessage(message.body))
       setMessages((prev) => (areEqual(prev, visibleMessages) ? prev : visibleMessages))
-      setError('')
+      if (!silent) {
+        setError('')
+      }
     } catch (error) {
       const status = getErrorStatus(error)
       if (status === 404) {
         setMessages([])
-        setError('')
-        await loadThreads()
+        if (!silent) {
+          setError('')
+        }
+        await loadThreads(silent)
         return
       }
-      setError(t.messagesError)
+      if (!silent) {
+        setError(t.messagesError)
+      }
     }
-  }
+  }, [loadThreads, t.messagesError])
 
   useEffect(() => {
-    void loadThreads()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const timeoutId = window.setTimeout(() => {
+      void loadThreads()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadThreads])
 
   useEffect(() => {
     if (!selectedThreadId) {
-      setMessages([])
-      setMobileView('list')
-      return
+      const timeoutId = window.setTimeout(() => {
+        setMessages([])
+        setMobileView('list')
+      }, 0)
+      return () => window.clearTimeout(timeoutId)
     }
-    void loadMessages(selectedThreadId)
+
+    const timeoutId = window.setTimeout(() => {
+      void loadMessages(selectedThreadId)
+    }, 0)
     const current = threads.find((thread) => thread.id === selectedThreadId)
     if (current?.latestMessageAt) {
       notifiedRef.current[selectedThreadId] = current.latestMessageAt
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+    return () => window.clearTimeout(timeoutId)
+  }, [loadMessages, selectedThreadId, threads])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadThreads()
-      if (selectedThreadId) void loadMessages(selectedThreadId)
+      void loadThreads(true)
+      if (selectedThreadId) void loadMessages(selectedThreadId, true)
     }, 8000)
     return () => window.clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+  }, [loadMessages, loadThreads, selectedThreadId])
 
   useEffect(() => {
     const socket = getRealtimeSocket()
     const onSupportUpdate = (payload: { threadId?: string }) => {
-      void loadThreads()
+      void loadThreads(true)
       if (selectedThreadId && (!payload?.threadId || payload.threadId === selectedThreadId)) {
-        void loadMessages(selectedThreadId)
+        void loadMessages(selectedThreadId, true)
       }
     }
     const onSupportDeleted = (payload: { threadId?: string }) => {
-      void loadThreads()
+      void loadThreads(true)
       if (selectedThreadId && payload?.threadId === selectedThreadId) {
         setSelectedThreadId(null)
       }
@@ -156,8 +170,7 @@ export default function SupportContactCard({ language }: SupportContactCardProps
       socket.off('support:thread-updated', onSupportUpdate)
       socket.off('support:thread-deleted', onSupportDeleted)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedThreadId])
+  }, [loadMessages, loadThreads, selectedThreadId])
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault()

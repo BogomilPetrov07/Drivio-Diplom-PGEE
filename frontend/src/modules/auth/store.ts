@@ -10,6 +10,7 @@ interface AuthState {
   error: string | null
   login: (payload: LoginDTO) => Promise<AuthUser>
   initialize: () => Promise<void>
+  completeInitializationWithoutSession: () => void
   forceRefreshSession: () => Promise<void>
   logout: () => Promise<void>
   clearError: () => void
@@ -55,6 +56,11 @@ export const useAuthStore = create<AuthState>()(
         })
 
         return initializePromise
+      },
+
+      completeInitializationWithoutSession: () => {
+        if (get().initialized || get().loading) return
+        set({ user: null, loading: false, initialized: true, error: null })
       },
 
       forceRefreshSession: async () => {

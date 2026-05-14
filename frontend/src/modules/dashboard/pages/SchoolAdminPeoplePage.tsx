@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ChevronDown, PencilLine, ShieldCheck, Trash2, UserPlus, Users } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
@@ -136,7 +136,7 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
     { value: 'STUDENT', label: roleLabel.STUDENT },
   ]
 
-  const loadPeople = async () => {
+  const loadPeople = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -147,11 +147,14 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [t.loadError])
 
   useEffect(() => {
-    void loadPeople()
-  }, [])
+    const timeoutId = window.setTimeout(() => {
+      void loadPeople()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadPeople])
 
   const resetForm = () => {
     setEditingUserId(null)

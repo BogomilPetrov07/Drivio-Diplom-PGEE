@@ -1,14 +1,13 @@
 import { initConfig, env } from "../config/env.js";
 import pg from "pg";
+import { logDbConnectionString, resolveDbConnectionString } from "./db-connection-log.js";
 
 async function runNuke() {
   try {
     await initConfig("/backend/app", true);
 
-    const connectionString = env.DIRECT_URL || env.DATABASE_URL || env.LOCAL_DB_URL;
-    if (!connectionString) {
-      throw new Error("No database URL found in env (DIRECT_URL / DATABASE_URL / LOCAL_DB_URL).");
-    }
+    const connectionString = resolveDbConnectionString();
+    logDbConnectionString("db:nuke", connectionString);
 
     const client = new pg.Client({ connectionString });
     await client.connect();
@@ -33,4 +32,3 @@ async function runNuke() {
 runNuke().then(() => {
   console.log("✅ Process executed!");
 });
-

@@ -88,7 +88,7 @@ function DomainGuard() {
 
 function SessionBootstrap() {
   const location = useLocation()
-  const { initialized, initialize } = useAuth()
+  const { initialized, initialize, completeInitializationWithoutSession } = useAuth()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -99,9 +99,20 @@ function SessionBootstrap() {
     const shouldInitializeHere = onAuthHostname || isAuthPath(location.pathname) || isLocalDevHost
     if (!shouldInitializeHere) return
     if (!initialized) {
-      void initialize()
+      void hasSessionCookie()
+        .then((exists) => {
+          if (exists) {
+            return initialize()
+          }
+
+          completeInitializationWithoutSession()
+          return undefined
+        })
+        .catch(() => {
+          void initialize()
+        })
     }
-  }, [location.pathname, initialized, initialize])
+  }, [location.pathname, initialized, initialize, completeInitializationWithoutSession])
 
   return null
 }
@@ -402,6 +413,8 @@ export default function App() {
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>(() => transferredPrefs.theme ?? getInitialThemePreference())
   const [resolvedTheme, setResolvedTheme] = useState<Theme>('drivio-light')
   const [language, setLanguageState] = useState<Language>(() => transferredPrefs.language ?? getInitialLanguagePreference())
+  const transferredLanguage = transferredPrefs.language
+  const transferredTheme = transferredPrefs.theme
 
   const setThemePreference = (next: ThemePreference) => {
     setThemePreferenceState(next)
@@ -414,27 +427,28 @@ export default function App() {
   }
 
   useEffect(() => {
-    const url = new URL(window.location.href)
-    let changed = false
+    if (!transferredLanguage && !transferredTheme) return
 
-    if (transferredPrefs.language) {
-      setLanguageState(transferredPrefs.language)
-      persistLanguagePreference(transferredPrefs.language)
-      changed = true
-    }
+    const timeoutId = window.setTimeout(() => {
+      const url = new URL(window.location.href)
 
-    if (transferredPrefs.theme) {
-      setThemePreferenceState(transferredPrefs.theme)
-      persistThemePreference(transferredPrefs.theme)
-      changed = true
-    }
+      if (transferredLanguage) {
+        setLanguageState(transferredLanguage)
+        persistLanguagePreference(transferredLanguage)
+      }
 
-    if (changed) {
+      if (transferredTheme) {
+        setThemePreferenceState(transferredTheme)
+        persistThemePreference(transferredTheme)
+      }
+
       url.searchParams.delete('__pref_lang')
       url.searchParams.delete('__pref_theme')
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
-    }
-  }, [transferredPrefs.language, transferredPrefs.theme])
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [transferredLanguage, transferredTheme])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')

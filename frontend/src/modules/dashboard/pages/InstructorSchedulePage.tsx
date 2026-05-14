@@ -367,25 +367,37 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
   }, [])
 
   useEffect(() => {
-    setActivePanel(mode)
+    const timeoutId = window.setTimeout(() => {
+      setActivePanel(mode)
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [mode])
 
   useEffect(() => {
     if (!saveError) return
-    pushToast('error', saveError)
-    setSaveError('')
+    const timeoutId = window.setTimeout(() => {
+      pushToast('error', saveError)
+      setSaveError('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [saveError, pushToast])
 
   useEffect(() => {
     if (!actionError) return
-    pushToast('error', actionError)
-    setActionError('')
+    const timeoutId = window.setTimeout(() => {
+      pushToast('error', actionError)
+      setActionError('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [actionError, pushToast])
 
   useEffect(() => {
     if (!actionSuccess) return
-    pushToast('success', actionSuccess)
-    setActionSuccess('')
+    const timeoutId = window.setTimeout(() => {
+      pushToast('success', actionSuccess)
+      setActionSuccess('')
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [actionSuccess, pushToast])
 
   const loadWeekData = useCallback(async (
@@ -419,14 +431,16 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
         }
       }
     } catch {
-      setActionError(copy.workflowLoadFailed)
+      if (!isSilent) {
+        setActionError(copy.workflowLoadFailed)
+      }
     } finally {
       if (!isSilent) {
         setIsLoadingWorkflow(false)
         setIsLoadingLessons(false)
       }
     }
-  }, [copy.workflowLoading, isEditMode])
+  }, [copy.workflowLoadFailed, isEditMode])
 
   useEffect(() => {
     let isMounted = true
@@ -464,9 +478,9 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
           setEditSnapshot(JSON.stringify(emptyDays))
           setHasPersistedDbSchedule(false)
         }
-      } catch {
+      } catch (error) {
         if (!isMounted) return
-        setSaveError(t.saveFailed)
+        setSaveError(error instanceof Error && error.message ? error.message : t.saveFailed)
       } finally {
         if (isMounted) {
           setIsLoadingSchedule(false)
@@ -483,7 +497,10 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
 
   useEffect(() => {
     if (isEditMode) return
-    void loadWeekData(weekStartDate, true)
+    const timeoutId = window.setTimeout(() => {
+      void loadWeekData(weekStartDate, true)
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
   }, [isEditMode, loadWeekData, weekStartDate])
   useEffect(() => {
     const socket = getRealtimeSocket()
@@ -694,8 +711,8 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
         setHasPersistedDbSchedule(true)
       }
       setIsEditMode(false)
-    } catch {
-      setSaveError(t.saveFailed)
+    } catch (error) {
+      setSaveError(error instanceof Error && error.message ? error.message : t.saveFailed)
     } finally {
       setIsSavingSchedule(false)
     }

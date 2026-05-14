@@ -10,6 +10,7 @@ export function useAuth() {
   const login = useAuthStore((state) => state.login)
   const logout = useAuthStore((state) => state.logout)
   const initialize = useAuthStore((state) => state.initialize)
+  const completeInitializationWithoutSession = useAuthStore((state) => state.completeInitializationWithoutSession)
   const forceRefreshSession = useAuthStore((state) => state.forceRefreshSession)
   const clearError = useAuthStore((state) => state.clearError)
 
@@ -25,10 +26,10 @@ export function useAuth() {
       login,
       logout,
       initialize,
+      completeInitializationWithoutSession,
       forceRefreshSession,
       clearError,
     }),
-    [user, loading, initialized, error, login, logout, initialize, forceRefreshSession, clearError],
+    [user, loading, initialized, error, login, logout, initialize, completeInitializationWithoutSession, forceRefreshSession, clearError],
   )
 }
-

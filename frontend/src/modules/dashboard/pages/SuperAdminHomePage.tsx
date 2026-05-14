@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BellRing, Clock3, LifeBuoy, Mail, MoveRight, RefreshCw, ShieldCheck, Sparkles, Ticket, UserRoundPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchMyNotifications, fetchPendingSchoolJoinRequests, fetchSupportThreadsForAdmin, type DashboardNotification, type SchoolJoinRequest, type SupportThread } from '../api'
@@ -39,7 +39,7 @@ export default function SuperAdminHomePage({ language }: Props) {
   const [notifications, setNotifications] = useState<DashboardNotification[]>([])
   const [activePanel, setActivePanel] = useState<HomePanel>('requests')
   const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false)
   const [loadError, setLoadError] = useState('')
 
   const copy = {
@@ -79,11 +79,15 @@ export default function SuperAdminHomePage({ language }: Props) {
     error: language === 'bg' ? 'Неуспешно зареждане на началното табло.' : 'Failed to load the home dashboard.',
   }
 
-  const loadHomeData = async (silent = false) => {
-    if (silent) {
-      setIsRefreshing(true)
-    } else {
+  const loadHomeData = useCallback(async (options?: { silent?: boolean; showRefreshIndicator?: boolean }) => {
+    const isSilent = Boolean(options?.silent)
+    const showRefreshIndicator = Boolean(options?.showRefreshIndicator)
+
+    if (!isSilent) {
       setIsLoading(true)
+    }
+    if (showRefreshIndicator) {
+      setIsManualRefreshing(true)
     }
 
     setLoadError('')
@@ -99,26 +103,33 @@ export default function SuperAdminHomePage({ language }: Props) {
       setThreads(supportThreads)
       setNotifications(notificationData.items)
     } catch {
-      setLoadError(copy.error)
+      if (!isSilent) {
+        setLoadError(copy.error)
+      }
     } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
+      if (!isSilent) {
+        setIsLoading(false)
+      }
+      if (showRefreshIndicator) {
+        setIsManualRefreshing(false)
+      }
     }
-  }
+  }, [copy.error])
 
   useEffect(() => {
-    void loadHomeData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    const timeoutId = window.setTimeout(() => {
+      void loadHomeData()
+    }, 0)
+    return () => window.clearTimeout(timeoutId)
+  }, [loadHomeData])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadHomeData(true)
+      void loadHomeData({ silent: true })
     }, 15000)
 
     return () => window.clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [loadHomeData])
 
   const openTickets = useMemo(() => threads.filter((thread) => thread.status === 'OPEN'), [threads])
   const waitingUserTickets = useMemo(() => threads.filter((thread) => thread.status === 'WAITING_USER'), [threads])
@@ -217,11 +228,11 @@ export default function SuperAdminHomePage({ language }: Props) {
             <button
               type="button"
               className="btn btn-sm btn-outline h-10 w-full rounded-xl md:w-auto"
-              onClick={() => void loadHomeData(true)}
-              disabled={isRefreshing}
+              onClick={() => void loadHomeData({ silent: true, showRefreshIndicator: true })}
+              disabled={isManualRefreshing}
             >
               <span>{copy.refresh}</span>
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isManualRefreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
 

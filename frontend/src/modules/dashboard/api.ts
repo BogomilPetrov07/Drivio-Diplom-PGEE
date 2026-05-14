@@ -324,6 +324,23 @@ export async function removePushSubscription(endpoint: string) {
   return data
 }
 
+async function readResponseErrorMessage(response: Response, fallback: string) {
+  try {
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      const data = await response.json() as { message?: string }
+      if (data?.message) return data.message
+    } else {
+      const text = await response.text()
+      if (text.trim()) return text.trim()
+    }
+  } catch {
+    // Ignore parse failures and use the fallback below.
+  }
+
+  return fallback
+}
+
 export async function fetchInstructorSchedule() {
   if (typeof window === 'undefined') return null
   try {
@@ -331,10 +348,19 @@ export async function fetchInstructorSchedule() {
       method: 'GET',
       credentials: 'include',
     })
-    if (!response.ok) return null
+    if (!response.ok) {
+      const message = await readResponseErrorMessage(response, `Failed to fetch schedule: ${response.status}`)
+      if (response.status === 404 && message === 'Instructor profile not found') {
+        throw new Error(message)
+      }
+      return null
+    }
     const data = await response.json() as { schedule?: InstructorSchedule | null }
     return data.schedule ?? null
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Instructor profile not found') {
+      throw error
+    }
     return null
   }
 }
@@ -350,7 +376,8 @@ export async function saveInstructorSchedule(schedule: InstructorSchedule) {
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to save schedule: ${response.status}`)
+    const message = await readResponseErrorMessage(response, `Failed to save schedule: ${response.status}`)
+    throw new Error(message)
   }
 
   const data = await response.json() as { schedule?: InstructorSchedule | null }

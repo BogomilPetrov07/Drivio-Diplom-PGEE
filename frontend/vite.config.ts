@@ -21,6 +21,12 @@ export default defineConfig(({mode}) => {
                     target: 'http://api.localhost',
                     changeOrigin: true,
                     secure: false
+                },
+                '/socket.io': {
+                    target: 'ws://api.localhost',
+                    changeOrigin: true,
+                    secure: false,
+                    ws: true
                 }
             }
         },

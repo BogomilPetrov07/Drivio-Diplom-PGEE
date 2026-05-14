@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Bell, CircleUserRound, LogOut, Menu, Monitor, Moon, Settings, Shield, Sun, User, CircleHelp, BellRing, X } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
@@ -100,14 +100,14 @@ export default function DashboardShell({
     [shell.notificationTypes],
   )
 
-  const getNotificationContent = (item: DashboardNotification) => {
+  const getNotificationContent = useCallback((item: DashboardNotification) => {
     const fallback = notificationCopyByType.GENERAL
     const fromType = notificationCopyByType[item.type as keyof typeof notificationCopyByType] ?? fallback
     return {
       title: item.title?.trim() ? item.title : fromType.title,
       body: item.body?.trim() ? item.body : fromType.body,
     }
-  }
+  }, [notificationCopyByType])
 
   const formatNotificationTime = (dateString: string) => {
     const date = new Date(dateString)

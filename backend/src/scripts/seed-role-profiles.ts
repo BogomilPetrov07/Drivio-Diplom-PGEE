@@ -1,6 +1,7 @@
-import { initConfig } from "../config/env.js";
+import { initConfig, env } from "../config/env.js";
 import { initializeDb } from "../config/drizzle.js";
 import { initializeRedis } from "../config/redis.js";
+import { logDbConnectionString, resolveDbConnectionString } from "./db-connection-log.js";
 
 type SeedUser = {
   username: string;
@@ -20,6 +21,8 @@ const seedUsers: SeedUser[] = [
 
 async function seed() {
   await initConfig("/backend/app");
+  const connectionString = resolveDbConnectionString();
+  logDbConnectionString("seed:roles", connectionString);
   await initializeDb();
   await initializeRedis();
 
