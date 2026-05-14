@@ -59,6 +59,7 @@ import {
 } from './utils/preferences'
 
 type Theme = 'drivio-light' | 'drivio-dark'
+const SESSION_CHECK_FAILED_STORAGE_KEY = 'drivio-session-check-failed'
 
 function readTransferredPreferencesFromUrl() {
   if (typeof window === 'undefined') {
@@ -125,7 +126,10 @@ interface PublicHomeEntryProps {
 function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
   const location = useLocation()
   const { isAuthenticated, role, initialized, loading } = useAuth()
-  const [hasAuthCookie, setHasAuthCookie] = useState<boolean | 'unknown' | null>(null)
+  const [hasAuthCookie, setHasAuthCookie] = useState<boolean | 'unknown' | null>(() => {
+    if (typeof window === 'undefined') return null
+    return sessionStorage.getItem(SESSION_CHECK_FAILED_STORAGE_KEY) === '1' ? false : null
+  })
   const onAuthHostname =
     typeof window !== 'undefined' && window.location.hostname === getAppHostname(window.location.hostname)
   const isLocalDevHost =
@@ -154,8 +158,14 @@ function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
     if (shouldInitializeHere) return
     if (isAuthenticated) return
     if (hasAuthCookie !== true && hasAuthCookie !== 'unknown') return
+    if (sessionStorage.getItem(SESSION_CHECK_FAILED_STORAGE_KEY) === '1') return
     window.location.replace(getDomainAwareUrl('/session-check'))
   }, [isAuthenticated, hasAuthCookie, shouldInitializeHere])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    sessionStorage.removeItem(SESSION_CHECK_FAILED_STORAGE_KEY)
+  }, [isAuthenticated])
 
   if (shouldInitializeHere && (!initialized || loading)) {
     return <div className="min-h-screen bg-base-100" />
@@ -187,9 +197,20 @@ function SessionCheckEntry() {
   useEffect(() => {
     if (hasVerifiedOnAppDomain) return
 
-    void forceRefreshSession().finally(() => {
-      setHasVerifiedOnAppDomain(true)
-    })
+    void forceRefreshSession()
+      .then(() => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(SESSION_CHECK_FAILED_STORAGE_KEY)
+        }
+      })
+      .catch(() => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(SESSION_CHECK_FAILED_STORAGE_KEY, '1')
+        }
+      })
+      .finally(() => {
+        setHasVerifiedOnAppDomain(true)
+      })
   }, [hasVerifiedOnAppDomain, forceRefreshSession])
 
   useEffect(() => {
@@ -198,6 +219,7 @@ function SessionCheckEntry() {
     if (typeof window === 'undefined') return
 
     if (isAuthenticated && role) {
+      sessionStorage.removeItem(SESSION_CHECK_FAILED_STORAGE_KEY)
       window.location.replace(getDomainAwareUrl(getRoleDashboardPath(role)))
       return
     }

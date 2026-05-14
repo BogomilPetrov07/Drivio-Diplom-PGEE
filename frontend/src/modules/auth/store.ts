@@ -74,6 +74,7 @@ export const useAuthStore = create<AuthState>()(
             set({ user, loading: false, initialized: true })
           } catch {
             set({ user: null, loading: false, initialized: true })
+            throw new Error('Session refresh failed')
           }
         })().finally(() => {
           initializePromise = null
