@@ -54,12 +54,6 @@ export default function DashboardSettingsPage({
   const isBg = language === 'bg'
   const roleSegment = getRoleSegment(location.pathname)
 
-  const [startPage, setStartPage] = useState<string>(() => getDashboardStartPage(roleSegment) ?? '')
-
-  useEffect(() => {
-    setStartPage(getDashboardStartPage(roleSegment) ?? '')
-  }, [roleSegment])
-
   const startPageOptions = useMemo<StartPageOption[]>(() => {
     if (roleSegment === 'superadmin') {
       return [
@@ -111,11 +105,26 @@ export default function DashboardSettingsPage({
     ]
   }, [roleSegment, user?.hasInstructorPrivileges])
 
+  const [startPage, setStartPage] = useState<string>('')
+
+  useEffect(() => {
+    const saved = getDashboardStartPage(roleSegment)
+    const validValues = new Set(startPageOptions.map((option) => option.value))
+    const fallback = startPageOptions[0]?.value ?? ''
+    const nextValue = saved && validValues.has(saved) ? saved : fallback
+
+    setStartPage(nextValue)
+
+    if (saved !== nextValue && nextValue) {
+      setDashboardStartPage(roleSegment, nextValue)
+    }
+  }, [roleSegment, startPageOptions])
+
   const currentStartPage = startPage || startPageOptions[0]?.value || ''
 
   const handleLanguageChange = (nextLanguage: Language) => {
     setLanguage(nextLanguage)
-    pushToast(nextLanguage === 'bg' ? 'success' : 'success', nextLanguage === 'bg' ? 'Езикът е сменен на български.' : 'Language switched to English.')
+    pushToast('success', nextLanguage === 'bg' ? 'Езикът е сменен на български.' : 'Language switched to English.')
   }
 
   const handleThemeChange = (nextTheme: ThemePreference) => {
@@ -125,14 +134,11 @@ export default function DashboardSettingsPage({
 
   const handleDensityChange = (nextDensity: InterfaceDensityPreference) => {
     setInterfaceDensity(nextDensity)
-    document.documentElement.classList.toggle('drivio-compact-ui', nextDensity === 'compact')
-    document.documentElement.style.fontSize = nextDensity === 'compact' ? '15px' : '16px'
     pushToast('success', isBg ? 'Плътността на интерфейса е обновена.' : 'Interface density updated.')
   }
 
   const handleMotionChange = (nextMotion: MotionPreference) => {
     setMotionPreference(nextMotion)
-    document.documentElement.classList.toggle('drivio-reduced-motion', nextMotion === 'reduced')
     pushToast('success', isBg ? 'Предпочитанието за движение е обновено.' : 'Motion preference updated.')
   }
 
@@ -279,8 +285,8 @@ export default function DashboardSettingsPage({
 
           <p className="mt-3 text-xs text-base-content/60">
             {isBg
-              ? 'При отваряне на /dashboard ще бъдете насочен към избрания екран.'
-              : 'When opening /dashboard you will be redirected to the selected page.'}
+              ? 'След вход или при отваряне на /dashboard ще бъдете насочен към избрания екран.'
+              : 'After login or when opening /dashboard you will be redirected to the selected page.'}
           </p>
         </article>
       </div>
@@ -304,7 +310,9 @@ export default function DashboardSettingsPage({
               className={`rounded-2xl border p-4 text-left transition ${language === 'bg' ? 'border-primary bg-primary/10 shadow-sm' : 'border-base-300 bg-base-100 hover:border-primary/50'}`}
             >
               <p className="text-sm font-semibold text-base-content">Български</p>
-              <p className="mt-1 text-xs text-base-content/60">BG interface, dates, and labels.</p>
+              <p className="mt-1 text-xs text-base-content/60">
+                {isBg ? 'Интерфейс, дати и етикети на български.' : 'Bulgarian interface, dates, and labels.'}
+              </p>
             </button>
 
             <button
@@ -313,7 +321,9 @@ export default function DashboardSettingsPage({
               className={`rounded-2xl border p-4 text-left transition ${language === 'en' ? 'border-primary bg-primary/10 shadow-sm' : 'border-base-300 bg-base-100 hover:border-primary/50'}`}
             >
               <p className="text-sm font-semibold text-base-content">English</p>
-              <p className="mt-1 text-xs text-base-content/60">English interface, dates, and labels.</p>
+              <p className="mt-1 text-xs text-base-content/60">
+                {isBg ? 'Интерфейс, дати и етикети на английски.' : 'English interface, dates, and labels.'}
+              </p>
             </button>
           </div>
         </article>

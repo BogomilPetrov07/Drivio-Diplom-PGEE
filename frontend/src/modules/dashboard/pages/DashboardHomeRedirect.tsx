@@ -11,7 +11,7 @@ const ROLE_SEGMENT_BY_ROLE = {
 } as const
 
 export default function DashboardHomeRedirect() {
-  const { role } = useAuth()
+  const { role, user } = useAuth()
 
   if (!role) {
     return <Navigate to="/login" replace />
@@ -19,7 +19,23 @@ export default function DashboardHomeRedirect() {
 
   const roleSegment = ROLE_SEGMENT_BY_ROLE[role]
   const preferredStartPage = getDashboardStartPage(roleSegment)
+  const fallback = getRoleDashboardPath(role)
 
-  return <Navigate to={preferredStartPage ?? getRoleDashboardPath(role)} replace />
+  if (!preferredStartPage) {
+    return <Navigate to={fallback} replace />
+  }
+
+  if (!preferredStartPage.startsWith(`/dashboard/${roleSegment}/`)) {
+    return <Navigate to={fallback} replace />
+  }
+
+  if (
+    role === 'SCHOOLADMIN' &&
+    preferredStartPage.startsWith('/dashboard/schooladmin/instructor/') &&
+    !user?.hasInstructorPrivileges
+  ) {
+    return <Navigate to={fallback} replace />
+  }
+
+  return <Navigate to={preferredStartPage} replace />
 }
-

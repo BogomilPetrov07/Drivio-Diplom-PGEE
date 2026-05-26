@@ -9,7 +9,7 @@ interface Props {
 function getRoleLabel(role: string, language: Language) {
   const isBg = language === 'bg'
   const labels: Record<string, string> = {
-    SUPERADMIN: isBg ? 'Супер администратор' : 'Super admin',
+    SUPERADMIN: isBg ? 'Суперадминистратор' : 'Super admin',
     SCHOOLADMIN: isBg ? 'Администратор на школа' : 'School admin',
     INSTRUCTOR: isBg ? 'Инструктор' : 'Instructor',
     STUDENT: isBg ? 'Курсист' : 'Student',
@@ -76,7 +76,7 @@ export default function DashboardSecurityPage({ language }: Props) {
           </p>
           <p className="mt-2 text-xs leading-6 text-base-content/65">
             {isBg
-              ? 'Достъпът до приложението се пази чрез защитена автентикация, ролеви проверки и backend проверки за чувствителни действия.'
+              ? 'Достъпът до приложението се пази чрез защитена автентикация, ролеви проверки и backend проверки за чувствителните действия.'
               : 'Application access is protected through secure authentication, role checks, and backend authorization for sensitive actions.'}
           </p>
         </article>

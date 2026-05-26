@@ -4,7 +4,6 @@ import { getAuthTranslations } from '../../../i18n/auth'
 import type { Language } from '../../../i18n/language'
 import { getDomainAwareUrl } from '../../../utils/app-domain'
 import { useAuth } from '../hooks.js'
-import { getRoleDashboardPath } from '../types.js'
 
 interface LoginPageProps {
   language: Language
@@ -20,7 +19,7 @@ export default function LoginPage({ language }: LoginPageProps) {
 
   useEffect(() => {
     if (!isAuthenticated || !role) return
-    navigate(getRoleDashboardPath(role), { replace: true })
+    navigate('/dashboard', { replace: true })
   }, [isAuthenticated, role, navigate])
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement>) => {

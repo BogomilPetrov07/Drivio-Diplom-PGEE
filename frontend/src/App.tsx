@@ -47,7 +47,6 @@ import SchoolsPage from './modules/public/pages/SchoolsPage'
 import StudentsPage from './modules/public/pages/StudentsPage'
 import TermsPage from './modules/public/pages/TermsPage'
 import { ensureCorrectDomainForPath, getAppHostname, getDomainAwareUrl, isAuthPath } from './utils/app-domain'
-import { getRoleDashboardPath } from './modules/auth/types'
 import {
   getInitialInterfaceDensityPreference,
   getInitialLanguagePreference,
@@ -178,20 +177,20 @@ function PublicHomeEntry({ language, theme }: PublicHomeEntryProps) {
   }
 
   if (isAuthenticated && role) {
-    return <SessionRedirectToDashboard rolePath={getRoleDashboardPath(role)} />
+    return <SessionRedirectToDashboard targetPath="/dashboard" />
   }
 
   return <LandingPage language={language} theme={theme} />
 }
 
 interface SessionRedirectToDashboardProps {
-  rolePath: string
+  targetPath: string
 }
 
-function SessionRedirectToDashboard({ rolePath }: SessionRedirectToDashboardProps) {
+function SessionRedirectToDashboard({ targetPath }: SessionRedirectToDashboardProps) {
   useEffect(() => {
-    window.location.replace(getDomainAwareUrl(rolePath))
-  }, [rolePath])
+    window.location.replace(getDomainAwareUrl(targetPath))
+  }, [targetPath])
 
   return <div className="min-h-screen bg-base-100" />
 }
@@ -226,7 +225,7 @@ function SessionCheckEntry() {
 
     if (isAuthenticated && role) {
       sessionStorage.removeItem(SESSION_CHECK_FAILED_STORAGE_KEY)
-      window.location.replace(getDomainAwareUrl(getRoleDashboardPath(role)))
+      window.location.replace(getDomainAwareUrl('/dashboard'))
       return
     }
     window.location.replace(getDomainAwareUrl('/'))
