@@ -96,6 +96,55 @@ export interface InstructorStudentsResponse {
   maxStudents: number
 }
 
+export interface SchoolCar {
+  id: string
+  licensePlate: string
+  isAvailable: boolean
+  ptiExpireDate: string
+  vignetteExpireDate: string
+}
+
+export interface SchoolCarPayload {
+  licensePlate: string
+  isAvailable: boolean
+  ptiExpireDate: string
+  vignetteExpireDate: string
+}
+
+export interface StudentProgressLesson {
+  id: string
+  startTime: string
+  endTime: string
+  completedAt: string
+  notes: string | null
+  rating: number | null
+}
+
+export interface StudentProgressSummary {
+  completedHours: number
+  requiredHours: number
+  remainingHours: number
+  completionPercent: number
+  completedLessons: StudentProgressLesson[]
+}
+
+export interface StudentInstructorSummary {
+  instructor: {
+    userId: string
+    name: string | null
+    username: string
+    email: string | null
+  } | null
+  school: {
+    id: string
+    name: string
+    address: string
+    phone: string
+  } | null
+  completedHours: number
+  requiredHours: number
+}
+
 export interface InstructorDaySchedule {
   enabled: boolean
   startTime: string
@@ -233,6 +282,26 @@ export async function updateSchoolDetails(payload: Pick<SchoolDetails, 'name' | 
 export async function fetchSchoolPeople() {
   const { data } = await api.get<{ people: SchoolPerson[] }>('/dashboard/school-admin/people')
   return data.people
+}
+
+export async function fetchSchoolCars() {
+  const { data } = await api.get<{ cars: SchoolCar[] }>('/dashboard/school-admin/cars')
+  return data.cars
+}
+
+export async function createSchoolCar(payload: SchoolCarPayload) {
+  const { data } = await api.post<{ car: SchoolCar }>('/dashboard/school-admin/cars', payload)
+  return data.car
+}
+
+export async function updateSchoolCar(carId: string, payload: SchoolCarPayload) {
+  const { data } = await api.patch<{ car: SchoolCar }>(`/dashboard/school-admin/cars/${carId}`, payload)
+  return data.car
+}
+
+export async function deleteSchoolCar(carId: string) {
+  const { data } = await api.delete<{ message: string }>(`/dashboard/school-admin/cars/${carId}`)
+  return data
 }
 
 export async function createSchoolPerson(payload: SchoolPersonPayload) {
@@ -443,6 +512,16 @@ export async function fetchStudentLessons(weekStartDate?: string) {
     params: weekStartDate ? { weekStartDate } : undefined,
   })
   return data.lessons
+}
+
+export async function fetchStudentProgress() {
+  const { data } = await api.get<{ progress: StudentProgressSummary }>('/dashboard/student/progress')
+  return data.progress
+}
+
+export async function fetchStudentInstructors() {
+  const { data } = await api.get<{ summary: StudentInstructorSummary }>('/dashboard/student/instructors')
+  return data.summary
 }
 
 export async function verifyStudentLessonStartCode(timeSlotId: string, code: string) {

@@ -1,4 +1,5 @@
-import { authorizeMiddleware } from "../../src/middlewares/authz.middleware";
+import { describe, expect, it, vi } from "vitest";
+import { authorizeMiddleware } from "../../src/middlewares/authz.middleware.js";
 
 function createRes() {
   return {
@@ -47,4 +48,3 @@ describe("authorizeMiddleware", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 });
-

@@ -23,6 +23,8 @@ router.post("/instructor/lessons/:timeSlotId/mark-failed", authorizeMiddleware([
 router.get("/student/schedule", authorizeMiddleware(["STUDENT"]), DashboardController.getStudentScheduleCycle);
 router.post("/student/schedule/availability", authorizeMiddleware(["STUDENT"]), DashboardController.submitStudentScheduleAvailability);
 router.get("/student/lessons", authorizeMiddleware(["STUDENT"]), DashboardController.listStudentLessons);
+router.get("/student/progress", authorizeMiddleware(["STUDENT"]), DashboardController.getStudentProgress);
+router.get("/student/instructors", authorizeMiddleware(["STUDENT"]), DashboardController.getStudentInstructors);
 router.post("/student/lessons/:timeSlotId/verify-start-code", authorizeMiddleware(["STUDENT"]), DashboardController.verifyStudentLessonStartCode);
 
 router.use(authorizeMiddleware(["SCHOOLADMIN"]));
@@ -33,5 +35,9 @@ router.get("/school-admin/people", DashboardController.listSchoolPeople);
 router.post("/school-admin/people", DashboardController.createSchoolPerson);
 router.patch("/school-admin/people/:userId", DashboardController.updateSchoolPerson);
 router.delete("/school-admin/people/:userId", DashboardController.deleteSchoolPerson);
+router.get("/school-admin/cars", DashboardController.listSchoolCars);
+router.post("/school-admin/cars", DashboardController.createSchoolCar);
+router.patch("/school-admin/cars/:carId", DashboardController.updateSchoolCar);
+router.delete("/school-admin/cars/:carId", DashboardController.deleteSchoolCar);
 
 export default router;

@@ -7,5 +7,10 @@ export interface DashboardShellOutletContext {
 }
 
 export function useDashboardShell() {
-  return useOutletContext<DashboardShellOutletContext>()
+  const context = useOutletContext<DashboardShellOutletContext | undefined>()
+  return context ?? {
+    pushToast: () => {
+      // Fallback no-op to prevent route-level crashes when outlet context is unavailable.
+    },
+  }
 }

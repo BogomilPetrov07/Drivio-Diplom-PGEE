@@ -39,6 +39,18 @@ const demoUsers = [
     updatedAt: new Date("2026-04-24T13:00:50.852Z"),
   },
   {
+    id: "8bc88c4e-a570-42da-8181-8bc2f15e50a2",
+    username: "student2",
+    email: "drivio.student2@gmail.com",
+    password:
+      "$argon2id$v=19$m=65536,t=3,p=4$OhAys91Bz5e3FOo2CFb8Zw$E1VLBDeB5TE8mX2Ff/By09Uca/Tk1qtSTjUv2ySG+QY",
+    name: "Тестови курсист 2",
+    role: "STUDENT" as const,
+    drivingSchoolId: demoSchool.id,
+    createdAt: new Date("2026-04-24T16:07:52.827275Z"),
+    updatedAt: new Date("2026-04-24T16:07:52.827275Z"),
+  },
+  {
     id: "b658308c-f509-41ae-ba16-6a1cbb642d13",
     username: "superadmin",
     email: "bogopetrov07@gmail.com",
@@ -66,6 +78,10 @@ const demoUsers = [
 
 const demoInstructorProfiles = [
   {
+    id: "b5935436-3685-4320-a661-1099e4e64090",
+    userId: "0926a32e-29d6-41a0-8890-b0f76576b248",
+  },
+  {
     id: "87740251-1557-4fa4-ae01-3a9bbd4ec0ee",
     userId: "ff52aaf1-1528-4898-b0b8-370a19fa68f3",
   },
@@ -75,6 +91,11 @@ const demoStudentProfiles = [
   {
     id: "daa3f95c-6c73-41b4-94b3-63883bae8600",
     userId: "66058fbb-f0dd-4fec-9302-1b5b4ab670bc",
+    completedHours: 0,
+  },
+  {
+    id: "b8ee2c82-c3e5-42eb-a377-e8a94c6330c2",
+    userId: "8bc88c4e-a570-42da-8181-8bc2f15e50a2",
     completedHours: 0,
   },
 ];
@@ -103,15 +124,23 @@ async function seedHostedDemo() {
       columns: { id: true, userId: true },
     });
 
-    if (!instructorProfile) {
-      throw new Error("Seed verification failed: instructor profile was not created.");
+    const schoolAdminInstructorProfile = await tx.query.instructorProfiles.findFirst({
+      where: eq(instructorProfiles.userId, "0926a32e-29d6-41a0-8890-b0f76576b248"),
+      columns: { id: true, userId: true },
+    });
+
+    if (!instructorProfile || !schoolAdminInstructorProfile) {
+      throw new Error("Seed verification failed: instructor profiles were not created.");
     }
 
     await tx.insert(studentProfiles).values(
-      demoStudentProfiles.map((profile) => ({
-        ...profile,
-        instructorId: instructorProfile.id,
-      })),
+      demoStudentProfiles.map((profile) => {
+        const assignToSchoolAdmin = profile.userId === "8bc88c4e-a570-42da-8181-8bc2f15e50a2";
+        return {
+          ...profile,
+          instructorId: assignToSchoolAdmin ? schoolAdminInstructorProfile.id : instructorProfile.id,
+        };
+      }),
     );
   });
 
@@ -141,20 +170,28 @@ async function seedHostedDemo() {
   }
 
   const instructorStudentList = await DashboardService.listInstructorStudents("ff52aaf1-1528-4898-b0b8-370a19fa68f3");
+  const schoolAdminStudentList = await DashboardService.listInstructorStudents("0926a32e-29d6-41a0-8890-b0f76576b248");
   if (!instructorStudentList) {
     throw new Error("Seed verification failed: seeded instructor does not resolve to an instructor profile in DashboardService.");
+  }
+  if (!schoolAdminStudentList) {
+    throw new Error("Seed verification failed: seeded school admin does not resolve to an instructor profile in DashboardService.");
   }
 
   if (instructorStudentList.totalStudents < 1) {
     throw new Error("Seed verification failed: DashboardService.listInstructorStudents returned no students for the seeded instructor.");
   }
+  if (schoolAdminStudentList.totalStudents < 1) {
+    throw new Error("Seed verification failed: school admin instructor view returned no students.");
+  }
 
-  console.log("Hosted demo seed completed.");
+  console.log("Hosted demo seed completed with clean profile setup only.");
   console.log(`Instructor user ${instructorProfile.userId} -> instructor profile ${instructorProfile.id}`);
   console.log(
     `Student user ${studentProfile.userId} -> student profile ${studentProfile.id} -> instructor profile ${studentProfile.instructorId}`,
   );
   console.log(`DashboardService.listInstructorStudents -> ${instructorStudentList.totalStudents} student(s)`);
+  console.log(`SchoolAdmin instructor view -> ${schoolAdminStudentList.totalStudents} student(s)`);
 }
 
 seedHostedDemo().catch((error) => {

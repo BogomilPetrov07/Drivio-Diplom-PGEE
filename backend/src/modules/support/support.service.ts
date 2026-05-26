@@ -111,6 +111,16 @@ export class SupportService {
       title: "New support ticket",
       body: `${requesterName} created a support ticket.`,
       metadata: { threadId: created.thread.id, source: input.source },
+      localizedText: {
+        bg: {
+          title: "Нов тикет за поддръжка",
+          body: `${requesterName} създаде тикет към поддръжката.`,
+        },
+        en: {
+          title: "New support ticket",
+          body: `${requesterName} created a support ticket.`,
+        },
+      },
       push: true,
     });
 
@@ -121,6 +131,16 @@ export class SupportService {
         title: "Ticket created",
         body: "Your support ticket was created successfully.",
         metadata: { threadId: created.thread.id },
+        localizedText: {
+          bg: {
+            title: "Тикетът е създаден",
+            body: "Вашият тикет беше създаден успешно.",
+          },
+          en: {
+            title: "Ticket created",
+            body: "Your support ticket was created successfully.",
+          },
+        },
         push: true,
       });
     }
@@ -233,6 +253,16 @@ export class SupportService {
         title: "New support reply",
         body: body.slice(0, 140),
         metadata: { threadId: thread.id, messageId: message.id },
+        localizedText: {
+          bg: {
+            title: "Нов отговор от поддръжката",
+            body: body.slice(0, 140),
+          },
+          en: {
+            title: "New support reply",
+            body: body.slice(0, 140),
+          },
+        },
         push: true,
       });
     }
@@ -327,6 +357,16 @@ export class SupportService {
       title: "New user reply",
       body: `${currentUser.username} replied to a support ticket.`,
       metadata: { threadId: thread.id, messageId: message.id },
+      localizedText: {
+        bg: {
+          title: "Нов отговор от потребител",
+          body: `${currentUser.username} отговори по тикет за поддръжка.`,
+        },
+        en: {
+          title: "New user reply",
+          body: `${currentUser.username} replied to a support ticket.`,
+        },
+      },
       push: true,
     });
 
@@ -397,6 +437,16 @@ export class SupportService {
           title: "Ticket reopened",
           body: "Support reopened your ticket.",
           metadata: { threadId: thread.id, status: "OPEN" },
+          localizedText: {
+            bg: {
+              title: "Тикетът е отворен отново",
+              body: "Поддръжката отвори отново вашия тикет.",
+            },
+            en: {
+              title: "Ticket reopened",
+              body: "Support reopened your ticket.",
+            },
+          },
           push: true,
         });
       }
@@ -434,6 +484,16 @@ export class SupportService {
         title: "Ticket closed",
         body: "Support closed your ticket.",
         metadata: { threadId: thread.id, status: "CLOSED" },
+        localizedText: {
+          bg: {
+            title: "Тикетът е затворен",
+            body: "Поддръжката затвори вашия тикет.",
+          },
+          en: {
+            title: "Ticket closed",
+            body: "Support closed your ticket.",
+          },
+        },
         push: true,
       });
     }
@@ -487,6 +547,16 @@ export class SupportService {
       title: "New email reply",
       body: `${thread.requesterName} replied by email.`,
       metadata: { threadId: thread.id, messageId: message.id },
+      localizedText: {
+        bg: {
+          title: "Нов имейл отговор",
+          body: `${thread.requesterName} отговори по имейл.`,
+        },
+        en: {
+          title: "New email reply",
+          body: `${thread.requesterName} replied by email.`,
+        },
+      },
       push: true,
     });
 
@@ -514,6 +584,16 @@ export class SupportService {
         title: "Ticket deleted",
         body: "Support deleted your ticket.",
         metadata: { threadId: thread.id, status: "DELETED" },
+        localizedText: {
+          bg: {
+            title: "Тикетът е изтрит",
+            body: "Поддръжката изтри вашия тикет.",
+          },
+          en: {
+            title: "Ticket deleted",
+            body: "Support deleted your ticket.",
+          },
+        },
         push: true,
       });
       emitToUser(requesterUserId, "support:thread-deleted", { threadId: thread.id });

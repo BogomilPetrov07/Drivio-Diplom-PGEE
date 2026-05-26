@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { DashboardService } from "./dashboard.service.js";
 import type {
   InstructorSchedulePayload,
+  SchoolCarInput,
   SchoolPersonInput,
   SendInstructorSchedulePayload,
   StudentAvailabilityPayload,
@@ -128,6 +129,20 @@ export class DashboardController {
     return res.json({ lessons: result.lessons });
   };
 
+  static getStudentProgress = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.getStudentProgress(req.user.id);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    return res.json({ progress: result.progress });
+  };
+
+  static getStudentInstructors = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.getStudentInstructors(req.user.id);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "Student profile not found" });
+    return res.json({ summary: result.summary });
+  };
+
   static verifyStudentLessonStartCode = async (req: Request, res: Response) => {
     if (!req.user) return res.sendStatus(401);
     const code = typeof req.body?.code === "string" ? req.body.code : "";
@@ -168,6 +183,38 @@ export class DashboardController {
     if (people === null) return res.status(404).json({ message: "School not found" });
 
     return res.json({ people });
+  };
+
+  static listSchoolCars = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const items = await DashboardService.listSchoolCars(req.user.id);
+    if (items === null) return res.status(404).json({ message: "School not found" });
+    return res.json({ cars: items });
+  };
+
+  static createSchoolCar = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.createSchoolCar(req.user.id, req.body as SchoolCarInput);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid car payload" });
+    return res.status(201).json({ car: result.car });
+  };
+
+  static updateSchoolCar = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.updateSchoolCar(req.user.id, String(req.params.carId), req.body as SchoolCarInput);
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
+    if (result.status === "CAR_NOT_FOUND") return res.status(404).json({ message: "Car not found" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Invalid car payload" });
+    return res.json({ car: result.car });
+  };
+
+  static deleteSchoolCar = async (req: Request, res: Response) => {
+    if (!req.user) return res.sendStatus(401);
+    const result = await DashboardService.deleteSchoolCar(req.user.id, String(req.params.carId));
+    if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
+    if (result.status === "CAR_NOT_FOUND") return res.status(404).json({ message: "Car not found" });
+    return res.json({ message: "Car deleted" });
   };
 
   static createSchoolPerson = async (req: Request, res: Response) => {

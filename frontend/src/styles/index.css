@@ -108,3 +108,23 @@
 html[data-theme="drivio-dark"] .dashboard-shell [class*="border-base-300"] {
   border-color: oklch(34% 0.012 275) !important;
 }
+
+html.drivio-compact-ui .dashboard-shell {
+  font-size: 0.96rem;
+}
+
+html.drivio-compact-ui .dashboard-shell .btn,
+html.drivio-compact-ui .dashboard-shell .input,
+html.drivio-compact-ui .dashboard-shell .select,
+html.drivio-compact-ui .dashboard-shell .textarea {
+  min-height: 2.75rem;
+}
+
+html.drivio-reduced-motion *,
+html.drivio-reduced-motion *::before,
+html.drivio-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

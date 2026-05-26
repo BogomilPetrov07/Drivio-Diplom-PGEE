@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, SlidersHorizontal, Users } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
 import { fetchInstructorStudents, type InstructorStudent } from '../api'
@@ -74,6 +74,7 @@ function getStudentStatus(student: InstructorStudent, needsFocusStudentIds: Set<
 export default function InstructorStudentsPage({ language }: Props) {
   const isBg = language === 'bg'
   const { pushToast } = useDashboardShell()
+  const pushToastRef = useRef(pushToast)
   const [students, setStudents] = useState<InstructorStudent[]>([])
   const [loading, setLoading] = useState(true)
   const [maxStudents, setMaxStudents] = useState(FALLBACK_MAX_STUDENTS)
@@ -81,6 +82,10 @@ export default function InstructorStudentsPage({ language }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('name')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
+  useEffect(() => {
+    pushToastRef.current = pushToast
+  }, [pushToast])
 
   useEffect(() => {
     let active = true
@@ -96,7 +101,7 @@ export default function InstructorStudentsPage({ language }: Props) {
       } catch {
         if (!active) return
         const message = isBg ? BG.loadError : 'Could not load students.'
-        pushToast('error', message)
+        pushToastRef.current('error', message)
       } finally {
         if (active) setLoading(false)
       }
@@ -107,7 +112,7 @@ export default function InstructorStudentsPage({ language }: Props) {
     return () => {
       active = false
     }
-  }, [isBg, pushToast])
+  }, [isBg])
 
   const needsFocusStudentIds = useMemo(
     () => getNeedsFocusStudentIds(students),
@@ -121,7 +126,7 @@ export default function InstructorStudentsPage({ language }: Props) {
     if (normalizedQuery) {
       rows = rows.filter((student) => {
         const name = (student.name || '').toLowerCase()
-        const username = student.username.toLowerCase()
+        const username = (student.username || '').toLowerCase()
         const email = (student.email || '').toLowerCase()
         return name.includes(normalizedQuery) || username.includes(normalizedQuery) || email.includes(normalizedQuery)
       })
@@ -132,7 +137,11 @@ export default function InstructorStudentsPage({ language }: Props) {
     }
 
     if (sortBy === 'name') {
-      rows.sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username))
+      rows.sort((a, b) => {
+        const aLabel = (a.name?.trim() || a.username || '').toLowerCase()
+        const bLabel = (b.name?.trim() || b.username || '').toLowerCase()
+        return aLabel.localeCompare(bLabel)
+      })
     }
     if (sortBy === 'progress-low') {
       rows.sort((a, b) => getProgressPercent(a.completedHours) - getProgressPercent(b.completedHours))
@@ -144,7 +153,7 @@ export default function InstructorStudentsPage({ language }: Props) {
       rows.sort((a, b) => b.completedHours - a.completedHours)
     }
     if (sortBy === 'newest') {
-      rows.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      rows.sort((a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || ''))
     }
 
     return rows
@@ -261,7 +270,7 @@ export default function InstructorStudentsPage({ language }: Props) {
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0 md:flex-1">
                     <p className="truncate text-sm font-semibold text-base-content">{student.name || student.username}</p>
-                    <p className="truncate text-xs text-base-content/60">@{student.username}</p>
+                    <p className="truncate text-xs text-base-content/60">@{student.username || 'user'}</p>
                   </div>
                   <div className="flex justify-start md:justify-end">
                     <span className={statusPillClass[status]}>{statusLabel[status]}</span>

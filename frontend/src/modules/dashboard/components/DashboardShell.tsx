@@ -10,6 +10,7 @@ import logoDark from '../../../assets/logo_dark.svg'
 import { fetchMyNotifications, markAllNotificationsAsRead, savePushSubscription, fetchPushPublicKey, deleteMyNotification, type DashboardNotification } from '../api'
 import { getRealtimeSocket } from '../realtime'
 import type { DashboardToastKind, DashboardShellOutletContext } from '../hooks'
+import { getNotificationContent } from '../notification-content'
 
 export type DashboardNavItem =
   | { kind: 'link'; label: string; icon?: ReactNode; to: string }
@@ -71,45 +72,6 @@ export default function DashboardShell({
   const common = t.common
   const topBarHeightClass = 'h-[clamp(3.5rem,9vmin,5rem)]'
   const isBg = language === 'bg'
-
-  const notificationCopyByType = useMemo(
-    () => ({
-      SUPPORT_TICKET_CREATED: {
-        title: shell.notificationTypes.ticketCreatedTitle,
-        body: shell.notificationTypes.ticketCreatedBody,
-      },
-      SUPPORT_STATUS: {
-        title: shell.notificationTypes.ticketStatusTitle,
-        body: shell.notificationTypes.ticketStatusBody,
-      },
-      SUPPORT_TICKET_DELETED: {
-        title: shell.notificationTypes.ticketDeletedTitle,
-        body: shell.notificationTypes.ticketDeletedBody,
-      },
-      SUPPORT_REPLY: {
-        title: shell.notificationTypes.supportReplyTitle,
-        body: shell.notificationTypes.supportReplyBody,
-      },
-      LESSON_START_REQUESTED: {
-        title: shell.notificationTypes.lessonStartRequestedTitle,
-        body: shell.notificationTypes.lessonStartRequestedBody,
-      },
-      GENERAL: {
-        title: shell.notificationTypes.generalTitle,
-        body: shell.notificationTypes.generalBody,
-      },
-    }),
-    [shell.notificationTypes],
-  )
-
-  const getNotificationContent = useCallback((item: DashboardNotification) => {
-    const fallback = notificationCopyByType.GENERAL
-    const fromType = notificationCopyByType[item.type as keyof typeof notificationCopyByType] ?? fallback
-    return {
-      title: item.title?.trim() ? item.title : fromType.title,
-      body: item.body?.trim() ? item.body : fromType.body,
-    }
-  }, [notificationCopyByType])
 
   const pushToast = useCallback((kind: DashboardToastKind, message: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -239,7 +201,7 @@ export default function DashboardShell({
       })
 
       if ('serviceWorker' in navigator && 'Notification' in window && Notification.permission === 'granted') {
-        const content = getNotificationContent(item)
+        const content = getNotificationContent(item, language)
         void navigator.serviceWorker.ready.then((registration) =>
           registration.showNotification(content.title, {
             body: content.body,
@@ -258,7 +220,7 @@ export default function DashboardShell({
       socket.off('support:thread-updated', syncNotifications)
       socket.off('support:thread-deleted', syncNotifications)
     }
-  }, [getNotificationContent])
+  }, [language])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -483,7 +445,7 @@ export default function DashboardShell({
                     ) : (
                       <div className="space-y-2">
                         {visibleNotifications.map((item) => {
-                          const content = getNotificationContent(item)
+                          const content = getNotificationContent(item, language)
                           const lessonStartSlotId = getLessonStartNotificationSlotId(item)
                           return (
                             <article

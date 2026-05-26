@@ -122,8 +122,17 @@ export default function SchoolAdminPeoplePage({ language }: Props) {
   const t = getDashboardTranslations(language).pages.schoolPeople
 
   const instructorOptions = useMemo(
-    () => people.filter((person) => person.role === 'INSTRUCTOR').map((person) => ({ id: person.id, label: person.name || person.username })),
-    [people],
+    () =>
+      people
+        .filter((person) => person.role === 'INSTRUCTOR' || (person.role === 'SCHOOLADMIN' && person.hasInstructorProfile))
+        .map((person) => ({
+          id: person.id,
+          label:
+            person.role === 'SCHOOLADMIN' && person.hasInstructorProfile
+              ? `${person.name || person.username} (${t.roles.schoolAdmin})`
+              : person.name || person.username,
+        })),
+    [people, t.roles.schoolAdmin],
   )
 
   const roleLabel: Record<SchoolPersonRole, string> = {

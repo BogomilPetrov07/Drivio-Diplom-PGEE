@@ -1,5 +1,6 @@
 import type { NextFunction } from "express";
-import { authenticateMiddleware } from "../../src/middlewares/authn.middleware";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authenticateMiddleware } from "../../src/middlewares/authn.middleware.js";
 import { verifyAccessToken } from "../../src/utils/jwt.js";
 import { redis } from "../../src/config/redis.js";
 import { AuthService } from "../../src/modules/auth/auth.service.js";
@@ -84,4 +85,3 @@ describe("authenticateMiddleware", () => {
     expect(sendStatus).not.toHaveBeenCalled();
   });
 });
-

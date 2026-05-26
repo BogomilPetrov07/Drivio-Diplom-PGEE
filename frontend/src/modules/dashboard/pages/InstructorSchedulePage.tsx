@@ -1293,8 +1293,8 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-base-content/60">{lessonInfoLabels.assigned}</p>
                   <p className="mt-1 text-sm font-semibold text-base-content">
                     {lessonInfoDetails?.assignedStudent
-                      ? (lessonInfoDetails.assignedStudent.name?.trim() || lessonInfoDetails.assignedStudent.username || 'â€”')
-                      : 'â€”'}
+                      ? (lessonInfoDetails.assignedStudent.name?.trim() || lessonInfoDetails.assignedStudent.username || '—')
+                      : '—'}
                   </p>
                 </div>
 
@@ -1305,7 +1305,7 @@ export default function InstructorSchedulePage({ language, mode = 'planner' }: P
                       {lessonInfoDetails.candidates.map((candidate) => (
                         <div key={candidate.profileId} className="rounded-md border border-base-300/65 bg-base-100/85 px-2.5 py-1.5">
                           <p className="text-sm font-semibold text-base-content">
-                            {candidate.name?.trim() || candidate.username || 'â€”'}
+                            {candidate.name?.trim() || candidate.username || '—'}
                           </p>
                           {typeof candidate.completedHours === 'number' ? (
                             <p className="text-xs text-base-content/60">

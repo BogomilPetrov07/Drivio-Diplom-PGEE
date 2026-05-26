@@ -22,8 +22,32 @@ export type NotificationDTO = {
   metadata: unknown;
 };
 
+type NotificationLocalizedText = {
+  bg?: {
+    title?: string;
+    body?: string;
+  };
+  en?: {
+    title?: string;
+    body?: string;
+  };
+};
+
 export class NotificationsService {
   private static CACHE_TTL_SECONDS = 20;
+
+  private static mergeMetadataWithLocalizedText(metadata: unknown, localizedText?: NotificationLocalizedText) {
+    if (!localizedText) return metadata ?? null;
+
+    if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+      return {
+        ...(metadata as Record<string, unknown>),
+        localizedText,
+      };
+    }
+
+    return { localizedText };
+  }
 
   private static async getCachedList(userId: string, limit: number) {
     const listKey = REDIS_KEYS.NOTIFICATIONS_LIST(userId, limit);
@@ -128,6 +152,7 @@ export class NotificationsService {
     title?: string;
     body?: string;
     metadata?: unknown;
+    localizedText?: NotificationLocalizedText;
     push?: boolean;
   }) {
     let created: NotificationDTO;
@@ -139,7 +164,7 @@ export class NotificationsService {
           type: params.type,
           title: params.title ?? null,
           body: params.body ?? null,
-          metadata: params.metadata ?? null,
+          metadata: this.mergeMetadataWithLocalizedText(params.metadata, params.localizedText),
         })
         .returning();
     } catch (error) {
@@ -167,6 +192,7 @@ export class NotificationsService {
     title?: string;
     body?: string;
     metadata?: unknown;
+    localizedText?: NotificationLocalizedText;
     push?: boolean;
   }) {
     if (!params.roles.length) return;
@@ -191,6 +217,7 @@ export class NotificationsService {
           title: params.title,
           body: params.body,
           metadata: params.metadata,
+          localizedText: params.localizedText,
           push: params.push,
         }),
       ),

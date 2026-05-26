@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import crypto from "crypto";
 import { db } from "../../config/drizzle.js";
 import {
+  cars,
   instructorProfiles,
   lessonSessions,
   roleEnum,
@@ -31,8 +32,11 @@ import type {
   ScheduleSlotBlueprint,
   SchoolPersonInput,
   SchoolPersonListItem,
+  SchoolCarInput,
   SchoolRole,
   SendInstructorSchedulePayload,
+  StudentInstructorSummary,
+  StudentProgressSummary,
   StudentAvailabilityPayload,
 } from "./dashboard.types.js";
 
@@ -519,6 +523,114 @@ export class DashboardService {
     };
   }
 
+  static async listSchoolCars(actorUserId: string) {
+    const context = await this.getSchoolAdminContext(actorUserId);
+    if (!context) return null;
+
+    const rows = await db.query.cars.findMany({
+      where: eq(cars.schoolId, context.schoolId),
+      columns: {
+        id: true,
+        licensePlate: true,
+        isAvailable: true,
+        ptiExpireDate: true,
+        vignetteExpireDate: true,
+      },
+      orderBy: [asc(cars.licensePlate)],
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      licensePlate: row.licensePlate,
+      isAvailable: row.isAvailable,
+      ptiExpireDate: row.ptiExpireDate.toISOString(),
+      vignetteExpireDate: row.vignetteExpireDate.toISOString(),
+    }));
+  }
+
+  static async createSchoolCar(actorUserId: string, input: SchoolCarInput) {
+    const context = await this.getSchoolAdminContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const licensePlate = input.licensePlate.trim().toUpperCase();
+    const ptiExpireDate = new Date(input.ptiExpireDate);
+    const vignetteExpireDate = new Date(input.vignetteExpireDate);
+
+    if (!licensePlate || Number.isNaN(ptiExpireDate.getTime()) || Number.isNaN(vignetteExpireDate.getTime())) {
+      return { status: "VALIDATION_ERROR" as const };
+    }
+
+    const [created] = await db.insert(cars).values({
+      licensePlate,
+      isAvailable: Boolean(input.isAvailable),
+      ptiExpireDate,
+      vignetteExpireDate,
+      schoolId: context.schoolId,
+    }).returning();
+
+    return {
+      status: "SUCCESS" as const,
+      car: {
+        id: created.id,
+        licensePlate: created.licensePlate,
+        isAvailable: created.isAvailable,
+        ptiExpireDate: created.ptiExpireDate.toISOString(),
+        vignetteExpireDate: created.vignetteExpireDate.toISOString(),
+      },
+    };
+  }
+
+  static async updateSchoolCar(actorUserId: string, carId: string, input: SchoolCarInput) {
+    const context = await this.getSchoolAdminContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const existing = await db.query.cars.findFirst({
+      where: and(eq(cars.id, carId), eq(cars.schoolId, context.schoolId)),
+      columns: { id: true },
+    });
+    if (!existing) return { status: "CAR_NOT_FOUND" as const };
+
+    const licensePlate = input.licensePlate.trim().toUpperCase();
+    const ptiExpireDate = new Date(input.ptiExpireDate);
+    const vignetteExpireDate = new Date(input.vignetteExpireDate);
+
+    if (!licensePlate || Number.isNaN(ptiExpireDate.getTime()) || Number.isNaN(vignetteExpireDate.getTime())) {
+      return { status: "VALIDATION_ERROR" as const };
+    }
+
+    const [updated] = await db.update(cars).set({
+      licensePlate,
+      isAvailable: Boolean(input.isAvailable),
+      ptiExpireDate,
+      vignetteExpireDate,
+    }).where(eq(cars.id, carId)).returning();
+
+    return {
+      status: "SUCCESS" as const,
+      car: {
+        id: updated.id,
+        licensePlate: updated.licensePlate,
+        isAvailable: updated.isAvailable,
+        ptiExpireDate: updated.ptiExpireDate.toISOString(),
+        vignetteExpireDate: updated.vignetteExpireDate.toISOString(),
+      },
+    };
+  }
+
+  static async deleteSchoolCar(actorUserId: string, carId: string) {
+    const context = await this.getSchoolAdminContext(actorUserId);
+    if (!context) return { status: "NOT_FOUND" as const };
+
+    const existing = await db.query.cars.findFirst({
+      where: and(eq(cars.id, carId), eq(cars.schoolId, context.schoolId)),
+      columns: { id: true },
+    });
+    if (!existing) return { status: "CAR_NOT_FOUND" as const };
+
+    await db.delete(cars).where(eq(cars.id, carId));
+    return { status: "SUCCESS" as const };
+  }
+
   static async listSchoolPeople(actorUserId: string) {
     const context = await this.getSchoolAdminContext(actorUserId);
     if (!context) return null;
@@ -911,6 +1023,106 @@ export class DashboardService {
       students: mappedStudents.slice(0, MAX_INSTRUCTOR_STUDENTS),
       totalStudents: mappedStudents.length,
       maxStudents: MAX_INSTRUCTOR_STUDENTS,
+    };
+  }
+
+  static async getStudentProgress(actorUserId: string): Promise<{ status: "NOT_FOUND" } | { status: "SUCCESS"; progress: StudentProgressSummary }> {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const completedLessons = await db.query.studentLessons.findMany({
+      where: eq(studentLessons.studentProfileId, studentContext.studentProfileId),
+      columns: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        completedAt: true,
+        notes: true,
+        rating: true,
+      },
+      orderBy: [desc(studentLessons.completedAt)],
+    });
+
+    const computedHours = Math.round(completedLessons.reduce((sum, lesson) => {
+      const durationMs = lesson.endTime.getTime() - lesson.startTime.getTime();
+      return sum + Math.max(0, durationMs / (1000 * 60 * 60));
+    }, 0));
+
+    const completedHours = Math.max(studentContext.completedHours, computedHours);
+    const remainingHours = Math.max(0, REQUIRED_HOURS - completedHours);
+    const completionPercent = Math.max(0, Math.min(100, Math.round((completedHours / REQUIRED_HOURS) * 100)));
+
+    return {
+      status: "SUCCESS" as const,
+      progress: {
+        completedHours,
+        requiredHours: REQUIRED_HOURS,
+        remainingHours,
+        completionPercent,
+        completedLessons: completedLessons.slice(0, 12).map((lesson) => ({
+          id: lesson.id,
+          startTime: lesson.startTime.toISOString(),
+          endTime: lesson.endTime.toISOString(),
+          completedAt: lesson.completedAt.toISOString(),
+          notes: lesson.notes ?? null,
+          rating: lesson.rating ?? null,
+        })),
+      },
+    };
+  }
+
+  static async getStudentInstructors(actorUserId: string): Promise<{ status: "NOT_FOUND" } | { status: "SUCCESS"; summary: StudentInstructorSummary }> {
+    const studentContext = await this.getStudentProfileContext(actorUserId);
+    if (!studentContext) return { status: "NOT_FOUND" as const };
+
+    const [studentUser, instructorProfile] = await Promise.all([
+      db.query.users.findFirst({
+        where: eq(users.id, actorUserId),
+        columns: { drivingSchoolId: true },
+      }),
+      db.query.instructorProfiles.findFirst({
+        where: eq(instructorProfiles.id, studentContext.instructorProfileId),
+        columns: { id: true, userId: true },
+      }),
+    ]);
+
+    const [instructorUser, school] = await Promise.all([
+      instructorProfile
+        ? db.query.users.findFirst({
+          where: eq(users.id, instructorProfile.userId),
+          columns: { id: true, username: true, name: true, email: true },
+        })
+        : null,
+      studentUser?.drivingSchoolId
+        ? db.query.schools.findFirst({
+          where: eq(schools.id, studentUser.drivingSchoolId),
+          columns: { id: true, name: true, address: true, phone: true },
+        })
+        : null,
+    ]);
+
+    return {
+      status: "SUCCESS" as const,
+      summary: {
+        instructor: instructorUser
+          ? {
+            userId: instructorUser.id,
+            username: instructorUser.username,
+            name: instructorUser.name,
+            email: instructorUser.email,
+          }
+          : null,
+        school: school
+          ? {
+            id: school.id,
+            name: school.name,
+            address: school.address,
+            phone: school.phone,
+          }
+          : null,
+        completedHours: studentContext.completedHours,
+        requiredHours: REQUIRED_HOURS,
+      },
     };
   }
 
@@ -2018,10 +2230,22 @@ export class DashboardService {
       await NotificationsService.createForUser({
         userId: studentProfile.userId,
         type: "LESSON_START_REQUESTED",
+        title: "Lesson can start now",
+        body: "Your instructor requested lesson start. Open schedule and enter the code.",
         metadata: {
           timeSlotId: slot.id,
           startTime: slot.startTime.toISOString(),
           endTime: slot.endTime.toISOString(),
+        },
+        localizedText: {
+          bg: {
+            title: "Часът може да започне",
+            body: "Инструкторът изиска начало на час. Отворете графика и въведете кода.",
+          },
+          en: {
+            title: "Lesson can start now",
+            body: "Your instructor requested lesson start. Open schedule and enter the code.",
+          },
         },
       });
     }

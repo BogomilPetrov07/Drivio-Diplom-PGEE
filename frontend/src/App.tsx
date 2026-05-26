@@ -49,12 +49,18 @@ import TermsPage from './modules/public/pages/TermsPage'
 import { ensureCorrectDomainForPath, getAppHostname, getDomainAwareUrl, isAuthPath } from './utils/app-domain'
 import { getRoleDashboardPath } from './modules/auth/types'
 import {
+  getInitialInterfaceDensityPreference,
   getInitialLanguagePreference,
+  getInitialMotionPreference,
   getLanguagePreferenceFromCookie,
   getInitialThemePreference,
   getThemePreferenceFromCookie,
+  setInterfaceDensityPreference as persistInterfaceDensityPreference,
   setLanguagePreference as persistLanguagePreference,
+  setMotionPreference as persistMotionPreference,
   setThemePreference as persistThemePreference,
+  type InterfaceDensityPreference,
+  type MotionPreference,
   type ThemePreference,
 } from './utils/preferences'
 
@@ -245,6 +251,10 @@ interface AppRoutesProps {
   setThemePreference: (theme: ThemePreference) => void
   language: Language
   setLanguage: (language: Language) => void
+  interfaceDensity: InterfaceDensityPreference
+  setInterfaceDensity: (density: InterfaceDensityPreference) => void
+  motionPreference: MotionPreference
+  setMotionPreference: (motion: MotionPreference) => void
 }
 
 function AppRoutes({
@@ -253,6 +263,10 @@ function AppRoutes({
   setThemePreference,
   language,
   setLanguage,
+  interfaceDensity,
+  setInterfaceDensity,
+  motionPreference,
+  setMotionPreference,
 }: AppRoutesProps) {
   const location = useLocation()
   const { initialized, loading } = useAuth()
@@ -330,7 +344,21 @@ function AppRoutes({
               <Route path="requests" element={<SuperAdminRequestsPage language={language} />} />
               <Route path="support" element={<SuperAdminSupportPage language={language} />} />
               <Route path="profile" element={<DashboardProfilePage language={language} />} />
-              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route
+                path="settings"
+                element={
+                  <DashboardSettingsPage
+                    language={language}
+                    setLanguage={setLanguage}
+                    themePreference={themePreference}
+                    setThemePreference={setThemePreference}
+                    interfaceDensity={interfaceDensity}
+                    setInterfaceDensity={setInterfaceDensity}
+                    motionPreference={motionPreference}
+                    setMotionPreference={setMotionPreference}
+                  />
+                }
+              />
               <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
               <Route path="security" element={<DashboardSecurityPage language={language} />} />
               <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
@@ -364,7 +392,21 @@ function AppRoutes({
                 <Route path="instructor/support" element={<InstructorSupportPage language={language} />} />
               </Route>
               <Route path="profile" element={<DashboardProfilePage language={language} />} />
-              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route
+                path="settings"
+                element={
+                  <DashboardSettingsPage
+                    language={language}
+                    setLanguage={setLanguage}
+                    themePreference={themePreference}
+                    setThemePreference={setThemePreference}
+                    interfaceDensity={interfaceDensity}
+                    setInterfaceDensity={setInterfaceDensity}
+                    motionPreference={motionPreference}
+                    setMotionPreference={setMotionPreference}
+                  />
+                }
+              />
               <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
               <Route path="security" element={<DashboardSecurityPage language={language} />} />
               <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
@@ -391,7 +433,21 @@ function AppRoutes({
               <Route path="students" element={<InstructorStudentsPage language={language} />} />
               <Route path="support" element={<InstructorSupportPage language={language} />} />
               <Route path="profile" element={<DashboardProfilePage language={language} />} />
-              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route
+                path="settings"
+                element={
+                  <DashboardSettingsPage
+                    language={language}
+                    setLanguage={setLanguage}
+                    themePreference={themePreference}
+                    setThemePreference={setThemePreference}
+                    interfaceDensity={interfaceDensity}
+                    setInterfaceDensity={setInterfaceDensity}
+                    motionPreference={motionPreference}
+                    setMotionPreference={setMotionPreference}
+                  />
+                }
+              />
               <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
               <Route path="security" element={<DashboardSecurityPage language={language} />} />
               <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
@@ -418,7 +474,21 @@ function AppRoutes({
               <Route path="schedule" element={<StudentSchedulePage language={language} />} />
               <Route path="support" element={<StudentSupportPage language={language} />} />
               <Route path="profile" element={<DashboardProfilePage language={language} />} />
-              <Route path="settings" element={<DashboardSettingsPage language={language} />} />
+              <Route
+                path="settings"
+                element={
+                  <DashboardSettingsPage
+                    language={language}
+                    setLanguage={setLanguage}
+                    themePreference={themePreference}
+                    setThemePreference={setThemePreference}
+                    interfaceDensity={interfaceDensity}
+                    setInterfaceDensity={setInterfaceDensity}
+                    motionPreference={motionPreference}
+                    setMotionPreference={setMotionPreference}
+                  />
+                }
+              />
               <Route path="notifications" element={<DashboardNotificationsPage language={language} />} />
               <Route path="security" element={<DashboardSecurityPage language={language} />} />
               <Route path="faqs" element={<DashboardFaqsPage language={language} />} />
@@ -435,6 +505,8 @@ export default function App() {
   const [themePreference, setThemePreferenceState] = useState<ThemePreference>(() => transferredPrefs.theme ?? getInitialThemePreference())
   const [resolvedTheme, setResolvedTheme] = useState<Theme>('drivio-light')
   const [language, setLanguageState] = useState<Language>(() => transferredPrefs.language ?? getInitialLanguagePreference())
+  const [interfaceDensity, setInterfaceDensityState] = useState<InterfaceDensityPreference>(() => getInitialInterfaceDensityPreference())
+  const [motionPreference, setMotionPreferenceState] = useState<MotionPreference>(() => getInitialMotionPreference())
   const transferredLanguage = transferredPrefs.language
   const transferredTheme = transferredPrefs.theme
 
@@ -446,6 +518,16 @@ export default function App() {
   const setLanguage = (next: Language) => {
     setLanguageState(next)
     persistLanguagePreference(next)
+  }
+
+  const setInterfaceDensity = (next: InterfaceDensityPreference) => {
+    setInterfaceDensityState(next)
+    persistInterfaceDensityPreference(next)
+  }
+
+  const setMotionPreference = (next: MotionPreference) => {
+    setMotionPreferenceState(next)
+    persistMotionPreference(next)
   }
 
   useEffect(() => {
@@ -497,6 +579,15 @@ export default function App() {
   }, [themePreference])
 
   useEffect(() => {
+    document.documentElement.classList.toggle('drivio-compact-ui', interfaceDensity === 'compact')
+    document.documentElement.style.fontSize = interfaceDensity === 'compact' ? '15px' : '16px'
+  }, [interfaceDensity])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('drivio-reduced-motion', motionPreference === 'reduced')
+  }, [motionPreference])
+
+  useEffect(() => {
     const syncFromCookie = () => {
       const cookieTheme = getThemePreferenceFromCookie()
       if (cookieTheme && cookieTheme !== themePreference) {
@@ -534,6 +625,10 @@ export default function App() {
         setThemePreference={setThemePreference}
         language={language}
         setLanguage={setLanguage}
+        interfaceDensity={interfaceDensity}
+        setInterfaceDensity={setInterfaceDensity}
+        motionPreference={motionPreference}
+        setMotionPreference={setMotionPreference}
       />
     </Router>
   )

@@ -50,6 +50,55 @@ export interface InstructorStudentListItem {
   completedHours: number;
 }
 
+export interface SchoolCarInput {
+  licensePlate: string;
+  isAvailable: boolean;
+  ptiExpireDate: string;
+  vignetteExpireDate: string;
+}
+
+export interface SchoolCarListItem {
+  id: string;
+  licensePlate: string;
+  isAvailable: boolean;
+  ptiExpireDate: string;
+  vignetteExpireDate: string;
+}
+
+export interface StudentProgressLessonItem {
+  id: string;
+  startTime: string;
+  endTime: string;
+  completedAt: string;
+  notes: string | null;
+  rating: number | null;
+}
+
+export interface StudentProgressSummary {
+  completedHours: number;
+  requiredHours: number;
+  remainingHours: number;
+  completionPercent: number;
+  completedLessons: StudentProgressLessonItem[];
+}
+
+export interface StudentInstructorSummary {
+  instructor: {
+    userId: string;
+    name: string | null;
+    username: string;
+    email: string | null;
+  } | null;
+  school: {
+    id: string;
+    name: string;
+    address: string;
+    phone: string;
+  } | null;
+  completedHours: number;
+  requiredHours: number;
+}
+
 export type ScheduleCycleStatus =
   | "DRAFT"
   | "SENT_TO_STUDENTS"
