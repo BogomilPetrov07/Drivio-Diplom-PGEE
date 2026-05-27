@@ -1,10 +1,13 @@
-import { pgTable, text, timestamp, boolean, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, uuid, integer } from "drizzle-orm/pg-core";
 
 export const schools = pgTable("schools", {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull().unique(),
+    region: text("region").notNull().default(""),
+    city: text("city").notNull().default(""),
     address: text("address").notNull(),
     phone: text("phone").notNull(),
+    rating: integer("rating").notNull().default(5),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -21,6 +24,8 @@ export const cars = pgTable("cars", {
 export const schoolJoinRequests = pgTable("school_join_requests", {
     id: uuid("id").primaryKey().defaultRandom(),
     schoolName: text("school_name").notNull(),
+    schoolRegion: text("school_region").notNull().default(""),
+    schoolCity: text("school_city").notNull().default(""),
     schoolAddress: text("school_address").notNull(),
     schoolPhone: text("school_phone").notNull(),
     contactName: text("contact_name").notNull(),

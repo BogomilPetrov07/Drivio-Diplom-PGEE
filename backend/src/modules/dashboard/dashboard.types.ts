@@ -92,6 +92,7 @@ export interface StudentInstructorSummary {
   school: {
     id: string;
     name: string;
+    rating: number;
     address: string;
     phone: string;
   } | null;

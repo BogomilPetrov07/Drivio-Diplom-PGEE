@@ -15,6 +15,20 @@
       "when": 1776889185078,
       "tag": "0001_woozy_mongoose",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779866020806,
+      "tag": "0002_lean_ken_ellis",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779868610407,
+      "tag": "0003_skinny_morg",
+      "breakpoints": true
     }
   ]
 }

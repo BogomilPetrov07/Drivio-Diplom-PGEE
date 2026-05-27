@@ -167,10 +167,10 @@ export class DashboardController {
   static updateSchoolDetails = async (req: Request, res: Response) => {
     if (!req.user) return res.sendStatus(401);
 
-    const result = await DashboardService.updateSchoolDetails(req.user.id, req.body as { name: string; address: string; phone: string });
+    const result = await DashboardService.updateSchoolDetails(req.user.id, req.body as { name: string; region: string; city: string; address: string; phone: string; rating?: number });
 
     if (result.status === "NOT_FOUND") return res.status(404).json({ message: "School not found" });
-    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Name, address and phone are required" });
+    if (result.status === "VALIDATION_ERROR") return res.status(400).json({ message: "Name, region, city, address and phone are required" });
     if (result.status === "NAME_TAKEN") return res.status(409).json({ message: "School name already in use" });
 
     return res.json({ school: result.school });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { GraduationCap, Mail, MapPin, Phone, School } from 'lucide-react'
+import { GraduationCap, Mail, MapPin, Phone, School, Star } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
 import { fetchStudentInstructors, type StudentInstructorSummary } from '../api'
 
@@ -100,6 +100,10 @@ export default function StudentInstructorsPage({ language }: Props) {
                 <p className="flex items-center gap-2 text-sm text-base-content/75">
                   <Phone className="h-4 w-4 text-primary" />
                   <span>{summary.school.phone}</span>
+                </p>
+                <p className="flex items-center gap-2 text-sm text-base-content/75">
+                  <Star className="h-4 w-4 text-warning" />
+                  <span>{isBg ? `Рейтинг: ${summary.school.rating.toFixed(1)} / 5` : `Rating: ${summary.school.rating.toFixed(1)} / 5`}</span>
                 </p>
                 <p className="pt-2 text-sm text-base-content/70">
                   {isBg

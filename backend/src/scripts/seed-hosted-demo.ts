@@ -1,197 +1,336 @@
-import { eq, inArray } from "drizzle-orm";
-import { instructorProfiles, schools, studentProfiles, users } from "../../drizzle/schemas/index.js";
+import { sql, eq } from "drizzle-orm";
 import { initConfig } from "../config/env.js";
 import { db, initializeDb } from "../config/drizzle.js";
+import { initializeRedis } from "../config/redis.js";
 import { logDbConnectionString, resolveScriptDbConnectionString } from "./db-connection-log.js";
+import { hash } from "../utils/password.js";
+import { AuthService } from "../modules/auth/auth.service.js";
+import { instructorProfiles, schoolJoinRequests, schools, studentProfiles, users } from "../../drizzle/schemas/index.js";
 
-const demoSchool = {
-  id: "4406c133-8e08-4d15-b645-dace90664e08",
-  name: "Тестова автошкола",
-  address: "Тестови адрес",
-  phone: "0111222333444",
-  createdAt: new Date("2026-04-24T15:56:10.022647Z"),
-  updatedAt: new Date("2026-04-24T15:56:10.022647Z"),
+const DEMO_PASSWORD = "123456!";
+const DEMO_REGION = "Пловдив";
+
+const superAdminUser = {
+  id: "b658308c-f509-41ae-ba16-6a1cbb642d13",
+  username: "superadmin",
+  email: "bogopetrov07@gmail.com",
+  password: "$argon2id$v=19$m=65536,t=3,p=4$e5cfCyxDYQOwJuGMvHYUUA$BTVDpoevGp3VvTA8Bti+7IZXXYZHEHaYQKFUPdOG0Ms",
+  name: null,
+  role: "SUPERADMIN" as const,
+  drivingSchoolId: null,
 };
 
-const demoUsers = [
+const schoolFixtures = [
   {
-    id: "0926a32e-29d6-41a0-8890-b0f76576b248",
-    username: "schooladmin",
-    email: "bogomilpetrov21a@gmail.com",
-    password:
-      "$argon2id$v=19$m=65536,t=3,p=4$OhJ1GanAM13L6wrzbDzdDg$IUoVvxZ6a5Rg5HOrce8fHwOG7+pWGtHXXR70r3f5/tE",
-    name: "Тестови администратор",
-    role: "SCHOOLADMIN" as const,
-    drivingSchoolId: demoSchool.id,
-    createdAt: new Date("2026-04-24T15:56:10.022647Z"),
-    updatedAt: new Date("2026-04-24T15:56:10.022647Z"),
+    slug: "mitev",
+    name: "Автошкола Митев",
+    city: "Пловдив",
+    address: "ул. Шипка 6",
+    phone: "0887771443",
+    rating: 5,
+    source: "https://www.shofiorski-kursove.com/kontakti/",
   },
   {
-    id: "66058fbb-f0dd-4fec-9302-1b5b4ab670bc",
-    username: "student",
-    email: "drivio.platform@gmail.com",
-    password:
-      "$argon2id$v=19$m=65536,t=3,p=4$OhAys91Bz5e3FOo2CFb8Zw$E1VLBDeB5TE8mX2Ff/By09Uca/Tk1qtSTjUv2ySG+QY",
-    name: "Тестови курсист",
-    role: "STUDENT" as const,
-    drivingSchoolId: demoSchool.id,
-    createdAt: new Date("2026-04-24T15:57:52.827275Z"),
-    updatedAt: new Date("2026-04-24T13:00:50.852Z"),
+    slug: "kumanovi",
+    name: "Автошкола Куманов",
+    city: "Пловдив",
+    address: "бул. Цариградско шосе 92, ет. 2",
+    phone: "0898735084",
+    rating: 5,
+    source: "https://avtoshkola-kumanov.com/%D0%BA%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D0%B8/",
   },
   {
-    id: "8bc88c4e-a570-42da-8181-8bc2f15e50a2",
-    username: "student2",
-    email: "drivio.student2@gmail.com",
-    password:
-      "$argon2id$v=19$m=65536,t=3,p=4$OhAys91Bz5e3FOo2CFb8Zw$E1VLBDeB5TE8mX2Ff/By09Uca/Tk1qtSTjUv2ySG+QY",
-    name: "Тестови курсист 2",
-    role: "STUDENT" as const,
-    drivingSchoolId: demoSchool.id,
-    createdAt: new Date("2026-04-24T16:07:52.827275Z"),
-    updatedAt: new Date("2026-04-24T16:07:52.827275Z"),
+    slug: "karamfilov",
+    name: "Автошкола Карамфилов",
+    city: "Пловдив",
+    address: "ж.к. Тракия, бл. 104",
+    phone: "032683578",
+    rating: 4,
+    source: "https://www.zlatnakniga.bg/slavcho-karamfilov",
   },
   {
-    id: "b658308c-f509-41ae-ba16-6a1cbb642d13",
-    username: "superadmin",
-    email: "bogopetrov07@gmail.com",
-    password:
-      "$argon2id$v=19$m=65536,t=3,p=4$e5cfCyxDYQOwJuGMvHYUUA$BTVDpoevGp3VvTA8Bti+7IZXXYZHEHaYQKFUPdOG0Ms",
-    name: null,
-    role: "SUPERADMIN" as const,
-    drivingSchoolId: null,
-    createdAt: new Date("2026-04-24T15:52:18.108759Z"),
-    updatedAt: new Date("2026-04-24T15:52:18.108759Z"),
+    slug: "ilmi",
+    name: "Автошкола Илми",
+    city: "Пловдив",
+    address: "ул. Коматевско шосе 69А",
+    phone: "0898420298",
+    rating: 4,
+    source: "https://www.ilmi.bg/%D0%B7%D0%B0-%D0%BD%D0%B0%D1%81/",
   },
   {
-    id: "ff52aaf1-1528-4898-b0b8-370a19fa68f3",
-    username: "instructor",
-    email: "bds.petrov@gmail.com",
-    password:
-      "$argon2id$v=19$m=65536,t=3,p=4$RdKFZkQaJ/EWKNhUCqTosg$NSUXuvj1aITpWlXJT+loa1JmsCjY62x1Dr7Q78+g9Kk",
-    name: "Тестови инструктор",
-    role: "INSTRUCTOR" as const,
-    drivingSchoolId: demoSchool.id,
-    createdAt: new Date("2026-04-24T15:57:21.309872Z"),
-    updatedAt: new Date("2026-04-24T12:59:23.379Z"),
+    slug: "kostadinov",
+    name: "Автошкола Костадинов",
+    city: "Пловдив",
+    address: "ул. Борис Петров 2",
+    phone: "0898211935",
+    rating: 5,
+    source: "https://avto6kola.com/%D0%BA%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D0%B8/",
   },
-];
+  {
+    slug: "avtokonsult-2000",
+    name: "Автоконсулт - 2000",
+    city: "Пловдив",
+    address: "бул. Цар Борис III-ти Обединител 12",
+    phone: "0898744895",
+    rating: 5,
+    source: "https://business.bg/f-172740/avtokonsult-2000-ood.html",
+  },
+  {
+    slug: "barbanakov",
+    name: "Учебен център Барбанаков",
+    city: "Пловдив",
+    address: "бул. Найчо Цанов 7, ет. 1",
+    phone: "0888950143",
+    rating: 4,
+    source: "https://barbanakov.com/%D0%BA%D0%BE%D0%BD%D1%82%D0%B0%D0%BA%D1%82%D0%B8/",
+  },
+  {
+    slug: "gozmanov",
+    name: "Индипендънт - Атанас Гозманов",
+    city: "Пловдив",
+    address: "ул. Колю Фичето 7А, Офис център Север, ет. 1, офис 8",
+    phone: "0894639327",
+    rating: 5,
+    source: "https://www.auto-gozmanov.com/contact-us",
+  },
+  {
+    slug: "aviosport-turist",
+    name: "АВИОСПОРТ ТУРИСТ ЕООД",
+    city: "Пловдив",
+    address: "район Южен, ул. Студенец 1, бл. 9, вх. А, ет. 3, ап. 13",
+    phone: "032767076",
+    rating: 4,
+    source: "https://www.infobel.com/bg/bulgaria/aviosport_turist/plovdiv/BG102043627-032767076/businessdetails.aspx",
+  },
+  {
+    slug: "bm-90",
+    name: "БМ-90 - ПЕТРОВА С-ИЕ СД",
+    city: "Пловдив",
+    address: "район Централен, ул. Стадион 2, ет. 1, ап. 2",
+    phone: "032248409",
+    rating: 4,
+    source: "https://www.favzz.com/company/plovdiv/bm-90-petrova-s-ie-sd.html",
+  },
+] as const;
 
-const demoInstructorProfiles = [
-  {
-    id: "b5935436-3685-4320-a661-1099e4e64090",
-    userId: "0926a32e-29d6-41a0-8890-b0f76576b248",
-  },
-  {
-    id: "87740251-1557-4fa4-ae01-3a9bbd4ec0ee",
-    userId: "ff52aaf1-1528-4898-b0b8-370a19fa68f3",
-  },
-];
+type SeedSchool = typeof schoolFixtures[number];
 
-const demoStudentProfiles = [
-  {
-    id: "daa3f95c-6c73-41b4-94b3-63883bae8600",
-    userId: "66058fbb-f0dd-4fec-9302-1b5b4ab670bc",
-    completedHours: 0,
-  },
-  {
-    id: "b8ee2c82-c3e5-42eb-a377-e8a94c6330c2",
-    userId: "8bc88c4e-a570-42da-8181-8bc2f15e50a2",
-    completedHours: 0,
-  },
-];
+type RegisteredUser = {
+  id: string;
+  username: string;
+};
+
+async function registerUser(input: {
+  username: string;
+  email: string;
+  password: string;
+  role: "SCHOOLADMIN" | "INSTRUCTOR" | "STUDENT";
+}) {
+  const created = await AuthService.register(input.username, input.password, input.role, input.email);
+  return created;
+}
+
+async function updateUserDetails(userId: string, input: {
+  name: string;
+  drivingSchoolId: string;
+}) {
+  await db.update(users).set({
+    name: input.name,
+    drivingSchoolId: input.drivingSchoolId,
+    updatedAt: new Date(),
+  }).where(eq(users.id, userId));
+}
+
+async function createSchool(school: SeedSchool) {
+  const [createdSchool] = await db.insert(schools).values({
+    name: school.name,
+    region: DEMO_REGION,
+    city: school.city,
+    address: school.address,
+    phone: school.phone,
+    rating: school.rating,
+  }).returning();
+
+  return createdSchool;
+}
+
+async function createSchoolAdmin(school: SeedSchool, schoolId: string) {
+  const user = await registerUser({
+    username: `${school.slug}.admin`,
+    email: `${school.slug}.admin@drivio.demo`,
+    password: DEMO_PASSWORD,
+    role: "SCHOOLADMIN",
+  });
+
+  await updateUserDetails(user.id, {
+    name: `${school.name} Администратор`,
+    drivingSchoolId: schoolId,
+  });
+
+  return user;
+}
+
+async function createInstructor(school: SeedSchool, schoolId: string, instructorIndex: number) {
+  const user = await registerUser({
+    username: `${school.slug}.inst${instructorIndex + 1}`,
+    email: `${school.slug}.inst${instructorIndex + 1}@drivio.demo`,
+    password: DEMO_PASSWORD,
+    role: "INSTRUCTOR",
+  });
+
+  await updateUserDetails(user.id, {
+    name: `${school.name} Инструктор ${instructorIndex + 1}`,
+    drivingSchoolId: schoolId,
+  });
+
+  const instructorProfile = await db.query.instructorProfiles.findFirst({
+    where: eq(instructorProfiles.userId, user.id),
+    columns: { id: true },
+  });
+
+  if (!instructorProfile) {
+    throw new Error(`Instructor profile missing for ${user.username}`);
+  }
+
+  return { user, instructorProfileId: instructorProfile.id };
+}
+
+async function createStudent(input: {
+  school: SeedSchool;
+  schoolId: string;
+  instructorProfileId: string;
+  instructorIndex: number;
+  studentIndex: number;
+  completedHours: number;
+}) {
+  const user = await registerUser({
+    username: `${input.school.slug}.stu${input.instructorIndex + 1}${input.studentIndex + 1}`,
+    email: `${input.school.slug}.stu${input.instructorIndex + 1}${input.studentIndex + 1}@drivio.demo`,
+    password: DEMO_PASSWORD,
+    role: "STUDENT",
+  });
+
+  await updateUserDetails(user.id, {
+    name: `${input.school.name} Курсист ${input.instructorIndex + 1}.${input.studentIndex + 1}`,
+    drivingSchoolId: input.schoolId,
+  });
+
+  await db.insert(studentProfiles).values({
+    userId: user.id,
+    instructorId: input.instructorProfileId,
+    completedHours: input.completedHours,
+  });
+
+  return user;
+}
+
+async function truncateDemoData() {
+  await db.execute(sql.raw(`
+    TRUNCATE TABLE
+      "lesson_sessions",
+      "student_schedule_replies",
+      "time_slots",
+      "schedule_cycles",
+      "work_schedules",
+      "student_lessons",
+      "instructor_blockouts",
+      "student_blockouts",
+      "notifications",
+      "push_subscriptions",
+      "support_messages",
+      "support_threads",
+      "refresh_tokens",
+      "sessions",
+      "user_profile_setup_tokens",
+      "student_profiles",
+      "instructor_profiles",
+      "cars",
+      "school_join_requests",
+      "users",
+      "schools"
+    RESTART IDENTITY CASCADE
+  `));
+}
+
+async function insertSuperAdmin() {
+  await db.insert(users).values(superAdminUser);
+}
 
 async function seedHostedDemo() {
   await initConfig("/backend/app");
   const connectionString = resolveScriptDbConnectionString();
   logDbConnectionString("seed:hosted-demo", connectionString);
   await initializeDb();
-  const { DashboardService } = await import("../modules/dashboard/dashboard.service.js");
+  await initializeRedis();
 
-  await db.transaction(async (tx) => {
-    await tx.delete(studentProfiles).where(inArray(studentProfiles.id, demoStudentProfiles.map((profile) => profile.id)));
-    await tx
-      .delete(instructorProfiles)
-      .where(inArray(instructorProfiles.id, demoInstructorProfiles.map((profile) => profile.id)));
-    await tx.delete(users).where(inArray(users.id, demoUsers.map((user) => user.id)));
-    await tx.delete(schools).where(eq(schools.id, demoSchool.id));
+  await truncateDemoData();
+  await insertSuperAdmin();
 
-    await tx.insert(schools).values(demoSchool);
-    await tx.insert(users).values(demoUsers);
-    await tx.insert(instructorProfiles).values(demoInstructorProfiles);
+  const seededSchools: string[] = [];
+  const seededUsers: RegisteredUser[] = [
+    {
+      id: superAdminUser.id,
+      username: superAdminUser.username,
+    },
+  ];
 
-    const instructorProfile = await tx.query.instructorProfiles.findFirst({
-      where: eq(instructorProfiles.userId, "ff52aaf1-1528-4898-b0b8-370a19fa68f3"),
-      columns: { id: true, userId: true },
-    });
+  let instructorCount = 0;
+  let studentCount = 0;
 
-    const schoolAdminInstructorProfile = await tx.query.instructorProfiles.findFirst({
-      where: eq(instructorProfiles.userId, "0926a32e-29d6-41a0-8890-b0f76576b248"),
-      columns: { id: true, userId: true },
-    });
+  for (const [schoolIndex, school] of schoolFixtures.entries()) {
+    const createdSchool = await createSchool(school);
+    seededSchools.push(createdSchool.id);
 
-    if (!instructorProfile || !schoolAdminInstructorProfile) {
-      throw new Error("Seed verification failed: instructor profiles were not created.");
+    const adminUser = await createSchoolAdmin(school, createdSchool.id);
+    seededUsers.push({ id: adminUser.id, username: adminUser.username });
+
+    const instructorsForSchool = schoolIndex % 2 === 0 ? 2 : 3;
+    for (let instructorIndex = 0; instructorIndex < instructorsForSchool; instructorIndex += 1) {
+      const instructor = await createInstructor(school, createdSchool.id, instructorIndex);
+      seededUsers.push({ id: instructor.user.id, username: instructor.user.username });
+      instructorCount += 1;
+
+      const studentsForInstructor = instructorIndex % 2 === 0 ? 3 : 4;
+      for (let studentIndex = 0; studentIndex < studentsForInstructor; studentIndex += 1) {
+        const student = await createStudent({
+          school,
+          schoolId: createdSchool.id,
+          instructorProfileId: instructor.instructorProfileId,
+          instructorIndex,
+          studentIndex,
+          completedHours: Math.min(30, 4 + schoolIndex + instructorIndex + studentIndex * 2),
+        });
+        seededUsers.push({ id: student.id, username: student.username });
+        studentCount += 1;
+      }
     }
-
-    await tx.insert(studentProfiles).values(
-      demoStudentProfiles.map((profile) => {
-        const assignToSchoolAdmin = profile.userId === "8bc88c4e-a570-42da-8181-8bc2f15e50a2";
-        return {
-          ...profile,
-          instructorId: assignToSchoolAdmin ? schoolAdminInstructorProfile.id : instructorProfile.id,
-        };
-      }),
-    );
-  });
-
-  const [instructorProfile, studentProfile] = await Promise.all([
-    db.query.instructorProfiles.findFirst({
-      where: eq(instructorProfiles.userId, "ff52aaf1-1528-4898-b0b8-370a19fa68f3"),
-      columns: { id: true, userId: true },
-    }),
-    db.query.studentProfiles.findFirst({
-      where: eq(studentProfiles.userId, "66058fbb-f0dd-4fec-9302-1b5b4ab670bc"),
-      columns: { id: true, userId: true, instructorId: true, completedHours: true },
-    }),
-  ]);
-
-  if (!instructorProfile) {
-    throw new Error("Seed verification failed: instructor profile missing after commit.");
   }
 
-  if (!studentProfile) {
-    throw new Error("Seed verification failed: student profile missing after commit.");
+  const demoPasswordHash = await hash(DEMO_PASSWORD);
+  if (!demoPasswordHash) {
+    throw new Error("Failed to hash demo password for verification.");
   }
 
-  if (studentProfile.instructorId !== instructorProfile.id) {
-    throw new Error(
-      `Seed verification failed: student profile ${studentProfile.id} is linked to ${studentProfile.instructorId}, expected ${instructorProfile.id}.`,
-    );
-  }
+  const counts = {
+    schools: seededSchools.length,
+    users: seededUsers.length,
+    instructors: instructorCount,
+    students: studentCount,
+    joinRequests: await db.$count(schoolJoinRequests),
+  };
 
-  const instructorStudentList = await DashboardService.listInstructorStudents("ff52aaf1-1528-4898-b0b8-370a19fa68f3");
-  const schoolAdminStudentList = await DashboardService.listInstructorStudents("0926a32e-29d6-41a0-8890-b0f76576b248");
-  if (!instructorStudentList) {
-    throw new Error("Seed verification failed: seeded instructor does not resolve to an instructor profile in DashboardService.");
+  console.log("Hosted demo seed completed.");
+  console.log(`Schools: ${counts.schools}`);
+  console.log(`Users: ${counts.users}`);
+  console.log(`Instructor profiles: ${counts.instructors}`);
+  console.log(`Student profiles: ${counts.students}`);
+  console.log(`Join requests left in DB: ${counts.joinRequests}`);
+  console.log(`Demo password for all seeded non-superadmin accounts: ${DEMO_PASSWORD}`);
+  console.log(`Example login: ${schoolFixtures[0].slug}.admin / ${DEMO_PASSWORD}`);
+  console.log("School contact sources:");
+  for (const school of schoolFixtures) {
+    console.log(`- ${school.name}: ${school.source}`);
   }
-  if (!schoolAdminStudentList) {
-    throw new Error("Seed verification failed: seeded school admin does not resolve to an instructor profile in DashboardService.");
-  }
-
-  if (instructorStudentList.totalStudents < 1) {
-    throw new Error("Seed verification failed: DashboardService.listInstructorStudents returned no students for the seeded instructor.");
-  }
-  if (schoolAdminStudentList.totalStudents < 1) {
-    throw new Error("Seed verification failed: school admin instructor view returned no students.");
-  }
-
-  console.log("Hosted demo seed completed with clean profile setup only.");
-  console.log(`Instructor user ${instructorProfile.userId} -> instructor profile ${instructorProfile.id}`);
-  console.log(
-    `Student user ${studentProfile.userId} -> student profile ${studentProfile.id} -> instructor profile ${studentProfile.instructorId}`,
-  );
-  console.log(`DashboardService.listInstructorStudents -> ${instructorStudentList.totalStudents} student(s)`);
-  console.log(`SchoolAdmin instructor view -> ${schoolAdminStudentList.totalStudents} student(s)`);
 }
 
 seedHostedDemo().catch((error) => {

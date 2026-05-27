@@ -11,6 +11,8 @@ type SetupSessionResponse = {
   request: {
     id: string
     schoolName: string
+    schoolRegion: string
+    schoolCity: string
     schoolAddress: string
     schoolPhone: string
     contactName: string
@@ -36,6 +38,8 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
 
   const [formData, setFormData] = useState({
     schoolName: '',
+    schoolRegion: '',
+    schoolCity: '',
     schoolAddress: '',
     schoolPhone: '',
     name: '',
@@ -60,6 +64,8 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
     step2: isBg ? '2. Лични данни и достъп' : '2. Personal Details & Access',
     step3: isBg ? '3. Преглед и потвърждение' : '3. Review & Confirm',
     schoolName: isBg ? 'Име на автошкола' : 'Driving school name',
+    schoolRegion: isBg ? 'Област' : 'Region',
+    schoolCity: isBg ? 'Населено място' : 'City / Town',
     schoolAddress: isBg ? 'Адрес' : 'School address',
     schoolPhone: isBg ? 'Телефон' : 'School phone',
     name: isBg ? 'Вашето име' : 'Your name',
@@ -104,6 +110,8 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
         setSessionInfo(data)
         setFormData({
           schoolName: savedDraft?.schoolName ?? data.request.schoolName,
+          schoolRegion: savedDraft?.schoolRegion ?? data.request.schoolRegion,
+          schoolCity: savedDraft?.schoolCity ?? data.request.schoolCity,
           schoolAddress: savedDraft?.schoolAddress ?? data.request.schoolAddress,
           schoolPhone: savedDraft?.schoolPhone ?? data.request.schoolPhone,
           name: savedDraft?.name ?? data.request.contactName,
@@ -129,7 +137,7 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
   }, [formData, localDraftKey, sessionInfo])
 
   const goNext = () => {
-    if (step === 1 && (!formData.schoolName.trim() || !formData.schoolAddress.trim() || !formData.schoolPhone.trim())) {
+    if (step === 1 && (!formData.schoolName.trim() || !formData.schoolRegion.trim() || !formData.schoolCity.trim() || !formData.schoolAddress.trim() || !formData.schoolPhone.trim())) {
       setError(labels.submitError)
       return
     }
@@ -146,10 +154,7 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
     setError('')
     setSuccess('')
 
-    // Do not allow accidental submit (e.g. pressing Enter) before final review step.
-    if (step !== 3) {
-      return
-    }
+    if (step !== 3) return
 
     if (!token) {
       setError(labels.invalidToken)
@@ -254,6 +259,14 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
                 <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolName}</span>
                 <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolName} onChange={(event) => handleChange('schoolName', event.target.value)} />
               </label>
+              <label className="form-control">
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolRegion}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolRegion} onChange={(event) => handleChange('schoolRegion', event.target.value)} />
+              </label>
+              <label className="form-control">
+                <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolCity}</span>
+                <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolCity} onChange={(event) => handleChange('schoolCity', event.target.value)} />
+              </label>
               <label className="form-control md:col-span-2">
                 <span className="label-text text-xs font-semibold uppercase tracking-wide text-base-content/65">{labels.schoolAddress}</span>
                 <input className="input input-bordered h-12 rounded-xl border-base-300 bg-base-100/90" required value={formData.schoolAddress} onChange={(event) => handleChange('schoolAddress', event.target.value)} />
@@ -304,6 +317,8 @@ export default function DrivingSchoolCompleteSetupPage({ language }: DrivingScho
               <p className="mb-4 text-base font-semibold">{labels.reviewTitle}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolName}:</span> {formData.schoolName}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolRegion}:</span> {formData.schoolRegion}</p>
+                <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolCity}:</span> {formData.schoolCity}</p>
                 <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolAddress}:</span> {formData.schoolAddress}</p>
                 <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.schoolPhone}:</span> {formData.schoolPhone}</p>
                 <p className="rounded-lg border border-base-300/70 bg-base-100/90 px-3 py-2"><span className="font-semibold">{labels.name}:</span> {formData.name}</p>

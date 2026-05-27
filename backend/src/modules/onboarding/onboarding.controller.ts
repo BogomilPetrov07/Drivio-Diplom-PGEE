@@ -3,12 +3,16 @@ import { OnboardingService } from "./onboarding.service.js";
 
 export class OnboardingController {
   static requestJoin = async (req: Request, res: Response) => {
-    const { schoolName, schoolAddress, schoolPhone, contactName, contactEmail } = req.body ?? {};
-    if (!schoolName || !schoolAddress || !schoolPhone || !contactName || !contactEmail) {
+    const { schoolName, schoolRegion, schoolCity, schoolAddress, schoolPhone, contactName, contactEmail } = req.body ?? {};
+    if (!schoolName || !schoolRegion || !schoolCity || !schoolAddress || !schoolPhone || !contactEmail) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    await OnboardingService.createJoinRequest({ schoolName, schoolAddress, schoolPhone, contactName, contactEmail });
+    const result = await OnboardingService.createJoinRequest({ schoolName, schoolRegion, schoolCity, schoolAddress, schoolPhone, contactName, contactEmail });
+    if (result.status === "CONTACT_EMAIL_EXISTS") {
+      return res.status(409).json({ message: "A request or account with this email already exists" });
+    }
+
     return res.status(201).json({ message: "Request submitted" });
   };
 
@@ -42,8 +46,8 @@ export class OnboardingController {
   };
 
   static complete = async (req: Request, res: Response) => {
-    const { token, username, password, email, name, phone, wantsInstructorPrivileges, schoolName, schoolAddress, schoolPhone } = req.body ?? {};
-    if (!token || !username || !password || !email || !name || !schoolName || !schoolAddress || !schoolPhone) {
+    const { token, username, password, email, name, phone, wantsInstructorPrivileges, schoolName, schoolRegion, schoolCity, schoolAddress, schoolPhone } = req.body ?? {};
+    if (!token || !username || !password || !email || !name || !schoolName || !schoolRegion || !schoolCity || !schoolAddress || !schoolPhone) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -56,6 +60,8 @@ export class OnboardingController {
       phone,
       wantsInstructorPrivileges: Boolean(wantsInstructorPrivileges),
       schoolName,
+      schoolRegion,
+      schoolCity,
       schoolAddress,
       schoolPhone,
     });

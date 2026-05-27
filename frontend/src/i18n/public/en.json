@@ -51,6 +51,22 @@
       "Prepare with interactive tests"
     ],
     "cta": "Find your driving school",
+    "modal": {
+      "eyebrow": "Driving schools in Drivio",
+      "title": "Choose a region and locality",
+      "description": "First choose a region in Bulgaria, then a locality. We will show only the driving schools from that region that are on the platform.",
+      "regionLabel": "Region",
+      "regionPlaceholder": "Choose a region",
+      "cityLabel": "Locality",
+      "cityPlaceholder": "Choose a locality",
+      "loading": "Loading driving schools...",
+      "empty": "There are no published driving schools on the platform yet.",
+      "selectRegionHint": "Choose a region to see the available localities.",
+      "selectCityHint": "Choose a locality to see the driving schools there.",
+      "noResults": "There are no driving schools in the selected region.",
+      "loadError": "We could not load the driving school list. Please try again.",
+      "close": "Close"
+    },
     "steps": [
       {
         "title": "Choose a driving school",
@@ -99,16 +115,20 @@
     ],
     "joinForm": {
       "title": "Request to Join Drivio",
-      "description": "Submit your school and contact details. Superadmin will review and approve your request.",
+      "description": "Submit only the minimum information needed for the initial verification. A superadmin will review the request and contact you at the provided email.",
       "schoolNameLabel": "Driving school name",
-      "schoolAddressLabel": "School address",
+      "schoolRegionLabel": "Region",
+      "schoolRegionPlaceholder": "Choose a region",
+      "schoolCityLabel": "City / Town",
+      "schoolStreetLabel": "Street / Boulevard",
+      "schoolStreetNumberLabel": "Street number",
       "schoolPhoneLabel": "School phone",
-      "contactNameLabel": "Contact person name",
       "contactEmailLabel": "Contact email",
       "submit": "Submit request",
       "submitting": "Submitting...",
       "success": "Your request was sent successfully.",
-      "error": "Could not submit request. Please try again."
+      "error": "Could not submit request. Please try again.",
+      "emailExists": "A request or account with this email already exists."
     }
   },
   "footer": {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Building2, MapPin, Phone, ShieldCheck } from 'lucide-react'
+import { Building2, MapPin, Phone, ShieldCheck, Star } from 'lucide-react'
 import type { Language } from '../../../i18n/language'
 import { getDashboardTranslations } from '../../../i18n/dashboard'
 import { fetchSchoolDetails, updateSchoolDetails } from '../api'
@@ -13,8 +13,11 @@ interface Props {
 export default function SchoolAdminSchoolPage({ language }: Props) {
   const { pushToast } = useDashboardShell()
   const [name, setName] = useState('')
+  const [region, setRegion] = useState('')
+  const [city, setCity] = useState('')
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
+  const [rating, setRating] = useState(5)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const t = getDashboardTranslations(language).pages.schoolProfile
@@ -25,8 +28,11 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
       try {
         const school = await fetchSchoolDetails()
         setName(school.name)
+        setRegion(school.region)
+        setCity(school.city)
         setAddress(school.address)
         setPhone(school.phone)
+        setRating(school.rating)
       } catch {
         pushToast('error', t.loadError)
       } finally {
@@ -41,10 +47,13 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
     event.preventDefault()
     setSaving(true)
     try {
-      const updated = await updateSchoolDetails({ name, address, phone })
+      const updated = await updateSchoolDetails({ name, region, city, address, phone, rating })
       setName(updated.name)
+      setRegion(updated.region)
+      setCity(updated.city)
       setAddress(updated.address)
       setPhone(updated.phone)
+      setRating(updated.rating)
       pushToast('success', t.updateSuccess)
     } catch {
       pushToast('error', t.updateError)
@@ -101,7 +110,19 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
                   </span>
                   <div>
                     <p className="text-xs text-base-content/60">{t.schoolName}</p>
-                    <p className="text-sm font-semibold text-base-content">{name || '—'}</p>
+                    <p className="text-sm font-semibold text-base-content">{name || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-base-300/80 bg-base-100 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <MapPin className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-base-content/60">{t.city}</p>
+                    <p className="text-sm font-semibold text-base-content">{city && region ? `${city}, ${region}` : '-'}</p>
                   </div>
                 </div>
               </div>
@@ -113,7 +134,7 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
                   </span>
                   <div>
                     <p className="text-xs text-base-content/60">{t.address}</p>
-                    <p className="text-sm font-semibold text-base-content">{address || '—'}</p>
+                    <p className="text-sm font-semibold text-base-content">{address || '-'}</p>
                   </div>
                 </div>
               </div>
@@ -125,7 +146,19 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
                   </span>
                   <div>
                     <p className="text-xs text-base-content/60">{t.phone}</p>
-                    <p className="text-sm font-semibold text-base-content">{phone || '—'}</p>
+                    <p className="text-sm font-semibold text-base-content">{phone || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-base-300/80 bg-base-100 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Star className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs text-base-content/60">{language === 'bg' ? 'Рейтинг' : 'Rating'}</p>
+                    <p className="text-sm font-semibold text-base-content">{rating.toFixed(1)} / 5</p>
                   </div>
                 </div>
               </div>
@@ -156,6 +189,16 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
               </label>
 
               <label className="form-control gap-1.5">
+                <span className="label-text text-sm font-semibold text-base-content/80">{t.region}</span>
+                <input className={inputClassName} value={region} onChange={(e) => setRegion(e.target.value)} required />
+              </label>
+
+              <label className="form-control gap-1.5">
+                <span className="label-text text-sm font-semibold text-base-content/80">{t.city}</span>
+                <input className={inputClassName} value={city} onChange={(e) => setCity(e.target.value)} required />
+              </label>
+
+              <label className="form-control gap-1.5 md:col-span-2">
                 <span className="label-text text-sm font-semibold text-base-content/80">{t.address}</span>
                 <input className={inputClassName} value={address} onChange={(e) => setAddress(e.target.value)} required />
               </label>
@@ -163,6 +206,20 @@ export default function SchoolAdminSchoolPage({ language }: Props) {
               <label className="form-control gap-1.5 md:max-w-sm">
                 <span className="label-text text-sm font-semibold text-base-content/80">{t.phone}</span>
                 <input className={inputClassName} value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              </label>
+
+              <label className="form-control gap-1.5 md:max-w-sm">
+                <span className="label-text text-sm font-semibold text-base-content/80">{language === 'bg' ? 'Рейтинг' : 'Rating'}</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  step="0.1"
+                  className={inputClassName}
+                  value={rating}
+                  onChange={(e) => setRating(Number(e.target.value))}
+                  required
+                />
               </label>
             </div>
 

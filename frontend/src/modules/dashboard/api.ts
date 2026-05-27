@@ -62,8 +62,11 @@ export interface DashboardNotification {
 export interface SchoolDetails {
   id: string
   name: string
+  region: string
+  city: string
   address: string
   phone: string
+  rating: number
   createdAt: string
   updatedAt: string
 }
@@ -138,6 +141,7 @@ export interface StudentInstructorSummary {
   school: {
     id: string
     name: string
+    rating: number
     address: string
     phone: string
   } | null
@@ -274,7 +278,7 @@ export async function fetchSchoolDetails() {
   return data.school
 }
 
-export async function updateSchoolDetails(payload: Pick<SchoolDetails, 'name' | 'address' | 'phone'>) {
+export async function updateSchoolDetails(payload: Pick<SchoolDetails, 'name' | 'region' | 'city' | 'address' | 'phone' | 'rating'>) {
   const { data } = await api.patch<{ school: SchoolDetails }>('/dashboard/school-admin/school', payload)
   return data.school
 }

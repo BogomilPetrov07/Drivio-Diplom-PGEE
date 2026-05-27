@@ -465,8 +465,11 @@ export class DashboardService {
       columns: {
         id: true,
         name: true,
+        region: true,
+        city: true,
         address: true,
         phone: true,
+        rating: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -481,15 +484,18 @@ export class DashboardService {
     };
   }
 
-  static async updateSchoolDetails(actorUserId: string, input: { name: string; address: string; phone: string }) {
+  static async updateSchoolDetails(actorUserId: string, input: { name: string; region: string; city: string; address: string; phone: string; rating?: number }) {
     const context = await this.getSchoolAdminContext(actorUserId);
     if (!context) return { status: "NOT_FOUND" as const };
 
     const name = input.name.trim();
+    const region = input.region.trim();
+    const city = input.city.trim();
     const address = input.address.trim();
     const phone = input.phone.trim();
+    const rating = typeof input.rating === "number" ? Math.max(1, Math.min(5, Math.round(input.rating))) : 5;
 
-    if (!name || !address || !phone) {
+    if (!name || !region || !city || !address || !phone) {
       return { status: "VALIDATION_ERROR" as const };
     }
 
@@ -506,8 +512,11 @@ export class DashboardService {
       .update(schools)
       .set({
         name,
+        region,
+        city,
         address,
         phone,
+        rating,
         updatedAt: new Date(),
       })
       .where(eq(schools.id, context.schoolId))
@@ -1096,7 +1105,7 @@ export class DashboardService {
       studentUser?.drivingSchoolId
         ? db.query.schools.findFirst({
           where: eq(schools.id, studentUser.drivingSchoolId),
-          columns: { id: true, name: true, address: true, phone: true },
+          columns: { id: true, name: true, rating: true, address: true, phone: true },
         })
         : null,
     ]);
@@ -1116,6 +1125,7 @@ export class DashboardService {
           ? {
             id: school.id,
             name: school.name,
+            rating: school.rating,
             address: school.address,
             phone: school.phone,
           }

@@ -256,6 +256,8 @@
       "title": "Driving school details",
       "description": "Edit your driving school main information.",
       "schoolName": "School name",
+      "region": "Region",
+      "city": "City / Town",
       "address": "Address",
       "phone": "Phone",
       "loading": "Loading...",

@@ -13,9 +13,11 @@ const SETUP_TOKEN_MAX_USES = 5;
 
 type JoinRequestInput = {
   schoolName: string;
+  schoolRegion: string;
+  schoolCity: string;
   schoolAddress: string;
   schoolPhone: string;
-  contactName: string;
+  contactName?: string;
   contactEmail: string;
 };
 
@@ -33,6 +35,8 @@ type CompleteInput = {
   phone?: string;
   wantsInstructorPrivileges: boolean;
   schoolName: string;
+  schoolRegion: string;
+  schoolCity: string;
   schoolAddress: string;
   schoolPhone: string;
 };
@@ -81,16 +85,39 @@ type CompleteUserProfileResult =
 
 export class OnboardingService {
   static async createJoinRequest(input: JoinRequestInput) {
+    const normalizedEmail = input.contactEmail.trim().toLowerCase();
+
+    const [existingRequest, existingUser] = await Promise.all([
+      db.query.schoolJoinRequests.findFirst({
+        where: eq(schoolJoinRequests.contactEmail, normalizedEmail),
+        columns: { id: true },
+      }),
+      db.query.users.findFirst({
+        where: eq(users.email, normalizedEmail),
+        columns: { id: true },
+      }),
+    ]);
+
+    if (existingRequest || existingUser) {
+      return { status: "CONTACT_EMAIL_EXISTS" as const };
+    }
+
+    const fallbackContactName = normalizedEmail.includes("@")
+      ? normalizedEmail.slice(0, normalizedEmail.indexOf("@"))
+      : input.schoolName.trim();
+
     const [created] = await db.insert(schoolJoinRequests).values({
       schoolName: input.schoolName.trim(),
+      schoolRegion: input.schoolRegion.trim(),
+      schoolCity: input.schoolCity.trim(),
       schoolAddress: input.schoolAddress.trim(),
       schoolPhone: input.schoolPhone.trim(),
-      contactName: input.contactName.trim(),
-      contactEmail: input.contactEmail.trim().toLowerCase(),
+      contactName: input.contactName?.trim() || fallbackContactName,
+      contactEmail: normalizedEmail,
       status: "PENDING",
     }).returning();
 
-    return created;
+    return { status: "SUCCESS" as const, request: created };
   }
 
   static async listPendingRequests() {
@@ -149,6 +176,8 @@ export class OnboardingService {
       request: {
         id: request.id,
         schoolName: request.schoolName,
+        schoolRegion: request.schoolRegion,
+        schoolCity: request.schoolCity,
         schoolAddress: request.schoolAddress,
         schoolPhone: request.schoolPhone,
         contactName: request.contactName,
@@ -201,8 +230,11 @@ export class OnboardingService {
     const created = await db.transaction(async (tx) => {
       const [newSchool] = await tx.insert(schools).values({
         name: input.schoolName.trim(),
+        region: input.schoolRegion.trim(),
+        city: input.schoolCity.trim(),
         address: input.schoolAddress.trim(),
         phone: input.schoolPhone.trim(),
+        rating: 5,
       }).returning();
 
       const [newAdmin] = await tx.insert(users).values({
