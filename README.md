@@ -1,54 +1,76 @@
-# Drivio
+# Drivio — Diploma Project (v1)
 
-Модерна уеб платформа за автошколи, инструктори, курсисти и администратори. Проектът обединява управление на обучения, роли, комуникация в реално време и централизирана административна логика в една система.
+> **ARCHIVED** — This is v1 of Drivio, built as my diploma project at PGEE (January–April 2026).
+> See [Drivio](https://github.com/BogomilPetrov07/Drivio) for the rewritten architecture with Next.js 15, Fastify, tRPC, and Turborepo.
 
-Продукционен адрес: [drivio-bg.com](https://drivio-bg.com)
+---
 
-## Основни акценти
+A modern web platform for driving schools, instructors, students, and administrators. The project combines training management, role-based access, real-time communication, and centralized administrative logic into a single system.
 
-- Многостепенна роля и достъп според типа потребител
-- React frontend с Vite, TypeScript, Tailwind и Zustand
-- Node.js backend с Express, TypeScript и Drizzle ORM
-- PostgreSQL база данни и Redis интеграция
-- Socket.IO за функционалности в реално време
-- PWA поддръжка и оптимизация за модерни браузъри
+## Highlights
 
-## Технологичен стек
+- Multi-level role-based access (Super Admin, School Admin, Instructor, Student)
+- React frontend with Vite, TypeScript, Tailwind CSS, and Zustand
+- Node.js backend with Express, TypeScript, and Drizzle ORM
+- PostgreSQL database and Redis integration
+- Socket.IO for real-time functionality
+- PWA support and optimization for modern browsers
+
+## Tech Stack
 
 ### Frontend
 
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS 4
-- DaisyUI
-- React Router
-- Zustand
-- Vitest
+| Technology | Version |
+|------------|---------|
+| React | 19 |
+| TypeScript | 5.x |
+| Vite | 6.x |
+| Tailwind CSS | 4 |
+| DaisyUI | 4 |
+| React Router | 7 |
+| Zustand | 5 |
+| Vitest | 3.x |
 
 ### Backend
 
-- Node.js 22
-- Express 5
-- TypeScript
-- Drizzle ORM
-- PostgreSQL
-- Redis
-- Socket.IO
-- Vitest
+| Technology | Version |
+|------------|---------|
+| Node.js | 22 |
+| Express | 5 |
+| TypeScript | 5.x |
+| Drizzle ORM | 0.39 |
+| PostgreSQL | 18 |
+| Redis | 7 |
+| Socket.IO | 4.x |
+| Vitest | 3.x |
 
-## Структура на проекта
+## Project Structure
 
 ```text
 Drivio/
-|- frontend/   # Клиентска част
-|- backend/    # API, бизнес логика и база данни
-|- README.md
+├── frontend/            # Client-side (React + Vite)
+│   ├── src/
+│   │   ├── components/  # UI components
+│   │   ├── pages/       # Role-based pages
+│   │   ├── hooks/       # Custom hooks
+│   │   ├── stores/      # Zustand state management
+│   │   ├── services/    # API calls
+│   │   ├── i18n/        # Localization (BG/EN)
+│   │   └── utils/       # Utility functions
+│   └── public/
+├── backend/             # API, business logic, and database
+│   ├── src/
+│   │   ├── modules/     # Modules: auth, dashboard, onboarding, support
+│   │   ├── middlewares/  # Auth, CORS, error handling
+│   │   ├── config/      # DB, Redis, JWT, Infisical
+│   │   └── utils/       # Email, password, JWT helpers
+│   └── drizzle/         # DB schemas and migrations
+└── README.md
 ```
 
-## Локално стартиране
+## Local Setup
 
-### 1. Инсталиране на зависимости
+### 1. Install Dependencies
 
 ```bash
 cd frontend
@@ -58,63 +80,86 @@ cd ../backend
 npm install
 ```
 
-### 2. Стартиране на frontend
+### 2. Start Frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-### 3. Стартиране на backend
+### 3. Start Backend
 
 ```bash
 cd backend
 npm run dev
 ```
 
-## Полезни команди
+## Commands
 
 ### Frontend
 
 ```bash
-npm run build
-npm run lint
-npm run test
+npm run build      # Production build
+npm run lint       # Linting
+npm run test       # Tests
 ```
 
 ### Backend
 
 ```bash
-npm run build
-npm run typecheck
-npm run test
+npm run build      # Production build
+npm run typecheck  # TypeScript check
+npm run test       # Tests
 ```
 
-### База данни
+### Database
 
 ```bash
-npm run db:generate
-npm run db:migrate
-npm run db:refresh
+npm run db:generate   # Generate migrations
+npm run db:migrate    # Apply migrations
+npm run db:refresh    # Refresh schema
 ```
 
-## Вход с роли
+## Roles and Access
 
-Използвайте следните акаунти за вход според ролята:
+| Role | Description | Access |
+|------|-------------|--------|
+| **Super Admin** | Global administrator | Manage requests, support, all schools |
+| **School Admin** | Driving school administrator | People, cars, schedules, instructors |
+| **Instructor** | Instructor | Own schedule, students, lessons |
+| **Student** | Student | Schedule, progress, instructors |
 
-| Роля | Потребителско име | Парола |
-|---|---|---|
-| Instructor | `instructor` | `123456` |
-| Admin | `bogopetrov07@gmail.com` | `SAdmin` |
-| Student | `student` | `123456` |
-| School Admin | `schooladmin` | `123456` |
+## Key Features
 
-## Бележки за средата
+- **Scheduling System** — Weekly time slots, automatic instructor allocation
+- **Lesson Management** — Start with code, verification, auto-completion
+- **Real-time Communication** — Socket.IO for notifications and live updates
+- **Support System** — Tickets, messaging, admin replies
+- **Multilingual** — Bulgarian and English (i18n)
+- **PWA** — Offline support, home screen installation
+- **Themes** — Light/Dark mode
 
-- Frontend и backend използват отделни `.env` файлове
-- Препоръчителна версия на Node.js: `22.x`
-- За backend са нужни работещи PostgreSQL и Redis услуги
+## Architecture Decisions
 
-## Статус
+| Decision | Reason |
+|----------|--------|
+| Zustand for state | Lightweight, TypeScript-friendly, minimal boilerplate |
+| Drizzle ORM | Type-safe SQL, no magic, fast migrations |
+| Socket.IO | Real-time with fallback transport |
+| Infisical SDK | Centralized secrets management |
+| DaisyUI | Ready-made components with Tailwind |
 
-Проектът е структуриран като full-stack приложение с отделени клиентска и сървърна част, готово за локална разработка и деплой.
+## Environment
+
+- Frontend and backend use separate `.env` files
+- Recommended Node.js version: `22.x`
+- Backend requires running PostgreSQL and Redis services
+- Infisical for secrets management (optional)
+
+---
+
+**License:** All Rights Reserved
+
+This project and all associated code, documentation, and assets are the exclusive intellectual property of Bogomil Petrov. No part of this repository may be copied, modified, distributed, or used in any form without explicit written permission from the author.
+
+© 2026 Bogomil Petrov. All rights reserved.
